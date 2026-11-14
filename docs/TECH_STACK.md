@@ -15,7 +15,7 @@ Commands are npm scripts in a `package.json` at the repo root, with `frontend/` 
 - `npm test` runs all the tests and fails if any test fails
 - `npm run seed` resets the database to the sample data
 
-`docs/STATUS.md` says how to run the app. `README.md` is the course's own guide, so leave it as it is.
+`docs/STATUS.md` says how to run the app. `README.md` opens with our fork's quick start, then keeps the course's own guide as it was.
 
 Testing will cover:
 

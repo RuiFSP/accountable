@@ -1,5 +1,15 @@
 # AI SDLC: The AI-Native Software Engineer in the Agentic Era
 
+## This fork: my build of Accountable
+
+My fork of [ed-donner/accountable](https://github.com/ed-donner/accountable), where I'm building Accountable on top of the course: a sales CRM that grows into a full Business OS. Everything below this section is Ed's course guide, kept as it was.
+
+- **Run:** `npm run dev` — opens the dashboard at [http://localhost:5173](http://localhost:5173)
+- **Test:** `npm test` (pytest, Vitest and Playwright together)
+- **Sample data:** `npm run seed`
+- **Stack:** FastAPI + SQLite backend (`backend/`), React + Vite frontend (`frontend/`) — see [docs/TECH_STACK.md](docs/TECH_STACK.md)
+- **Status and progress:** [docs/STATUS.md](docs/STATUS.md) · **What we're building:** [docs/intent.md](docs/intent.md)
+
 ## Accountable: the course project
 
 ![An alien holds a model ship by Tower Bridge at sunrise](assets/accountable.jpg)
