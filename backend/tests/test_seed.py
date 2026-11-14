@@ -131,6 +131,31 @@ def test_reseeding_is_idempotent(engine):
     assert _counts(engine) == before
 
 
+def test_startup_repairs_links_that_point_at_missing_records(engine):
+    seed.ensure_seeded(engine)
+    with engine.begin() as conn:
+        deal_id = conn.execute(select(db.deals.c.id).limit(1)).scalar_one()
+        contact_id = conn.execute(select(db.contacts.c.id).limit(1)).scalar_one()
+        conn.execute(db.deals.update().where(db.deals.c.id == deal_id).values(contact_id=999_999))
+        conn.execute(
+            db.contacts.update().where(db.contacts.c.id == contact_id).values(organization_id=999_999)
+        )
+
+    seed.repair_links(engine)
+
+    with engine.connect() as conn:
+        assert conn.execute(
+            select(db.deals.c.contact_id).where(db.deals.c.id == deal_id)
+        ).scalar_one() is None
+        assert conn.execute(
+            select(db.contacts.c.organization_id).where(db.contacts.c.id == contact_id)
+        ).scalar_one() is None
+        # Links that were already valid, and every record, are left alone.
+        others = conn.execute(select(db.deals.c.contact_id).where(db.deals.c.id != deal_id)).scalars().all()
+        assert others and all(other is not None for other in others)
+    assert all(count > 0 for count in _counts(engine).values())
+
+
 def test_api_serves_the_seeded_records():
     from app.main import app
 

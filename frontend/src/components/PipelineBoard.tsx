@@ -153,6 +153,7 @@ export default function PipelineBoard() {
 
   const [addingStage, setAddingStage] = useState<Stage | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState(false);
   const lastDragEnd = useRef(0);
 
   const sensors = useSensors(
@@ -177,8 +178,10 @@ export default function PipelineBoard() {
     }
     try {
       await api.deals.move(dealId, { stage, position });
+      setMoveError(false);
     } catch (error) {
       console.error(error);
+      setMoveError(true);
     }
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["deals"] }),
@@ -255,6 +258,11 @@ export default function PipelineBoard() {
 
   return (
     <div>
+      {moveError ? (
+        <p className="form-error" role="alert">
+          Could not move the deal. The board shows the saved state again.
+        </p>
+      ) : null}
       <div className="board-header">
         <span>
           <span className="muted">Open pipeline</span>{" "}

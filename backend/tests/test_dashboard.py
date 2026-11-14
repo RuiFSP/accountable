@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 
 from app import db, stats
 from app.main import app
@@ -116,6 +116,38 @@ def test_won_revenue_is_bucketed_into_the_last_12_months(conn):
 
     assert won["total_revenue_cents"] == 300_000  # the too-old win excluded
     assert won["total_deals"] == 2
+
+
+def test_a_won_deal_with_a_future_close_date_still_counts(conn):
+    # Winning before the expected close date used to hide the deal from every
+    # figure: it left the pipeline as Won and never entered the won buckets.
+    organization_id = conn.execute(select(db.organizations.c.id)).scalar_one()
+    contact_id = conn.execute(select(db.contacts.c.id)).scalar_one()
+
+    def won_early(name, close_date, value_cents):
+        conn.execute(
+            db.deals.insert().values(
+                name=name,
+                organization_id=organization_id,
+                contact_id=contact_id,
+                stage="Won",
+                value_cents=value_cents,
+                probability=100,
+                close_date=close_date,
+                position=0,
+            )
+        )
+
+    won_early("Won this month, ahead of time", TODAY + timedelta(days=13), 400_000)
+    won_early("Won far ahead", date(2026, 8, 1), 600_000)
+
+    won = stats.won_summary(conn, TODAY)
+    by_month = {month["month"]: month for month in won["months"]}
+
+    # Both land in the current month, capped at today.
+    assert by_month["2026-06"] == {"month": "2026-06", "revenue_cents": 1_100_000, "deals": 3}
+    assert won["total_revenue_cents"] == 1_300_000  # the300_000 already in the fixture
+    assert won["total_deals"] == 4
 
 
 def test_pipeline_totals_count_open_deals_only(conn):

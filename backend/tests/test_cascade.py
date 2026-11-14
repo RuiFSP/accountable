@@ -76,6 +76,7 @@ def test_deleting_an_organization_returns_its_cascade_lists(client):
             "Note on alpha deal",
             "Note on beta deal",
         ],
+        "counts": {"contacts": 2, "deals": 2, "activities": 4},
     }
 
 
@@ -104,7 +105,10 @@ def test_deleting_a_contact_returns_and_removes_its_activities(client):
     response = client.delete(f"/api/contacts/{first['id']}")
 
     assert response.status_code == 200
-    assert response.json() == {"activities": ["Note on first contact"]}
+    assert response.json() == {
+        "activities": ["Note on first contact"],
+        "counts": {"activities": 1},
+    }
 
     remaining_contacts = [row["name"] for row in client.get("/api/contacts").json()]
     assert remaining_contacts == ["Second Contact", "Outsider Contact"]
@@ -122,7 +126,10 @@ def test_deleting_a_deal_returns_and_removes_its_activities(client):
     response = client.delete(f"/api/deals/{alpha['id']}")
 
     assert response.status_code == 200
-    assert response.json() == {"activities": ["Note on alpha deal"]}
+    assert response.json() == {
+        "activities": ["Note on alpha deal"],
+        "counts": {"activities": 1},
+    }
 
     remaining_deals = [row["name"] for row in client.get("/api/deals").json()]
     assert remaining_deals == ["Beta Deal", "Outsider Deal"]
@@ -130,3 +137,32 @@ def test_deleting_a_deal_returns_and_removes_its_activities(client):
     remaining_activities = [row["description"] for row in client.get("/api/activities").json()]
     assert "Note on alpha deal" not in remaining_activities
     assert "Note on first contact" in remaining_activities
+
+
+def test_deleting_a_contact_clears_it_from_deals_that_keep(client):
+    fixture = _build_fixture(client)
+    first = next(
+        row for row in client.get("/api/contacts").json() if row["name"] == "First Contact"
+    )
+
+    client.delete(f"/api/contacts/{first['id']}")
+
+    alpha = next(
+        row for row in client.get("/api/deals").json() if row["id"] == fixture["alpha"]["id"]
+    )
+    assert alpha["contact_id"] is None  # the deal stays, its main contact goes
+
+    # Saving the deal again used to fail with "Contact does not exist".
+    assert client.put(f"/api/deals/{fixture['alpha']['id']}", json=alpha).status_code == 200
+
+
+def test_deleting_an_organization_clears_its_contacts_from_deals_it_keeps(client):
+    owner = _post(client, "/api/organizations", {"name": "Link Owner", "website": None, "industry": None, "notes": None})
+    keeper = _post(client, "/api/organizations", {"name": "Link Keeper", "website": None, "industry": None, "notes": None})
+    contact = _post(client, "/api/contacts", {"name": "Shared Contact", "email": None, "phone": None, "job_title": None, "organization_id": owner["id"], "status": "lead"})
+    deal = _post(client, "/api/deals", {"name": "Keeper deal", "organization_id": keeper["id"], "contact_id": contact["id"], "stage": "New", "value_cents": 100, "probability": 10, "close_date": "2027-01-01"})
+
+    client.delete(f"/api/organizations/{owner['id']}")
+
+    listed = next(row for row in client.get("/api/deals").json() if row["id"] == deal["id"])
+    assert listed["contact_id"] is None  # the deal survives without the contact

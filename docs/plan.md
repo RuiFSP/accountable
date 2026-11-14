@@ -20,7 +20,7 @@ Nothing exists yet, so almost everything is new. Only two files are edited.
 
 - `app/main.py` — FastAPI app, static-free JSON API under `/api`
 - `app/db.py` — engine, connection, SQLAlchemy Core schema (organizations, contacts, deals, activities)
-- `app/routes/` — `organizations.py`, `contacts.py`, `deals.py`, `activities.py`, `dashboard.py`
+- `app/routes/` — `organizations.py`, `contacts.py`, `deals.py`, `activities.py`, `dashboard.py`, plus `common.py` (`require_exists`, the foreign-key check shared by the record routes)
 - `app/seed.py` — sample data; fills a new database, rebuilds it on reset
 - `app/stats.py` — dashboard aggregations (12-month buckets, pipeline totals, expected revenue, follow-up split)
 - `tests/` — `test_seed.py`, `test_crud.py`, `test_cascade.py`, `test_stage_move.py`, `test_dashboard.py`, `test_reset.py`
@@ -32,16 +32,17 @@ Nothing exists yet, so almost everything is new. Only two files are edited.
 - `public/fonts/` — Instrument Sans, Instrument Serif, JetBrains Mono, bundled for offline use
 - `src/api/client.ts` — typed fetch wrapper for the JSON API
 - `src/components/DataTable.tsx` — shared table: search, sort, add, edit, delete-confirm with cascade list
-- `src/components/Modal.tsx`, `ConfirmDialog.tsx`, `Field.tsx`
+- `src/components/Modal.tsx`, `ConfirmDialog.tsx`, `Field.tsx`, `DealForm.tsx` (shared by the deals table and the pipeline's column add), `Timeline.tsx` (shared by the contact and deal pages)
 - `src/pages/` — `Dashboard.tsx`, `Organizations.tsx`, `Organization.tsx`, `Contacts.tsx`, `Contact.tsx`, `Deals.tsx`, `Deal.tsx`, `Pipeline.tsx`
-- `src/components/charts/` — line, bar, funnel (Recharts + stage bars)
+- `src/lib/charts.ts` — chart data mapping (API payload → monthly buckets, funnel rows); the Recharts line/bar render inside `Dashboard.tsx`
 - `src/components/PipelineBoard.tsx` — dnd-kit board, columns, cards, totals
-- `src/lib/` — `money.ts`, `dates.ts`, `pipeline.ts` (positions, expected revenue, late-deal flag)
+- `src/lib/` — `money.ts`, `dates.ts`, `pipeline.ts` (positions, expected revenue, late-deal flag), `cascade.ts` (delete confirmation preview), `activity.ts` (activity dot colors), `text.ts`
 - `src/**/*.test.ts(x)` — Vitest unit tests
 
 **New — end-to-end (`e2e/`)**
 
 - `playwright.config.ts`
+- `helpers.ts` — sample-data reset through the real seed command, console watcher, date helper (always against the e2e database)
 - `startup.spec.ts`, `crud.spec.ts`, `contacts.spec.ts`, `pipeline.spec.ts`, `activities.spec.ts`, `dashboard.spec.ts`
 
 **Edited**

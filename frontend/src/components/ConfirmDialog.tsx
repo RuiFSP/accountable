@@ -59,8 +59,8 @@ export default function ConfirmDialog({
                   </span>
                 </h3>
                 <ul>
-                  {group.items.map((item) => (
-                    <li key={item}>{item}</li>
+                  {group.items.map((item, index) => (
+                    <li key={`${group.label}-${index}`}>{item}</li>
                   ))}
                 </ul>
               </div>

@@ -195,3 +195,36 @@ def test_moving_a_missing_deal_or_bad_stage_fails(client):
         client.post("/api/deals/1/stage", json={"stage": "Bogus", "position": 0}).status_code
         == 422
     )
+
+
+def test_changing_the_stage_through_edit_moves_like_a_drag(client):
+    setup = _setup(client)
+    first = _create_deal(client, setup, "First")
+    _create_deal(client, setup, "Second")
+    _create_deal(client, setup, "Third", stage="Proposal", probability=50)
+
+    # A hand-set probability on the deal being edited.
+    row = next(deal for deal in client.get("/api/deals").json() if deal["id"] == first["id"])
+    row["probability"] = 60
+    assert client.put(f"/api/deals/{first['id']}", json=row).status_code == 200
+
+    # Change the stage the way the edit dialog does: everything a drag does
+    # must happen here too.
+    row["stage"] = "Proposal"
+    response = client.put(f"/api/deals/{first['id']}", json=row)
+
+    assert response.status_code == 200
+    updated = response.json()
+    assert updated["stage"] == "Proposal"
+    assert updated["probability"] == 50  # stage default, hand-set60 gone
+
+    entries = _stage_entries(client, first["id"])
+    assert [entry["description"] for entry in entries] == ["Moved from New to Proposal"]
+
+    positions = {
+        deal["name"]: (deal["stage"], deal["position"])
+        for deal in client.get("/api/deals").json()
+    }
+    assert positions["First"] == ("Proposal", 1)  # appended after Third
+    assert positions["Third"] == ("Proposal", 0)
+    assert positions["Second"] == ("New", 0)  # gap closed in the old column

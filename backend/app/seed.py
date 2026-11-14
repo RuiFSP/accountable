@@ -194,8 +194,35 @@ def is_seeded(engine: Engine) -> bool:
 def ensure_seeded(engine: Engine) -> None:
     """Create the tables and load the sample data into an empty database."""
     create_tables(engine)
+    repair_links(engine)
     if not is_seeded(engine):
         seed(engine)
+
+
+def repair_links(engine: Engine) -> None:
+    """Clear links that point at records that are no longer there.
+
+    Deleting a contact or an organization used to leave deals and contacts
+    behind with ids nothing answers to; this runs on every start, so data
+    written before that was fixed never blocks a save.
+    """
+    with engine.begin() as conn:
+        conn.execute(
+            db.deals.update()
+            .where(
+                db.deals.c.contact_id.is_not(None),
+                db.deals.c.contact_id.not_in(select(db.contacts.c.id)),
+            )
+            .values(contact_id=None)
+        )
+        conn.execute(
+            db.contacts.update()
+            .where(
+                db.contacts.c.organization_id.is_not(None),
+                db.contacts.c.organization_id.not_in(select(db.organizations.c.id)),
+            )
+            .values(organization_id=None)
+        )
 
 
 def reset(engine: Engine) -> None:

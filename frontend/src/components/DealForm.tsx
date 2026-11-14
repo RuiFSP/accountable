@@ -30,7 +30,7 @@ export default function DealForm({
     deal ? String(deal.organization_id) : "",
   );
   const [contactId, setContactId] = useState(
-    deal ? String(deal.contact_id) : "",
+    deal?.contact_id != null ? String(deal.contact_id) : "",
   );
   const [stage, setStage] = useState<Stage>(startingStage);
   const [probability, setProbability] = useState(
@@ -59,7 +59,7 @@ export default function DealForm({
       await onSubmit({
         name: name.trim(),
         organization_id: Number(organizationId),
-        contact_id: Number(contactId),
+        contact_id: contactId ? Number(contactId) : null,
         stage,
         value_cents: valueCents,
         probability: Number(probability),
@@ -98,11 +98,10 @@ export default function DealForm({
           </Field>
           <Field label="Contact">
             <select
-              required
               value={contactId}
               onChange={(event) => setContactId(event.target.value)}
             >
-              <option value="">Choose…</option>
+              <option value="">None</option>
               {contacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
                   {contact.name}

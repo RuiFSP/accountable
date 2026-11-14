@@ -32,7 +32,8 @@ export interface Deal {
   id: number;
   name: string;
   organization_id: number;
-  contact_id: number;
+  /** The main contact; null once the contact has been deleted. */
+  contact_id: number | null;
   stage: Stage;
   value_cents: number;
   probability: number;
@@ -70,7 +71,7 @@ export interface ContactInput {
 export interface DealInput {
   name: string;
   organization_id: number;
-  contact_id: number;
+  contact_id: number | null;
   stage: Stage;
   value_cents: number;
   probability: number;
@@ -93,6 +94,8 @@ export interface CascadeResult {
   contacts?: string[];
   deals?: string[];
   activities?: string[];
+  /** How many of each kind went, straight from the server. */
+  counts?: Record<string, number>;
 }
 
 export interface WonMonth {

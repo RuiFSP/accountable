@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
 from app import db
+from app.routes.common import require_exists
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
@@ -65,6 +66,8 @@ def list_contacts(
 @router.post("", status_code=201)
 def create_contact(payload: ContactIn) -> dict:
     with db.get_engine().begin() as connection:
+        if payload.organization_id is not None:
+            require_exists(connection, db.organizations, payload.organization_id, "Organization")
         result = connection.execute(db.contacts.insert().values(**payload.model_dump()))
         contact_id = result.inserted_primary_key[0]
         return _read(connection, contact_id)
@@ -74,6 +77,8 @@ def create_contact(payload: ContactIn) -> dict:
 def update_contact(contact_id: int, payload: ContactIn) -> dict:
     with db.get_engine().begin() as connection:
         _read(connection, contact_id)
+        if payload.organization_id is not None:
+            require_exists(connection, db.organizations, payload.organization_id, "Organization")
         connection.execute(
             db.contacts.update()
             .where(db.contacts.c.id == contact_id)
@@ -91,7 +96,14 @@ def delete_contact(contact_id: int) -> dict:
             .where(db.activities.c.contact_id == contact_id)
             .order_by(db.activities.c.id)
         ).scalars().all()
+        # The contact goes, the deals that stay keep their organization but
+        # lose their main contact.
+        connection.execute(
+            db.deals.update()
+            .where(db.deals.c.contact_id == contact_id)
+            .values(contact_id=None)
+        )
         connection.execute(db.activities.delete().where(db.activities.c.contact_id == contact_id))
         connection.execute(db.contacts.delete().where(db.contacts.c.id == contact_id))
 
-    return {"activities": list(activities)}
+    return {"activities": list(activities), "counts": {"activities": len(activities)}}

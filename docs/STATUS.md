@@ -25,9 +25,31 @@
 - Phase 4 — Finish (2026-11-14): visual pass against `docs/mockups/dashboard.html` — top bar with wordmark + Sea Green dot, pill navigation, "New deal" action opening the deal form (`/deals?new=1`), serif italic dashboard subtitle, larger mono KPIs; brand rules held (bundled fonts, light mode, rounded panels, no edge borders, no gradients). Full e2e suite in `e2e/`: `helpers.ts` (sample-data reset via the real seed command, console watcher, date helper — always against `accountable-e2e.db`, computed explicitly so it can never touch real data) plus six specs — `startup`, `crud`, `contacts`, `pipeline`, `activities`, `dashboard` —25 tests covering intent criteria1-7, each spec file resetting to sample data first. Criterion8 walkthrough performed in a real browser with a full photo tour (screenshots in the session temp folder: `tour-01-dashboard.png` … `tour-07-deals.png`): every section and action exercised across the four phases' walkthroughs, **no console errors and no external requests at all** (all non-localhost traffic blocked — offline requirement holds). `npm test` green:115 tests total; `npm run lint` clean.
   - Per `docs/intent.md`, the MVP is called done only when the *user* verifies the criteria against that page — the automated and agent walkthroughs above are the preparation; the user's own pass on criterion8 is the remaining sign-off.
 
+## Review against main (2026-11-14)
+
+A review of the branch against `main` following `docs/REVIEW.md` — separate bugs, security and spec/plan passes, style excluded. Findings and their fixes:
+
+**Important**
+
+1. **Deleting a contact stranded its deals.** `deals.contact_id` kept pointing at the removed contact (SQLite foreign keys are not enforced), so `PUT /api/deals/{id}` answered `400 Contact does not exist` and the deal could not be saved again. Fixed: deleting a contact (or an organization's contacts) clears the link on any deal that keeps it, the deal form's Contact is optional ("None") like the contact form's Organization, and startup repairs links left dangling by earlier versions. Tests: `test_cascade.py`.
+2. **Changing a stage in the edit dialog was a silent, half move.** `PUT /api/deals/{id}` changed the stage but wrote no `stage_change` timeline entry and kept the old column's position. Fixed: a stage change on update now behaves like `POST /deals/{id}/stage` — the new stage's default probability, a slot at the end of the new column, both columns renumbered, and a "Moved from X to Y" entry. Tests: `test_stage_move.py`.
+3. **A won deal with a future close date vanished from the dashboard.** `won_summary` dropped `close_date > today`, and Won deals are excluded from the pipeline, so winning a deal before its expected close date showed it on no figure at all. Fixed: close dates are capped at today when bucketing, so the deal counts in the current month. Tests: `test_dashboard.py`.
+4. **Contacts accepted a nonexistent organization.** `POST/PUT /api/contacts` wrote `organization_id` values pointing at nothing, while deals and activities validated their links. Fixed: `400 Organization does not exist`, through one shared `require_exists` helper (`app/routes/common.py`); startup also clears links already dangling. Tests: `test_crud.py`, `test_seed.py`.
+5. **`opencode.jsonc` widened shell permissions** from `ask` to `allow`, unrelated to the product. Fixed: reverted to `ask`.
+
+**Nits**
+
+1. The cascade dialog keyed list items by their text, so two records sharing a name or description raised a React duplicate-key console error (intent criterion 8: no console errors). Fixed: keyed by group and position.
+2. `docs/spec.md`, `docs/plan.md` and `docs/TECH_STACK.md` all say the e2e suite runs "on installed Chrome", but `playwright.config.ts` silently used Playwright's bundled Chromium — and this machine has no Chrome and no passwordless sudo to install it. Fixed: the config now asks Playwright for `channel: "chrome"` and only falls back to bundled Chromium on Linux when Chrome is absent at Playwright's expected path, so the docs hold everywhere Chrome is installed as `course/SETUP.md` requires.
+3. `docs/plan.md`'s file list had drifted from the build (it listed `src/components/charts/`; the real files include `DealForm.tsx`, `Timeline.tsx`, `lib/charts.ts`, `lib/cascade.ts`, `lib/activity.ts`, `lib/text.ts`, `e2e/helpers.ts`). Fixed: plan updated to the real layout.
+4. Delete endpoints returned cascaded names but no counts, where the spec says "the counts and names of cascaded records". Fixed: every delete response carries a `counts` map, asserted in `test_cascade.py`.
+5. A failed pipeline drag was only logged to the browser console. Fixed: the board shows a visible, neutral error line until the next successful move.
+
+After the fixes: `npm test` green — 121 tests (53 backend, 43 frontend, 25 e2e; six new backend tests cover the findings) — and `npm run lint` clean.
+
 ## Not started
 
-- All four phases of `docs/plan.md` are implemented, `npm test` is green (115 tests) and `npm run lint` is clean.
+- All four phases of `docs/plan.md` are implemented, `npm test` is green (121 tests) and `npm run lint` is clean.
 - **The MVP is accepted**: the user verified it in a real browser and signed off on 2026-11-14 ("i'm happy with mvp"), which is the criterion-8 bar set by `docs/intent.md`.
 - Out of MVP scope and parked for later intents: sign-in and multiple users, deployment, and the other exclusions listed in `docs/intent.md`.
 

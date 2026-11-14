@@ -35,7 +35,12 @@ def _month_starts(today: date, count: int = 12) -> list[date]:
 
 
 def won_summary(conn, today: date | None = None) -> dict:
-    """Won count and revenue bucketed into the last 12 calendar months."""
+    """Won count and revenue bucketed into the last 12 calendar months.
+
+    A deal won before its expected close date still counts: its close date is
+    capped at ``today`` for bucketing, so it lands in the current month instead
+    of disappearing from every figure.
+    """
     today = today or date.today()
     lower = _month_starts(today)[0]
     rows = conn.execute(
@@ -44,14 +49,14 @@ def won_summary(conn, today: date | None = None) -> dict:
                 db.deals.c.stage == "Won",
                 db.deals.c.close_date.is_not(None),
                 db.deals.c.close_date >= lower,
-                db.deals.c.close_date <= today,
             )
         )
     ).all()
 
     buckets = {start: {"revenue_cents": 0, "deals": 0} for start in _month_starts(today)}
     for value_cents, close_date in rows:
-        bucket = buckets[date(close_date.year, close_date.month, 1)]
+        capped = min(close_date, today)
+        bucket = buckets[date(capped.year, capped.month, 1)]
         bucket["revenue_cents"] += value_cents
         bucket["deals"] += 1
 

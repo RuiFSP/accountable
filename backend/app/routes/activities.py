@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app import db
+from app.routes.common import require_exists
 
 router = APIRouter(prefix="/api/activities", tags=["activities"])
 
@@ -31,17 +32,9 @@ def _validate_links(connection, payload: ActivityIn) -> None:
             detail="An activity must be linked to exactly one contact or deal.",
         )
     if payload.contact_id is not None:
-        found = connection.execute(
-            select(db.contacts.c.id).where(db.contacts.c.id == payload.contact_id)
-        ).first()
-        if found is None:
-            raise HTTPException(status_code=400, detail="Contact does not exist")
+        require_exists(connection, db.contacts, payload.contact_id, "Contact")
     if payload.deal_id is not None:
-        found = connection.execute(
-            select(db.deals.c.id).where(db.deals.c.id == payload.deal_id)
-        ).first()
-        if found is None:
-            raise HTTPException(status_code=400, detail="Deal does not exist")
+        require_exists(connection, db.deals, payload.deal_id, "Deal")
 
 
 def _read(conn, activity_id: int) -> dict:

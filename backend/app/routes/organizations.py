@@ -100,10 +100,26 @@ def delete_organization(organization_id: int) -> dict:
         ).scalars().all()
 
         connection.execute(db.activities.delete().where(cascade_condition))
+        # Deals of other organizations that name one of these contacts as
+        # their main contact stay, without it.
+        connection.execute(
+            db.deals.update()
+            .where(db.deals.c.contact_id.in_(contact_ids))
+            .values(contact_id=None)
+        )
         connection.execute(db.deals.delete().where(db.deals.c.organization_id == organization_id))
         connection.execute(
             db.contacts.delete().where(db.contacts.c.organization_id == organization_id)
         )
         connection.execute(db.organizations.delete().where(db.organizations.c.id == organization_id))
 
-    return {"contacts": list(contacts), "deals": list(deals), "activities": list(activities)}
+    return {
+        "contacts": list(contacts),
+        "deals": list(deals),
+        "activities": list(activities),
+        "counts": {
+            "contacts": len(contacts),
+            "deals": len(deals),
+            "activities": len(activities),
+        },
+    }

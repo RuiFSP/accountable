@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app import db, stats
+from app.routes.common import require_exists
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
@@ -19,7 +20,9 @@ SortOrder = Literal["asc", "desc"]
 class DealIn(BaseModel):
     name: str = Field(min_length=1)
     organization_id: int
-    contact_id: int
+    # A deal keeps its organization; its main contact is optional, because a
+    # contact can be deleted on its own.
+    contact_id: int | None = None
     stage: Stage = "New"
     value_cents: int = Field(ge=0)
     probability: int = Field(ge=0, le=100)
@@ -83,8 +86,9 @@ def list_deals(
 def create_deal(payload: DealIn) -> dict:
     with db.get_engine().begin() as connection:
         values = payload.model_dump()
-        _require_exists(connection, db.organizations, values["organization_id"], "Organization")
-        _require_exists(connection, db.contacts, values["contact_id"], "Contact")
+        require_exists(connection, db.organizations, values["organization_id"], "Organization")
+        if values["contact_id"] is not None:
+            require_exists(connection, db.contacts, values["contact_id"], "Contact")
         if values["position"] is None:
             highest = connection.execute(
                 select(func.coalesce(func.max(db.deals.c.position), -1)).where(
@@ -100,17 +104,34 @@ def create_deal(payload: DealIn) -> dict:
 @router.put("/{deal_id}")
 def update_deal(deal_id: int, payload: DealIn) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, deal_id)
+        existing = _read(connection, deal_id)
         values = payload.model_dump()
-        _require_exists(connection, db.organizations, values["organization_id"], "Organization")
-        _require_exists(connection, db.contacts, values["contact_id"], "Contact")
-        if values["position"] is None:
-            values["position"] = connection.execute(
-                select(db.deals.c.position).where(db.deals.c.id == deal_id)
-            ).scalar_one()
+        require_exists(connection, db.organizations, values["organization_id"], "Organization")
+        if values["contact_id"] is not None:
+            require_exists(connection, db.contacts, values["contact_id"], "Contact")
+
+        stage_changed = existing["stage"] != values["stage"]
+        if stage_changed:
+            # The edit form has no placement, so a stage change through it
+            # behaves like a move to the end of the new column: the stage's
+            # default probability and a timeline entry, same as the drag.
+            values["probability"] = db.STAGE_PROBABILITIES[values["stage"]]
+            target = _column_ids(connection, values["stage"], exclude_id=deal_id)
+            values["position"] = len(target)
+        elif values["position"] is None:
+            values["position"] = existing["position"]
+
         connection.execute(
             db.deals.update().where(db.deals.c.id == deal_id).values(**values)
         )
+
+        if stage_changed:
+            target.append(deal_id)
+            _apply_positions(connection, target)
+            source = _column_ids(connection, existing["stage"], exclude_id=deal_id)
+            _apply_positions(connection, source)
+            _write_stage_entry(connection, deal_id, existing["stage"], values["stage"])
+
         return _read(connection, deal_id)
 
 
@@ -140,17 +161,7 @@ def move_deal_stage(deal_id: int, payload: StageMoveIn) -> dict:
         if changed:
             source = _column_ids(connection, deal["stage"], exclude_id=deal_id)
             _apply_positions(connection, source)
-            connection.execute(
-                db.activities.insert().values(
-                    type="stage_change",
-                    contact_id=None,
-                    deal_id=deal_id,
-                    description=f"Moved from {deal['stage']} to {payload.stage}",
-                    happened_at=datetime.now(),
-                    follow_up_date=None,
-                    done=True,
-                )
-            )
+            _write_stage_entry(connection, deal_id, deal["stage"], payload.stage)
 
         return {
             "deal": _read(connection, deal_id),
@@ -173,13 +184,22 @@ def delete_deal(deal_id: int) -> dict:
         connection.execute(db.activities.delete().where(db.activities.c.deal_id == deal_id))
         connection.execute(db.deals.delete().where(db.deals.c.id == deal_id))
 
-    return {"activities": list(activities)}
+    return {"activities": list(activities), "counts": {"activities": len(activities)}}
 
 
-def _require_exists(connection, table, value: int, label: str) -> None:
-    found = connection.execute(select(table.c.id).where(table.c.id == value)).first()
-    if found is None:
-        raise HTTPException(status_code=400, detail=f"{label} does not exist")
+def _write_stage_entry(connection, deal_id: int, from_stage: str, to_stage: str) -> None:
+    """The system timeline entry every stage change leaves behind."""
+    connection.execute(
+        db.activities.insert().values(
+            type="stage_change",
+            contact_id=None,
+            deal_id=deal_id,
+            description=f"Moved from {from_stage} to {to_stage}",
+            happened_at=datetime.now(),
+            follow_up_date=None,
+            done=True,
+        )
+    )
 
 
 def _column_ids(connection, stage: str, exclude_id: int | None = None) -> list[int]:

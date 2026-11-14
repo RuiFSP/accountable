@@ -125,6 +125,27 @@ def test_create_read_update_contact(client):
     assert listed[0]["job_title"] == "Director"
 
 
+def test_contact_rejects_an_organization_that_does_not_exist(client):
+    organization = _create_organization(client, "Kestrel Industries")
+    contact = _create_contact(client, "Tara Kestrel", organization["id"])
+
+    bogus = {
+        "name": "No Such Org",
+        "email": None,
+        "phone": None,
+        "job_title": None,
+        "organization_id": 999_999,
+        "status": "lead",
+    }
+    assert client.post("/api/contacts", json=bogus).status_code == 400
+    assert client.put(f"/api/contacts/{contact['id']}", json=bogus).status_code == 400
+
+    # Nothing was written: the contact still belongs to its real organization.
+    listed = client.get("/api/contacts").json()
+    assert len(listed) == 1
+    assert listed[0]["organization_id"] == organization["id"]
+
+
 def test_create_read_update_deal(client):
     organization = _create_organization(client, "Kestrel Industries")
     contact = _create_contact(client, "Tara Kestrel", organization["id"])

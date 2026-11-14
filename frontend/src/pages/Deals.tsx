@@ -46,7 +46,7 @@ export default function Deals() {
   const organizationName = (organizationId: number): string =>
     organizations.find((organization) => organization.id === organizationId)
       ?.name ?? "—";
-  const contactName = (contactId: number): string =>
+  const contactName = (contactId: number | null): string =>
     contacts.find((contact) => contact.id === contactId)?.name ?? "—";
 
   const columns: ColumnDef<Deal>[] = [
