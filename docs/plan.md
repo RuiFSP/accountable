@@ -2,13 +2,17 @@
 
 Based on `docs/intent.md` (the bar) and `docs/spec.md` (the design). No code written yet.
 
+Working rule: no new abstraction until it has a second user — no repository or service layers, no generic components "for later", until a real use shows up.
+
 ## Files that change
 
 Nothing exists yet, so almost everything is new. Only two files are edited.
 
 **New — root**
 
-- `package.json` — npm scripts `dev`, `test`, `seed` (seed asks for confirmation)
+- `package.json` — npm scripts `dev`, `test`, `seed` (seed asks for confirmation), `lint`, `format`
+- `tsconfig.json` — TypeScript in strict mode, on from day one
+- `eslint.config.js`, `.prettierrc` — default ESLint and Prettier configs, no custom rule-writing
 - `pyproject.toml`, `uv.lock` — Python deps for the backend
 - `frontend/package.json` — npm workspace member, frontend deps
 
@@ -53,7 +57,9 @@ Nothing exists yet, so almost everything is new. Only two files are edited.
 
 Root `npm` scripts (`dev`, `test`, `seed` with confirmation), FastAPI app with the four tables in SQLAlchemy Core, sample-data seed, and the React/Vite shell with routes for the five sections and brand CSS tokens. Frontend gets its data through one typed client.
 
-Done when: `npm run dev` starts both sides, the browser lands on an empty dashboard shell, the API returns the seeded records, and `npm test` runs green backend seed/schema tests plus a frontend smoke test.
+Lint and format are wired here too: strict TypeScript, ESLint + Prettier with default configs, `npm run lint` clean before Phase 1 is done.
+
+Done when: `npm run dev` starts both sides, the browser lands on an empty dashboard shell, the API returns the seeded records, `npm run lint` is clean, and `npm test` runs green backend seed/schema tests plus a frontend smoke test.
 
 ### Phase 2 — Records: tables, detail pages, activities
 
