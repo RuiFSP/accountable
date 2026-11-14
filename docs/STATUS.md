@@ -67,6 +67,10 @@ Also resolved from this document's Parked list: the 7 moderate `npm audit` advis
 
 After the fixes: `npm test` green — 123 tests (53 backend, 43 frontend, 27 e2e; two new regression tests plus a late-deal assertion in the pipeline spec cover the findings) — and `npm run lint` clean.
 
+## Shared (2026-11-14)
+
+- The day's documents — `docs/intent.md`, `docs/spec.md`, `docs/plan.md`, `docs/REVIEW.md`, with a short README linking to the build — copied to `community_contributions/rui-mvp-docs/` and shared in a PR against Ed's `main`: https://github.com/ed-donner/accountable/pull/4 (branch `share-mvp-docs`).
+
 ## Not started
 
 - All four phases of `docs/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.
