@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accountable — Dashboard mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F0F4F5;
+    --panel: #FFFFFF;
+    --ink: #073B4C;
+    --ink-soft: rgba(7, 59, 76, 0.62);
+    --ink-faint: rgba(7, 59, 76, 0.40);
+    --sea: #06D6A0;
+    --sea-dark: #049774;
+    --marigold: #FFC145;
+    --marigold-dark: #A87B00;
+    --coral: #F78C6B;
+    --coral-dark: #C95B38;
+    --cerulean: #118AB2;
+    --rasp: #EF476F;
+    --track: #E7EDEE;
+    --grid: #E4EBEC;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Instrument Sans", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  .shell { max-width: 1240px; margin: 0 auto; padding: 20px 24px 48px; }
+
+  /* Header */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 14px 22px;
+  }
+  .logo { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .logo::after {
+    content: "";
+    display: inline-block;
+    width: 8px; height: 8px;
+    margin-left: 7px;
+    border-radius: 50%;
+    background: var(--sea);
+    vertical-align: 2px;
+  }
+  nav { display: flex; gap: 6px; }
+  nav a {
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-weight: 500;
+    font-size: 13.5px;
+    padding: 7px 13px;
+    border-radius: 999px;
+  }
+  nav a.active { background: rgba(6, 214, 160, 0.16); color: var(--ink); font-weight: 600; }
+  .topbar .spacer { flex: 1; }
+  .btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 15px;
+    border-radius: 999px;
+    border: 0;
+    background: var(--sea);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  /* Page heading */
+  .page-head { display: flex; align-items: baseline; gap: 14px; margin: 26px 2px 16px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  .tagline { font-family: "Instrument Serif", serif; font-style: italic; font-size: 17px; color: var(--ink-soft); }
+
+  /* Panels and grid */
+  .panel { background: var(--panel); border-radius: var(--radius); padding: 20px 22px; }
+  .panel h2 { font-size: 14.5px; font-weight: 600; margin: 0; }
+  .panel .sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi .label { font-size: 12.5px; color: var(--ink-soft); font-weight: 500; }
+  .kpi .value { font-family: "JetBrains Mono", monospace; font-size: 29px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; }
+  .kpi .note { font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
+  .kpi .value.alarm { color: var(--rasp); }
+
+  .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-top: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+
+  svg.chart { width: 100%; height: auto; display: block; }
+  .axis-label { font-family: "JetBrains Mono", monospace; font-size: 10px; fill: var(--ink-faint); }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+  .legend span::before {
+    content: "";
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 3px;
+    margin-right: 6px;
+    background: var(--c);
+  }
+
+  /* Funnel */
+  .stage { display: grid; grid-template-columns: 96px 1fr 78px; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .stage .name { font-size: 12.5px; font-weight: 600; }
+  .stage .count { font-size: 11px; color: var(--ink-faint); font-family: "JetBrains Mono", monospace; }
+  .track { height: 11px; background: var(--track); border-radius: 999px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px; }
+  .stage .amount { font-family: "JetBrains Mono", monospace; font-size: 12px; text-align: right; }
+  .chips { display: flex; gap: 8px; margin-top: 16px; }
+  .chip {
+    flex: 1;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .chip strong { display: block; font-family: "JetBrains Mono", monospace; font-size: 14px; color: var(--ink); font-weight: 600; margin-top: 2px; }
+  .chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+  /* Activity */
+  .feed { list-style: none; margin: 0; padding: 0; }
+  .feed li { display: flex; gap: 10px; padding: 9px 0; align-items: baseline; }
+  .feed li + li { box-shadow: inset 0 1px 0 var(--grid); }
+  .feed .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; position: relative; top: -1px; }
+  .feed .what { font-size: 13px; }
+  .feed .who { font-size: 11.5px; color: var(--ink-soft); }
+  .feed .when { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; }
+
+  /* Follow-ups */
+  .group-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 0 4px; }
+  .group-label.overdue { color: var(--rasp); }
+  .group-label.soon { color: var(--cerulean); }
+  .task { display: flex; gap: 10px; padding: 8px 0; align-items: flex-start; }
+  .task + .task { box-shadow: inset 0 1px 0 var(--grid); }
+  .box { width: 15px; height: 15px; border: 1.5px solid rgba(7, 59, 76, 0.28); border-radius: 50%; flex: none; margin-top: 2px; }
+  .task .title { font-size: 13px; font-weight: 500; }
+  .task .meta { font-size: 11.5px; color: var(--ink-soft); }
+  .task .meta .late { color: var(--rasp); font-weight: 600; }
+  .task .due { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; }
+
+  .panel.center { display: flex; flex-direction: column; }
+  .panel.center svg { margin-top: auto; margin-bottom: auto; }
+  .bar-chart .axis-label { font-size: 13px; }
+
+  @media (max-width: 980px) {
+    .kpis, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    nav { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="logo">Accountable</div>
+    <nav>
+      <a href="#" class="active">Dashboard</a>
+      <a href="#">Organizations</a>
+      <a href="#">Contacts</a>
+      <a href="#">Deals</a>
+      <a href="#">Pipeline</a>
+    </nav>
+    <div class="spacer"></div>
+    <button class="btn">New deal</button>
+  </header>
+
+  <div class="page-head">
+    <h1>Dashboard</h1>
+    <div class="tagline">Sales at a glance &middot; Dec 2025 – Nov 2026</div>
+  </div>
+
+  <!-- KPIs -->
+  <section class="kpis">
+    <div class="panel kpi">
+      <div class="label">Revenue won, last 12 months</div>
+      <div class="value">$161,800</div>
+      <div class="note">29 deals won</div>
+    </div>
+    <div class="panel kpi">
+      <div class="label">Open pipeline</div>
+      <div class="value">$184,500</div>
+      <div class="note">21 open deals</div>
+    </div>
+    <div class="panel kpi">
+      <div class="label">Expected revenue</div>
+      <div class="value">$63,575</div>
+      <div class="note">value &times; probability, open deals</div>
+    </div>
+    <div class="panel kpi">
+      <div class="label">Overdue follow-ups</div>
+      <div class="value alarm">3</div>
+      <div class="note">of 9 open follow-ups</div>
+    </div>
+  </section>
+
+  <!-- Line chart + funnel -->
+  <section class="grid-2">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Revenue won per month</h2>
+          <div class="sub">Won deals, counted in the month they closed</div>
+        </div>
+      </div>
+      <svg class="chart" viewBox="0 0 660 212" role="img" aria-label="Line chart of revenue won per month">
+        <!-- gridlines -->
+        <g stroke="var(--grid)" stroke-width="1">
+          <line x1="44" y1="16" x2="640" y2="16"/>
+          <line x1="44" y1="57" x2="640" y2="57"/>
+          <line x1="44" y1="98" x2="640" y2="98"/>
+          <line x1="44" y1="139" x2="640" y2="139"/>
+          <line x1="44" y1="180" x2="640" y2="180"/>
+        </g>
+        <g class="axis-label" text-anchor="end">
+          <text x="38" y="19">$24k</text>
+          <text x="38" y="60">$18k</text>
+          <text x="38" y="101">$12k</text>
+          <text x="38" y="142">$6k</text>
+          <text x="38" y="183">$0</text>
+        </g>
+        <!-- area -->
+        <path fill="rgba(6,214,160,0.12)"
+          d="M44,98 L98.2,121.8 L152.4,75.5 L206.5,104.7 L260.7,113 L314.9,53.5 L369.1,81.6 L423.3,97.3 L477.5,64.5 L531.6,117.1 L585.8,87.1 L640,35.5 L640,180 L44,180 Z"/>
+        <!-- line -->
+        <polyline fill="none" stroke="var(--sea-dark)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"
+          points="44,98 98.2,121.8 152.4,75.5 206.5,104.7 260.7,113 314.9,53.5 369.1,81.6 423.3,97.3 477.5,64.5 531.6,117.1 585.8,87.1 640,35.5"/>
+        <g fill="var(--panel)" stroke="var(--sea-dark)" stroke-width="2">
+          <circle cx="44" cy="98" r="3.5"/>
+          <circle cx="98.2" cy="121.8" r="3.5"/>
+          <circle cx="152.4" cy="75.5" r="3.5"/>
+          <circle cx="206.5" cy="104.7" r="3.5"/>
+          <circle cx="260.7" cy="113" r="3.5"/>
+          <circle cx="314.9" cy="53.5" r="3.5"/>
+          <circle cx="369.1" cy="81.6" r="3.5"/>
+          <circle cx="423.3" cy="97.3" r="3.5"/>
+          <circle cx="477.5" cy="64.5" r="3.5"/>
+          <circle cx="531.6" cy="117.1" r="3.5"/>
+          <circle cx="585.8" cy="87.1" r="3.5"/>
+          <circle cx="640" cy="35.5" r="4.5"/>
+        </g>
+        <!-- month labels -->
+        <g class="axis-label" text-anchor="middle">
+          <text x="44" y="200">Dec</text>
+          <text x="98.2" y="200">Jan</text>
+          <text x="152.4" y="200">Feb</text>
+          <text x="206.5" y="200">Mar</text>
+          <text x="260.7" y="200">Apr</text>
+          <text x="314.9" y="200">May</text>
+          <text x="369.1" y="200">Jun</text>
+          <text x="423.3" y="200">Jul</text>
+          <text x="477.5" y="200">Aug</text>
+          <text x="531.6" y="200">Sep</text>
+          <text x="585.8" y="200">Oct</text>
+          <text x="640" y="200">Nov</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Sales funnel</h2>
+          <div class="sub">Open deals by stage</div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div><div class="name">New</div><div class="count">8 deals</div></div>
+        <div class="track"><div class="fill" style="width:100%; background:var(--cerulean)"></div></div>
+        <div class="amount">$62,000</div>
+      </div>
+      <div class="stage">
+        <div><div class="name">Qualified</div><div class="count">6 deals</div></div>
+        <div class="track"><div class="fill" style="width:78%; background:var(--marigold)"></div></div>
+        <div class="amount">$48,500</div>
+      </div>
+      <div class="stage">
+        <div><div class="name">Proposal</div><div class="count">4 deals</div></div>
+        <div class="track"><div class="fill" style="width:66%; background:var(--coral)"></div></div>
+        <div class="amount">$41,000</div>
+      </div>
+      <div class="stage">
+        <div><div class="name">Negotiation</div><div class="count">3 deals</div></div>
+        <div class="track"><div class="fill" style="width:53%; background:var(--sea)"></div></div>
+        <div class="amount">$33,000</div>
+      </div>
+
+      <div class="chips">
+        <div class="chip"><span class="dot" style="background:var(--sea)"></span>Won, 12 months<strong>$161,800</strong></div>
+        <div class="chip"><span class="dot" style="background:var(--rasp)"></span>Lost<strong>$46,200</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bar chart + activity + follow-ups -->
+  <section class="grid-3">
+    <div class="panel center">
+      <div class="panel-head">
+        <div>
+          <h2>Deals won per month</h2>
+          <div class="sub">Count of won deals</div>
+        </div>
+      </div>
+      <svg class="chart bar-chart" viewBox="0 0 436 212" role="img" aria-label="Bar chart of deals won per month">
+        <g stroke="var(--grid)" stroke-width="1">
+          <line x1="56" y1="16" x2="424" y2="16"/>
+          <line x1="56" y1="48.8" x2="424" y2="48.8"/>
+          <line x1="56" y1="81.6" x2="424" y2="81.6"/>
+          <line x1="56" y1="114.4" x2="424" y2="114.4"/>
+          <line x1="56" y1="147.2" x2="424" y2="147.2"/>
+          <line x1="56" y1="180" x2="424" y2="180"/>
+        </g>
+        <g class="axis-label" text-anchor="end">
+          <text x="44" y="19">5</text>
+          <text x="44" y="51.8">4</text>
+          <text x="44" y="84.6">3</text>
+          <text x="44" y="117.4">2</text>
+          <text x="44" y="150.2">1</text>
+          <text x="44" y="183">0</text>
+        </g>
+        <g fill="var(--cerulean)">
+          <rect x="46"    y="114.4" width="20" height="65.6" rx="3"/>
+          <rect x="79.5"  y="147.2" width="20" height="32.8" rx="3"/>
+          <rect x="112.9" y="81.6"  width="20" height="98.4" rx="3"/>
+          <rect x="146.4" y="114.4" width="20" height="65.6" rx="3"/>
+          <rect x="179.8" y="114.4" width="20" height="65.6" rx="3"/>
+          <rect x="213.3" y="48.8"  width="20" height="131.2" rx="3"/>
+          <rect x="246.7" y="81.6"  width="20" height="98.4" rx="3"/>
+          <rect x="270.2" y="114.4" width="20" height="65.6" rx="3"/>
+          <rect x="303.6" y="81.6"  width="20" height="98.4" rx="3"/>
+          <rect x="337.1" y="147.2" width="20" height="32.8" rx="3"/>
+          <rect x="370.5" y="114.4" width="20" height="65.6" rx="3"/>
+          <rect x="404"   y="48.8"  width="20" height="131.2" rx="3"/>
+        </g>
+        <g class="axis-label" text-anchor="middle">
+          <text x="56" y="200">Dec</text>
+          <text x="89.5" y="200">Jan</text>
+          <text x="122.9" y="200">Feb</text>
+          <text x="156.4" y="200">Mar</text>
+          <text x="189.8" y="200">Apr</text>
+          <text x="223.3" y="200">May</text>
+          <text x="256.7" y="200">Jun</text>
+          <text x="290.2" y="200">Jul</text>
+          <text x="323.6" y="200">Aug</text>
+          <text x="357.1" y="200">Sep</text>
+          <text x="390.5" y="200">Oct</text>
+          <text x="424" y="200">Nov</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Recent activity</h2>
+          <div class="sub">Latest across all records</div>
+        </div>
+      </div>
+      <ul class="feed">
+        <li>
+          <span class="dot" style="background:var(--coral)"></span>
+          <div><div class="what">Moved from Proposal to Negotiation</div><div class="who">Meridian renewal &middot; Northwind Trading</div></div>
+          <span class="when">2h</span>
+        </li>
+        <li>
+          <span class="dot" style="background:var(--sea)"></span>
+          <div><div class="what">Call with Dana Whitfield</div><div class="who">Harbor &amp; Co.</div></div>
+          <span class="when">9:15</span>
+        </li>
+        <li>
+          <span class="dot" style="background:var(--marigold)"></span>
+          <div><div class="what">Email to Miguel Arroyo</div><div class="who">Cobalt Systems</div></div>
+          <span class="when">Yest.</span>
+        </li>
+        <li>
+          <span class="dot" style="background:var(--cerulean)"></span>
+          <div><div class="what">Note: procurement reviews in December</div><div class="who">Vantage Foods</div></div>
+          <span class="when">Yest.</span>
+        </li>
+        <li>
+          <span class="dot" style="background:var(--coral)"></span>
+          <div><div class="what">Moved from Qualified to Proposal</div><div class="who">Starter plan &middot; Brightpath Labs</div></div>
+          <span class="when">Mon</span>
+        </li>
+        <li>
+          <span class="dot" style="background:var(--sea)"></span>
+          <div><div class="what">Call with Priya Raman</div><div class="who">Meridian Group</div></div>
+          <span class="when">Mon</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Follow-ups</h2>
+          <div class="sub">Open tasks from activities</div>
+        </div>
+      </div>
+
+      <div class="group-label overdue">Overdue</div>
+      <div class="task">
+        <span class="box"></span>
+        <div><div class="title">Send revised proposal</div><div class="meta">Northwind Trading &middot; <span class="late">2 days late</span></div></div>
+        <span class="due">Nov 12</span>
+      </div>
+      <div class="task">
+        <span class="box"></span>
+        <div><div class="title">Call back: renewal question</div><div class="meta">Harbor &amp; Co. &middot; <span class="late">5 days late</span></div></div>
+        <span class="due">Nov 9</span>
+      </div>
+      <div class="task">
+        <span class="box"></span>
+        <div><div class="title">Confirm demo attendees</div><div class="meta">Cobalt Systems &middot; <span class="late">1 day late</span></div></div>
+        <span class="due">Nov 13</span>
+      </div>
+
+      <div class="group-label soon">Upcoming</div>
+      <div class="task">
+        <span class="box"></span>
+        <div><div class="title">Follow-up call</div><div class="meta">Vantage Foods</div></div>
+        <span class="due">Tomorrow</span>
+      </div>
+      <div class="task">
+        <span class="box"></span>
+        <div><div class="title">Send contract draft</div><div class="meta">Brightpath Labs</div></div>
+        <span class="due">Nov 20</span>
+      </div>
+      <div class="task">
+        <span class="box"></span>
+        <div><div class="title">Quarterly check-in</div><div class="meta">Meridian Group</div></div>
+        <span class="due">Dec 2</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
