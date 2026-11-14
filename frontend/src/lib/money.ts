@@ -20,6 +20,15 @@ export function formatUsd(cents: number): string {
     : centsFormatter.format(cents / 100);
 }
 
+/** Compact axis labels: $24k, $6k — small amounts stay exact. */
+export function formatUsdCompact(cents: number): string {
+  const dollars = cents / 100;
+  if (Math.abs(dollars) >= 1000) {
+    return `$${Math.round(dollars / 1000)}k`;
+  }
+  return formatUsd(cents);
+}
+
 /** Parses user input like "$1,234.50" into cents; null when it isn't a valid amount. */
 export function parseUsdToCents(input: string): number | null {
   const cleaned = input.replace(/[$,\s]/g, "");

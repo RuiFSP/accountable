@@ -1,12 +1,18 @@
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import {
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
 
 import Contact from "./pages/Contact";
 import Contacts from "./pages/Contacts";
 import Dashboard from "./pages/Dashboard";
 import Deal from "./pages/Deal";
 import Deals from "./pages/Deals";
-import Organizations from "./pages/Organizations";
 import Organization from "./pages/Organization";
+import Organizations from "./pages/Organizations";
 import Pipeline from "./pages/Pipeline";
 
 const sections = [
@@ -18,18 +24,30 @@ const sections = [
 ];
 
 export function AppRoutes() {
+  const navigate = useNavigate();
+
   return (
     <div className="app-shell">
-      <aside className="app-sidebar">
-        <div className="app-brand">Accountable</div>
-        <nav className="app-nav">
+      <header className="topbar">
+        <span className="topbar-brand">
+          Accountable
+          <span className="brand-dot" aria-hidden="true" />
+        </span>
+        <nav className="topbar-nav">
           {sections.map(({ path, label }) => (
             <NavLink key={path} to={path} end={path === "/"}>
               {label}
             </NavLink>
           ))}
         </nav>
-      </aside>
+        <button
+          type="button"
+          className="btn btn-primary topbar-action"
+          onClick={() => navigate("/deals?new=1")}
+        >
+          New deal
+        </button>
+      </header>
       <main className="app-main">
         <Routes>
           <Route path="/" element={<Dashboard />} />

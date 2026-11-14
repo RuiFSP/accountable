@@ -4,9 +4,10 @@ import { FormEvent, useMemo, useState } from "react";
 import {
   api,
   type Activity,
+  type ActivityCreateType,
   type ActivityInput,
-  type ActivityType,
 } from "../api/client";
+import { ACTIVITY_COLORS } from "../lib/activity";
 import {
   datetimeLocalNow,
   formatDateTime,
@@ -17,12 +18,6 @@ import { capitalize } from "../lib/text";
 import ConfirmDialog from "./ConfirmDialog";
 import Field from "./Field";
 import Modal from "./Modal";
-
-const TYPE_ACCENTS: Record<ActivityType, string> = {
-  note: "var(--color-cerulean)",
-  call: "var(--color-sea-green)",
-  email: "var(--color-marigold)",
-};
 
 interface TimelineProps {
   activities: Activity[];
@@ -100,7 +95,7 @@ export default function Timeline({
             <li key={activity.id} className="timeline-item">
               <span
                 className="activity-dot"
-                style={{ background: TYPE_ACCENTS[activity.type] }}
+                style={{ background: ACTIVITY_COLORS[activity.type] }}
                 aria-hidden="true"
               />
               <div className="timeline-main">
@@ -114,7 +109,9 @@ export default function Timeline({
                 </div>
                 <div className="timeline-meta">
                   <span className={`type-tag type-${activity.type}`}>
-                    {capitalize(activity.type)}
+                    {activity.type === "stage_change"
+                      ? "Stage change"
+                      : capitalize(activity.type)}
                   </span>
                   {activity.follow_up_date ? (
                     <span
@@ -132,22 +129,24 @@ export default function Timeline({
                         : `Follow-up: ${formatDue(activity.follow_up_date)}`}
                     </span>
                   ) : null}
-                  <span className="timeline-actions">
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => setEditing(activity)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="link-button link-danger"
-                      onClick={() => setDeleting(activity)}
-                    >
-                      Delete
-                    </button>
-                  </span>
+                  {activity.type !== "stage_change" ? (
+                    <span className="timeline-actions">
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => setEditing(activity)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="link-button link-danger"
+                        onClick={() => setDeleting(activity)}
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </li>
@@ -202,7 +201,9 @@ function ActivityForm({
   onSubmit,
   onCancel,
 }: ActivityFormProps) {
-  const [type, setType] = useState<ActivityType>(activity?.type ?? "note");
+  const [type, setType] = useState<ActivityCreateType>(
+    activity && activity.type !== "stage_change" ? activity.type : "note",
+  );
   const [description, setDescription] = useState(activity?.description ?? "");
   const [happenedAt, setHappenedAt] = useState(
     activity ? activity.happened_at.slice(0, 16) : datetimeLocalNow(),
@@ -242,7 +243,9 @@ function ActivityForm({
         <Field label="Type">
           <select
             value={type}
-            onChange={(event) => setType(event.target.value as ActivityType)}
+            onChange={(event) =>
+              setType(event.target.value as ActivityCreateType)
+            }
           >
             <option value="note">Note</option>
             <option value="call">Call</option>

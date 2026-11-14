@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { resetSampleData, watchConsole } from "./helpers";
+
 const sections = [
   { path: "/", label: "Dashboard" },
   { path: "/organizations", label: "Organizations" },
@@ -8,16 +10,14 @@ const sections = [
   { path: "/pipeline", label: "Pipeline" },
 ];
 
+test.beforeAll(() => {
+  resetSampleData();
+});
+
 test("the app starts on the dashboard with no console errors", async ({
   page,
 }) => {
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") {
-      consoleErrors.push(message.text());
-    }
-  });
-  page.on("pageerror", (error) => consoleErrors.push(String(error)));
+  const consoleErrors = watchConsole(page);
 
   await page.goto("/");
 
@@ -30,16 +30,39 @@ test("the app starts on the dashboard with no console errors", async ({
     "rgb(240, 244, 245)",
   );
 
-  expect(consoleErrors).toEqual([]);
+  expect(consoleErrors()).toEqual([]);
 });
 
-test("every section is reachable from the sidebar", async ({ page }) => {
-  await page.goto("/");
+test("every section shows the sample data", async ({ page }) => {
+  await page.goto("/organizations");
+  await expect(page.locator("tbody tr")).toHaveCount(6);
+  await expect(page.locator("tbody tr").first()).toContainText(
+    "Northwind Traders",
+  );
 
-  for (const { path, label } of sections) {
-    await page.click(`a[href="${path}"]`);
-    await expect(page.getByRole("heading", { name: label })).toBeVisible();
+  await page.goto("/contacts");
+  await expect(page.locator("tbody tr")).toHaveCount(12);
+  await expect(page.locator(".badge-customer").first()).toBeVisible();
+
+  await page.goto("/deals");
+  await expect(page.locator("tbody tr")).toHaveCount(14);
+  await expect(page.locator(".badge-Won").first()).toBeVisible();
+
+  await page.goto("/pipeline");
+  for (const stage of [
+    "New",
+    "Qualified",
+    "Proposal",
+    "Negotiation",
+    "Won",
+    "Lost",
+  ]) {
+    await expect(page.locator(`[aria-label="${stage} column"]`)).toBeVisible();
   }
+  await expect(page.locator(".deal-card")).toHaveCount(14);
+
+  await page.goto("/");
+  await expect(page.locator(".kpi-grid .kpi")).toHaveCount(4);
 });
 
 test("the API serves the sample data through the frontend", async ({

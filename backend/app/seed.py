@@ -9,14 +9,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from app import db
 
-STAGE_PROBABILITIES = {
-    "New": 10,
-    "Qualified": 25,
-    "Proposal": 50,
-    "Negotiation": 75,
-    "Won": 100,
-    "Lost": 0,
-}
+STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
 
 CONFIRMATION_PROMPT = "This deletes all data and reloads the sample data. Continue? [y/N] "
 

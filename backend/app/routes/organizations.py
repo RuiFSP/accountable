@@ -46,7 +46,7 @@ def list_organizations(
     column = db.organizations.c[sort]
     stmt = stmt.order_by(column.desc() if order == "desc" else column.asc(), db.organizations.c.id)
     with db.get_engine().connect() as connection:
-        rows = connection.execute(stmt).mappings()
+        rows = connection.execute(stmt).mappings().all()
     return [dict(row) for row in rows]
 
 

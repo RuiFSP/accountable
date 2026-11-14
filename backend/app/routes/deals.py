@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app import db
+from app import db, stats
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
@@ -25,6 +25,11 @@ class DealIn(BaseModel):
     probability: int = Field(ge=0, le=100)
     close_date: date | None = None
     position: int | None = Field(default=None, ge=0)
+
+
+class StageMoveIn(BaseModel):
+    stage: Stage
+    position: int = Field(ge=0)
 
 
 def _base_stmt():
@@ -70,7 +75,7 @@ def list_deals(
         order_column.desc() if order == "desc" else order_column.asc(), db.deals.c.id
     )
     with db.get_engine().connect() as connection:
-        rows = connection.execute(stmt).mappings()
+        rows = connection.execute(stmt).mappings().all()
     return [dict(row) for row in rows]
 
 
@@ -109,6 +114,53 @@ def update_deal(deal_id: int, payload: DealIn) -> dict:
         return _read(connection, deal_id)
 
 
+@router.post("/{deal_id}/stage")
+def move_deal_stage(deal_id: int, payload: StageMoveIn) -> dict:
+    """Move a card between or within columns: stage, probability, position.
+
+    A stage change resets the probability to the new stage's default and writes
+    a system ``stage_change`` entry into the deal's timeline. Positions are
+    renumbered in the affected column(s) so a dropped card keeps its slot.
+    """
+    with db.get_engine().begin() as connection:
+        deal = _read(connection, deal_id)
+        changed = deal["stage"] != payload.stage
+
+        values = {"stage": payload.stage}
+        if changed:
+            values["probability"] = db.STAGE_PROBABILITIES[payload.stage]
+        connection.execute(
+            db.deals.update().where(db.deals.c.id == deal_id).values(**values)
+        )
+
+        target = _column_ids(connection, payload.stage, exclude_id=deal_id)
+        target.insert(min(payload.position, len(target)), deal_id)
+        _apply_positions(connection, target)
+
+        if changed:
+            source = _column_ids(connection, deal["stage"], exclude_id=deal_id)
+            _apply_positions(connection, source)
+            connection.execute(
+                db.activities.insert().values(
+                    type="stage_change",
+                    contact_id=None,
+                    deal_id=deal_id,
+                    description=f"Moved from {deal['stage']} to {payload.stage}",
+                    happened_at=datetime.now(),
+                    follow_up_date=None,
+                    done=True,
+                )
+            )
+
+        return {
+            "deal": _read(connection, deal_id),
+            "totals": {
+                "board": stats.pipeline_totals(connection),
+                "columns": stats.column_totals(connection),
+            },
+        }
+
+
 @router.delete("/{deal_id}")
 def delete_deal(deal_id: int) -> dict:
     with db.get_engine().begin() as connection:
@@ -128,3 +180,20 @@ def _require_exists(connection, table, value: int, label: str) -> None:
     found = connection.execute(select(table.c.id).where(table.c.id == value)).first()
     if found is None:
         raise HTTPException(status_code=400, detail=f"{label} does not exist")
+
+
+def _column_ids(connection, stage: str, exclude_id: int | None = None) -> list[int]:
+    stmt = select(db.deals.c.id).where(db.deals.c.stage == stage)
+    if exclude_id is not None:
+        stmt = stmt.where(db.deals.c.id != exclude_id)
+    stmt = stmt.order_by(db.deals.c.position, db.deals.c.id)
+    return list(connection.execute(stmt).scalars())
+
+
+def _apply_positions(connection, ordered_ids: list[int]) -> None:
+    for position, column_deal_id in enumerate(ordered_ids):
+        connection.execute(
+            db.deals.update()
+            .where(db.deals.c.id == column_deal_id)
+            .values(position=position)
+        )

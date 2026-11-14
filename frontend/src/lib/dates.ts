@@ -74,3 +74,30 @@ export function datetimeLocalNow(): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
+
+/** Recent-activity labels: "9:30 AM", "Yesterday", "3 days ago", "Nov 4". */
+export function formatWhen(
+  isoDateTime: string,
+  today: Date = new Date(),
+): string {
+  const date = new Date(isoDateTime);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const dayDifference = Math.round(
+    (startOfDay(today).getTime() - startOfDay(date).getTime()) / 86_400_000,
+  );
+  if (dayDifference === 0) {
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+  if (dayDifference === 1) {
+    return "Yesterday";
+  }
+  if (dayDifference < 7) {
+    return `${dayDifference} days ago`;
+  }
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}

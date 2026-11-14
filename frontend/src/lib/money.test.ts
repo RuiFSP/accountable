@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatUsd, parseUsdToCents } from "./money";
+import { formatUsd, formatUsdCompact, parseUsdToCents } from "./money";
 
 describe("formatUsd", () => {
   it("formats whole dollars without cents", () => {
@@ -12,6 +12,14 @@ describe("formatUsd", () => {
   it("keeps cents only when there are any", () => {
     expect(formatUsd(123_456)).toBe("$1,234.56");
     expect(formatUsd(50)).toBe("$0.50");
+  });
+});
+
+describe("formatUsdCompact", () => {
+  it("shortens thousands for chart axes", () => {
+    expect(formatUsdCompact(2_400_000)).toBe("$24k");
+    expect(formatUsdCompact(600_000)).toBe("$6k");
+    expect(formatUsdCompact(25_000)).toBe("$250");
   });
 });
 

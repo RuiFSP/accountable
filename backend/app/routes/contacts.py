@@ -58,7 +58,7 @@ def list_contacts(
         order_column.desc() if order == "desc" else order_column.asc(), db.contacts.c.id
     )
     with db.get_engine().connect() as connection:
-        rows = connection.execute(stmt).mappings()
+        rows = connection.execute(stmt).mappings().all()
     return [dict(row) for row in rows]
 
 

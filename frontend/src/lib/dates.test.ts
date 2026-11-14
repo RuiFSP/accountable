@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate, formatDateTime, formatDue, isOverdue } from "./dates";
+import {
+  formatDate,
+  formatDateTime,
+  formatDue,
+  formatWhen,
+  isOverdue,
+} from "./dates";
 
 const today = new Date(2026, 10, 14); // Nov 14, 2026, local time
 
@@ -42,5 +48,18 @@ describe("formatDue", () => {
   it("falls back to the date for later follow-ups", () => {
     expect(formatDue("2026-11-24", today)).toBe("Nov 24, 2026");
     expect(formatDue("2026-12-04", today)).toBe("Dec 4, 2026");
+  });
+});
+
+describe("formatWhen", () => {
+  it("labels recent timestamps for the activity feed", () => {
+    expect(formatWhen("2026-11-14T09:30:00", today)).toBe("9:30 AM");
+    expect(formatWhen("2026-11-13T18:00:00", today)).toBe("Yesterday");
+    expect(formatWhen("2026-11-11T12:00:00", today)).toBe("3 days ago");
+    expect(formatWhen("2026-11-01T12:00:00", today)).toBe("Nov 1");
+  });
+
+  it("stays quiet about broken timestamps", () => {
+    expect(formatWhen("not a date", today)).toBe("");
   });
 });

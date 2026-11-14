@@ -65,7 +65,7 @@ def list_activities(
     column = db.activities.c[sort]
     stmt = stmt.order_by(column.desc() if order == "desc" else column.asc(), db.activities.c.id)
     with db.get_engine().connect() as connection:
-        rows = connection.execute(stmt).mappings()
+        rows = connection.execute(stmt).mappings().all()
     return [dict(row) for row in rows]
 
 
@@ -81,7 +81,9 @@ def create_activity(payload: ActivityIn) -> dict:
 @router.put("/{activity_id}")
 def update_activity(activity_id: int, payload: ActivityIn) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, activity_id)
+        existing = _read(connection, activity_id)
+        if existing["type"] == "stage_change":
+            raise HTTPException(status_code=400, detail="Stage-change entries are read-only.")
         _validate_links(connection, payload)
         connection.execute(
             db.activities.update()
@@ -94,6 +96,8 @@ def update_activity(activity_id: int, payload: ActivityIn) -> dict:
 @router.delete("/{activity_id}")
 def delete_activity(activity_id: int) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, activity_id)
+        existing = _read(connection, activity_id)
+        if existing["type"] == "stage_change":
+            raise HTTPException(status_code=400, detail="Stage-change entries are read-only.")
         connection.execute(db.activities.delete().where(db.activities.c.id == activity_id))
     return {}

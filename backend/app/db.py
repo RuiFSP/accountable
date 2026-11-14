@@ -23,6 +23,16 @@ from sqlalchemy.engine import Engine
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "accountable.db"
 
+# Usual probability of close per stage; a stage move resets a deal to these.
+STAGE_PROBABILITIES = {
+    "New": 10,
+    "Qualified": 25,
+    "Proposal": 50,
+    "Negotiation": 75,
+    "Won": 100,
+    "Lost": 0,
+}
+
 metadata = MetaData()
 
 organizations = Table(

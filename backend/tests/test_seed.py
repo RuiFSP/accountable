@@ -79,7 +79,7 @@ def test_sample_data_covers_every_stage(engine):
     seed.ensure_seeded(engine)
     with engine.connect() as conn:
         stages = set(conn.execute(select(db.deals.c.stage)).scalars())
-    assert stages == set(seed.STAGE_PROBABILITIES)
+    assert stages == set(db.STAGE_PROBABILITIES)
 
 
 def test_sample_data_covers_every_contact_status(engine):
