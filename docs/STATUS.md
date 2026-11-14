@@ -27,7 +27,9 @@
 
 ## Not started
 
-- All four phases of `docs/plan.md` are implemented. The remaining item is intent criterion 8: the user's own end-to-end pass in a real browser against `docs/intent.md`, which is the stated bar for calling the MVP done.
+- All four phases of `docs/plan.md` are implemented, `npm test` is green (115 tests) and `npm run lint` is clean.
+- **The MVP is accepted**: the user verified it in a real browser and signed off on 2026-11-14 ("i'm happy with mvp"), which is the criterion-8 bar set by `docs/intent.md`.
+- Out of MVP scope and parked for later intents: sign-in and multiple users, deployment, and the other exclusions listed in `docs/intent.md`.
 
 ## Parked
 
