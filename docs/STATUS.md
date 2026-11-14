@@ -3,7 +3,7 @@
 ## How to run
 
 - `npm run dev` — starts the backend (http://127.0.0.1:8000) and the frontend (http://localhost:5173) together; open the frontend and you land on the dashboard.
-- `npm test` — backend (pytest) then frontend (Vitest); tests run on their own database.
+- `npm test` — backend (pytest), frontend (Vitest) and e2e (Playwright) together; tests run on their own database.
 - `npm run seed` — rebuilds the sample data, asking for confirmation before wiping anything.
 - `npm run lint` — strict TypeScript, ESLint, Prettier check; `npm run format` writes formatting.
 
@@ -47,13 +47,32 @@ A review of the branch against `main` following `docs/REVIEW.md` — separate bu
 
 After the fixes: `npm test` green — 121 tests (53 backend, 43 frontend, 25 e2e; six new backend tests cover the findings) — and `npm run lint` clean.
 
+## Review against main, second pass (2026-11-14)
+
+A second review of the branch against `main` following `docs/REVIEW.md` — separate bugs, security and spec/plan passes, style excluded. Security came back clean (no secrets or personal data, parameterized queries with whitelisted sort fields, same-origin API only, bundled fonts with no external requests). Findings and their fixes:
+
+**Important**
+
+1. **The top-bar "New deal" action was dead from the deals page.** `Deals.tsx` seeded its add-modal state from `?new=1` once with `useState`, and a search-param change on the same route never remounts the page — reproduced: the URL changed to `/deals?new=1` but no dialog opened (it worked when arriving from another section, which is why the suite never caught it). Fixed: the modal is now derived from the search params (`openAdd`/`closeAdd`), so the action works from any page and Cancel clears the parameter. Tests: `crud.spec.ts`.
+2. **The delete dialog could understate the cascade.** Changing a deal's stage in the edit dialog writes a system `stage_change` row, but `handleUpdate` only invalidated `["deals"]` — reproduced: the server held 3 activities for the deal and the dialog listed 2, missing the entry written moments earlier (intent criterion 2: the confirmation "lists everything that will go"). Fixed: `refreshDealsAndActivities` invalidates both caches after an update and after a delete. Tests: `crud.spec.ts`.
+3. **Late deals didn't stand out in the deals table.** Intent asks for it "in the table and on its pipeline card"; `isLate` was only wired to the card. Fixed: the close-date cell shows the `Late` pill with a raspberry date (`.late-date`), the same treatment as the card. Tests: `pipeline.spec.ts`.
+
+**Nits**
+
+1. `docs/plan.md` claimed `npm test` was green at 115 tests (47 backend); the suite runs 123 (53 backend, 27 e2e). Fixed: counts updated.
+2. `docs/STATUS.md`'s "How to run" said `npm test` runs backend then frontend, leaving out the e2e run described further down. Fixed.
+3. The plan's file list said only two files were edited; the build also added the `AGENTS.md` Testing section and reformatted `opencode.jsonc`. Fixed: the plan's Edited list now matches.
+
+Also resolved from this document's Parked list: the 7 moderate `npm audit` advisories (`minimatch` under `typescript-eslint`) are gone without downgrading `typescript-eslint` — a root `overrides` pin to `minimatch@^11.0.8`, the patched line eslint already used; `npm audit` reports 0 vulnerabilities.
+
+After the fixes: `npm test` green — 123 tests (53 backend, 43 frontend, 27 e2e; two new regression tests plus a late-deal assertion in the pipeline spec cover the findings) — and `npm run lint` clean.
+
 ## Not started
 
-- All four phases of `docs/plan.md` are implemented, `npm test` is green (121 tests) and `npm run lint` is clean.
+- All four phases of `docs/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.
 - **The MVP is accepted**: the user verified it in a real browser and signed off on 2026-11-14 ("i'm happy with mvp"), which is the criterion-8 bar set by `docs/intent.md`.
 - Out of MVP scope and parked for later intents: sign-in and multiple users, deployment, and the other exclusions listed in `docs/intent.md`.
 
 ## Parked
 
 - Anything outside the intent's "not in the MVP" list (sign-in, dark mode, mobile, AI, integrations, non-USD, tags, custom stages, import/export).
-- `npm audit`: 7 moderate advisories in `minimatch` under `typescript-eslint` (dev tooling only); the fix downgrades typescript-eslint, so left alone for now.

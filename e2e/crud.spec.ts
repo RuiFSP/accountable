@@ -190,3 +190,40 @@ test("npm run seed with confirmation brings back the sample data", async ({
     page.locator("tbody tr", { hasText: "Evergreen Coffee" }),
   ).toBeVisible();
 });
+
+test("the top-bar New deal action opens the form from the deals page", async ({
+  page,
+}) => {
+  await page.goto("/deals");
+  await page.getByRole("button", { name: "New deal" }).click();
+
+  const modal = page.getByRole("dialog", { name: "Add deal" });
+  await expect(modal).toBeVisible();
+
+  await modal.getByRole("button", { name: "Cancel" }).click();
+  await expect(modal).toBeHidden();
+  await expect(page).toHaveURL(/\/deals$/);
+});
+
+test("the delete dialog lists a stage entry written moments earlier by an edit", async ({
+  page,
+}) => {
+  await page.goto("/deals");
+  const row = page.locator("tbody tr", { hasText: "Delta renewal" });
+  await row.getByRole("button", { name: "Edit" }).click();
+
+  const modal = page.getByRole("dialog", { name: "Edit deal" });
+  await modal.getByLabel("Stage").selectOption("Proposal");
+  await modal.getByRole("button", { name: "Save" }).click();
+  await expect(row).toContainText("Proposal");
+
+  // The stage change wrote a system activity; the preview must show it even
+  // though nothing has reloaded the page since.
+  await row.getByRole("button", { name: "Delete" }).click();
+  const dialog = page.getByRole("alertdialog", {
+    name: "Delete Delta renewal?",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Moved from Negotiation to Proposal");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+});

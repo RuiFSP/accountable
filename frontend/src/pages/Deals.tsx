@@ -10,7 +10,7 @@ import DealForm from "../components/DealForm";
 import { cascadePreview } from "../lib/cascade";
 import { formatDate } from "../lib/dates";
 import { formatUsd } from "../lib/money";
-import { STAGES } from "../lib/pipeline";
+import { isLate, STAGES } from "../lib/pipeline";
 
 export default function Deals() {
   const navigate = useNavigate();
@@ -32,12 +32,15 @@ export default function Deals() {
 
   const deals = dealsQuery.data ?? [];
   const [searchParams, setSearchParams] = useSearchParams();
-  const [adding, setAdding] = useState(searchParams.get("new") === "1");
+  // The add modal is driven by ?new=1 rather than local state: a search-param
+  // change on this route never remounts the page, so state alone would leave
+  // the top-bar "New deal" action dead once you are already on /deals.
+  const adding = searchParams.get("new") === "1";
   const [editing, setEditing] = useState<Deal | null>(null);
   const [deleting, setDeleting] = useState<Deal | null>(null);
 
+  const openAdd = () => setSearchParams({ new: "1" });
   const closeAdd = () => {
-    setAdding(false);
     if (searchParams.has("new")) {
       setSearchParams({}, { replace: true });
     }
@@ -85,19 +88,31 @@ export default function Deals() {
     {
       accessorKey: "close_date",
       header: "Close date",
-      cell: (info) => formatDate(info.getValue() as string | null),
+      cell: ({ row }) => {
+        // An open deal past its close date stands out here, as on its card.
+        const late = isLate(row.original);
+        return late ? (
+          <span className="late-date">
+            {formatDate(row.original.close_date)}
+            <span className="late-pill">Late</span>
+          </span>
+        ) : (
+          formatDate(row.original.close_date)
+        );
+      },
     },
   ];
 
   const refreshDeals = () =>
     queryClient.invalidateQueries({ queryKey: ["deals"] });
 
-  const refreshAfterDelete = async () => {
-    await Promise.all([
+  // A delete, and a stage change through the edit dialog, both touch the
+  // activity list the delete preview is built from.
+  const refreshDealsAndActivities = () =>
+    Promise.all([
       queryClient.invalidateQueries({ queryKey: ["deals"] }),
       queryClient.invalidateQueries({ queryKey: ["activities"] }),
     ]);
-  };
 
   const handleCreate = async (payload: DealInput) => {
     await api.deals.create(payload);
@@ -110,7 +125,7 @@ export default function Deals() {
       return;
     }
     await api.deals.update(editing.id, payload);
-    await refreshDeals();
+    await refreshDealsAndActivities();
     setEditing(null);
   };
 
@@ -120,7 +135,7 @@ export default function Deals() {
     }
     try {
       await api.deals.remove(deleting.id);
-      await refreshAfterDelete();
+      await refreshDealsAndActivities();
       setDeleting(null);
     } catch (error) {
       console.error(error);
@@ -153,7 +168,7 @@ export default function Deals() {
               label: "Stage",
               options: STAGES.map((stage) => ({ value: stage, label: stage })),
             }}
-            onAdd={() => setAdding(true)}
+            onAdd={openAdd}
             onEdit={setEditing}
             onDelete={setDeleting}
             onOpen={(row) => navigate(`/deals/${row.id}`)}

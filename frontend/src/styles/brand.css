@@ -1063,6 +1063,15 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+/* The deals table's late close date, same treatment as the pipeline card. */
+.late-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-raspberry);
+  font-weight: 600;
+}
+
 @media (max-width: 1180px) {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);

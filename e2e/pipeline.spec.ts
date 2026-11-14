@@ -33,6 +33,15 @@ test("the board shows six columns and late deals stand out", async ({
     page.locator(".deal-card.late", { hasText: "Delta renewal" }),
   ).toBeVisible();
   await expect(page.locator(".late-pill").first()).toBeVisible();
+
+  // The deals table stands out too — intent: "in the table and on its card".
+  await page.goto("/deals");
+  const lateRow = page.locator("tbody tr", { hasText: "Delta renewal" });
+  await expect(lateRow.locator(".late-pill")).toBeVisible();
+  const aheadRow = page.locator("tbody tr", {
+    hasText: "Bluebird brand refresh",
+  });
+  await expect(aheadRow.locator(".late-pill")).toHaveCount(0);
 });
 
 test("dragging a card to another column changes stage, probability and totals", async ({
