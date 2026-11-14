@@ -69,6 +69,8 @@ The shared `DataTable` (search, sortable headings, add/edit modal, delete with a
 
 Done when: all four records can be added, searched, sorted, edited and deleted from their tables, linked records show on each detail page, and persistence holds across refresh (verified in backend tests).
 
+**Status: done — 2026-11-14.** CRUD endpoints with `q` search, sorting, status/stage filters and cascade-delete responses (covered by `test_crud.py` and `test_cascade.py`); shared `DataTable` with search, sortable headings, filters and add/edit modals; delete confirmations list the exact cascaded records (client-side preview, server lists asserted by tests); detail pages show linked records and newest-first timelines with activity log/edit/delete and follow-up labels. Verified in a real browser (add/search/sort/edit/delete, filters, timeline, cascade dialog, refresh persistence, no console errors); `npm test` green.
+
 ### Phase 3 — Pipeline and dashboard
 
 The board: dnd-kit columns, drag between columns (stage + probability change) and within a column (position that persists), add a deal straight into a column, board and column totals updating immediately, overdue deals standing out. Then the dashboard: aggregation endpoint, line chart, bar chart, funnel, recent activity (including automatic stage-change entries), and the upcoming/overdue follow-ups list.

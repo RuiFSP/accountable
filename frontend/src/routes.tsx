@@ -1,9 +1,12 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 
+import Contact from "./pages/Contact";
 import Contacts from "./pages/Contacts";
 import Dashboard from "./pages/Dashboard";
+import Deal from "./pages/Deal";
 import Deals from "./pages/Deals";
 import Organizations from "./pages/Organizations";
+import Organization from "./pages/Organization";
 import Pipeline from "./pages/Pipeline";
 
 const sections = [
@@ -31,8 +34,11 @@ export function AppRoutes() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/organizations" element={<Organizations />} />
+          <Route path="/organizations/:id" element={<Organization />} />
           <Route path="/contacts" element={<Contacts />} />
+          <Route path="/contacts/:id" element={<Contact />} />
           <Route path="/deals" element={<Deals />} />
+          <Route path="/deals/:id" element={<Deal />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

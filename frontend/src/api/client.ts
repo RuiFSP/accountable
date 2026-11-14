@@ -5,7 +5,7 @@ export type Stage =
 
 export type ContactStatus = "lead" | "qualified" | "customer";
 
-export type ActivityType = "note" | "call" | "email" | "stage_change";
+export type ActivityType = "note" | "call" | "email";
 
 export interface Organization {
   id: number;
@@ -28,12 +28,12 @@ export interface Contact {
 export interface Deal {
   id: number;
   name: string;
-  organization_id: number | null;
-  contact_id: number | null;
+  organization_id: number;
+  contact_id: number;
   stage: Stage;
   value_cents: number;
   probability: number;
-  close_date: string;
+  close_date: string | null;
   position: number;
 }
 
@@ -48,19 +48,116 @@ export interface Activity {
   done: boolean;
 }
 
-async function request<T>(path: string): Promise<T> {
+export interface OrganizationInput {
+  name: string;
+  website: string | null;
+  industry: string | null;
+  notes: string | null;
+}
+
+export interface ContactInput {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  job_title: string | null;
+  organization_id: number | null;
+  status: ContactStatus;
+}
+
+export interface DealInput {
+  name: string;
+  organization_id: number;
+  contact_id: number;
+  stage: Stage;
+  value_cents: number;
+  probability: number;
+  close_date: string;
+  position: number | null;
+}
+
+export interface ActivityInput {
+  type: ActivityType;
+  contact_id: number | null;
+  deal_id: number | null;
+  description: string;
+  happened_at: string;
+  follow_up_date: string | null;
+  done: boolean;
+}
+
+/** What a delete endpoint reports: the records removed alongside the target. */
+export interface CascadeResult {
+  contacts?: string[];
+  deals?: string[];
+  activities?: string[];
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
-    headers: { Accept: "application/json" },
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+    },
   });
   if (!response.ok) {
-    throw new Error(`Request to ${path} failed with status ${response.status}`);
+    let detail = "";
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      }
+    } catch {
+      // The response had no JSON body; fall back to the status.
+    }
+    throw new Error(
+      detail || `Request to ${path} failed with status ${response.status}`,
+    );
   }
   return (await response.json()) as T;
 }
 
+function post<T>(path: string, payload: unknown): Promise<T> {
+  return request<T>(path, { method: "POST", body: JSON.stringify(payload) });
+}
+
+function put<T>(path: string, payload: unknown): Promise<T> {
+  return request<T>(path, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+function del<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "DELETE" });
+}
+
 export const api = {
-  organizations: () => request<Organization[]>("/api/organizations"),
-  contacts: () => request<Contact[]>("/api/contacts"),
-  deals: () => request<Deal[]>("/api/deals"),
-  activities: () => request<Activity[]>("/api/activities"),
+  organizations: {
+    list: () => request<Organization[]>("/api/organizations"),
+    create: (payload: OrganizationInput) =>
+      post<Organization>("/api/organizations", payload),
+    update: (id: number, payload: OrganizationInput) =>
+      put<Organization>(`/api/organizations/${id}`, payload),
+    remove: (id: number) => del<CascadeResult>(`/api/organizations/${id}`),
+  },
+  contacts: {
+    list: () => request<Contact[]>("/api/contacts"),
+    create: (payload: ContactInput) => post<Contact>("/api/contacts", payload),
+    update: (id: number, payload: ContactInput) =>
+      put<Contact>(`/api/contacts/${id}`, payload),
+    remove: (id: number) => del<CascadeResult>(`/api/contacts/${id}`),
+  },
+  deals: {
+    list: () => request<Deal[]>("/api/deals"),
+    create: (payload: DealInput) => post<Deal>("/api/deals", payload),
+    update: (id: number, payload: DealInput) =>
+      put<Deal>(`/api/deals/${id}`, payload),
+    remove: (id: number) => del<CascadeResult>(`/api/deals/${id}`),
+  },
+  activities: {
+    list: () => request<Activity[]>("/api/activities"),
+    create: (payload: ActivityInput) =>
+      post<Activity>("/api/activities", payload),
+    update: (id: number, payload: ActivityInput) =>
+      put<Activity>(`/api/activities/${id}`, payload),
+    remove: (id: number) => del<CascadeResult>(`/api/activities/${id}`),
+  },
 };
