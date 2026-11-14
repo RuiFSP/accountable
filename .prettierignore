@@ -1,0 +1,12 @@
+node_modules
+frontend/dist
+frontend/public
+uv.lock
+package-lock.json
+course
+assets
+community_contributions
+docs
+.agents
+README.md
+opencode.jsonc

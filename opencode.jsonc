@@ -4,6 +4,6 @@
     { "action": "shell", "resource": "*", "effect": "ask" },
     { "action": "shell", "resource": "uv *", "effect": "allow" },
     { "action": "shell", "resource": "npm *", "effect": "allow" },
-    { "action": "read", "resource": "*.env", "effect": "deny" }
-  ]
+    { "action": "read", "resource": "*.env", "effect": "deny" },
+  ],
 }

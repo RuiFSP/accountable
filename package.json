@@ -1,0 +1,30 @@
+{
+  "name": "accountable",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others --names api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "uv run --directory backend uvicorn app.main:app --reload --port 8000",
+    "dev:web": "npm run dev --workspace frontend",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "uv run pytest",
+    "test:frontend": "npm run test --workspace frontend",
+    "seed": "uv run --directory backend python -m app.seed",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck && eslint . && prettier --check .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.10.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2"
+  }
+}

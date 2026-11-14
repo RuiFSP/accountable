@@ -1,0 +1,158 @@
+/* Bundled brand fonts — no internet connection needed. */
+
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/InstrumentSans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/InstrumentSans-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/InstrumentSerif-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/InstrumentSerif-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+
+/* Brand tokens */
+
+:root {
+  --color-page: #f0f4f5;
+  --color-panel: #ffffff;
+  --color-ink: #073b4c;
+  --color-ink-muted: #597b87;
+  --color-sea-green: #06d6a0;
+  --color-sea-green-ink: #049670;
+  --color-marigold: #ffc145;
+  --color-marigold-ink: #a87c00;
+  --color-coral: #f78c6b;
+  --color-cerulean: #118ab2;
+  --color-raspberry: #ef476f;
+  --color-sea-mist: #cdd8db;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --radius-panel: 14px;
+  --radius-control: 8px;
+  --shadow-soft: 0 1px 2px rgba(7, 59, 76, 0.08);
+}
+
+/* Base */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1 {
+  margin: 0 0 20px;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+a {
+  color: var(--color-cerulean);
+}
+
+/* App shell */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  flex: none;
+  width: 232px;
+  padding: 26px 18px;
+}
+
+.app-brand {
+  margin-bottom: 28px;
+  padding: 0 12px;
+  font-family: var(--font-serif);
+  font-size: 27px;
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-nav a {
+  display: block;
+  padding: 9px 12px;
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.app-nav a:hover {
+  background: var(--color-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.app-nav a.active {
+  background: var(--color-panel);
+  box-shadow: var(--shadow-soft);
+  font-weight: 600;
+}
+
+.app-main {
+  flex: 1;
+  max-width: 1180px;
+  padding: 30px 36px;
+}
+
+/* Surfaces */
+
+.panel {
+  background: var(--color-panel);
+  border-radius: var(--radius-panel);
+  padding: 24px;
+  box-shadow: var(--shadow-soft);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-ink-muted);
+}
+
+.num {
+  font-family: var(--font-mono);
+}

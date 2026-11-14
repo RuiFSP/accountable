@@ -61,6 +61,8 @@ Lint and format are wired here too: strict TypeScript, ESLint + Prettier with de
 
 Done when: `npm run dev` starts both sides, the browser lands on an empty dashboard shell, the API returns the seeded records, `npm run lint` is clean, and `npm test` runs green backend seed/schema tests plus a frontend smoke test.
 
+**Status: done — 2026-11-14.** `npm run dev` starts both sides; the browser lands on the dashboard shell with no console errors; `/api` list endpoints return the seeded records; `npm run lint` clean; `npm test` green (backend: `test_seed.py` schema/seed coverage + `test_reset.py` confirmation; frontend: shell smoke test + API client test).
+
 ### Phase 2 — Records: tables, detail pages, activities
 
 The shared `DataTable` (search, sortable headings, add/edit modal, delete with a confirmation that lists every linked record and activity that will go), the four record sections and their detail pages (organization → contacts + deals lists; contact/deal → details + timeline, newest first), and activities with follow-ups: log, edit, delete, linked to exactly one record.
