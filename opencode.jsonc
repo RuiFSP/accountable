@@ -10,7 +10,7 @@
   "plugins": [
     {
       "package": "./plugins/hooks",
-      "options": { "checkCommand": "exit 1" },
+      "options": { "checkCommand": "npm run check:quick" },
     },
   ],
 }

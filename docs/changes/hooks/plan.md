@@ -14,7 +14,7 @@
 ## 2. Turn-end check hook
 
 - One plugin, `plugins/hooks/`, registered in `opencode.jsonc` with a `checkCommand` option (default `npm run check:quick`).
-- Subscribe to the `session.idle` event; for a root session of this location whose last execution `outcome` is `succeeded`, run the check command (15-minute timeout, process-group kill).
+- Subscribe to the `session.execution.succeeded` event (the turn-finished signal; `session.idle` is in the schema but never emitted — verified against OpenCode 2.3.0 with an unfiltered subscription); for a root session of this location, run the check command (15-minute timeout, process-group kill).
 - On failure: if this session has not yet been sent a failure message since its last user prompt, set the flag and inject the output tail as a `session.synthetic` message (the agent wakes and fixes it); if the flag is already set, log and stop — that is the "block once, then let it stop" guarantee. The `prompt` hook clears the flag on the next real user prompt; a passing run clears it too.
 - Skip subagent sessions (they idle after every subagent round) and skip when `git status --porcelain` matches the snapshot of the last passing check.
 - Everything is logged to `logs/hooks.log` (git-ignored).
@@ -27,5 +27,5 @@
 ## Verification
 
 - Lefthook: the seven commit scenarios above (blocked commits verified by exit 1 + unchanged HEAD, the happy path by the committed blob containing the formatted text).
-- Turn-end hook: drive it across turns with `checkCommand` set to `exit 1` (injection), `exit 1` again (suppression), `true` (pass), then the real `npm run check:quick`.
+- Turn-end hook: drive `checkCommand` through `exit 1` — injection into the agent's own session across turns, plus a read-only fixture session for the injection→suppression cycle in a single log — then the real `npm run check:quick` for the pass. (What actually happened: `session.idle` turned out never to be emitted, so the trigger moved to `session.execution.succeeded` — see STATUS.md.)
 - `.env` hook: `write` to `.env` (denied), `echo > .env` (denied), `write` to `.env.example` (allowed), confirmed in `logs/hooks.log`.

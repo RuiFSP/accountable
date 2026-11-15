@@ -19,6 +19,7 @@ Update `docs/STATUS.md` when you finish a piece of work
 - `npm run format` fixes the formatting (Prettier and ruff format).
 - A lefthook pre-commit hook (installed by `npm install` through the `prepare` script) formats the staged files, then runs lint, type checks and gitleaks; it skips the tests so commits stay quick.
 - The `plugins/hooks/` OpenCode plugin runs `npm run check:quick` when a turn in this repo ends and sends a failing run back to the agent — at most once per user prompt, so it can't loop forever — and denies agent edits to `.env` (committed templates such as `.env.example` stay editable). Both hooks log to `logs/hooks.log`.
+- `.github/workflows/ci.yml` runs the same gates on every push to any branch: gitleaks across the repo first, so a leaked secret fails the run before anything is installed, then `npm run check` with the Google Chrome GitHub's runner already ships. It needs no repository secrets and uploads the Playwright report when it fails.
 
 ## Testing
 

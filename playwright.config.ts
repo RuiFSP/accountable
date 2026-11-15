@@ -20,6 +20,9 @@ export default defineConfig({
   testDir: "./e2e",
   workers: 1,
   fullyParallel: false,
+  // The default reporter is `dot` on CI and `list` locally — neither writes a
+  // report. The html report is what CI uploads when a run fails.
+  reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://localhost:5173",
     ...(chrome ? { channel: "chrome" as const } : {}),

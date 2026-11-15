@@ -203,22 +203,28 @@ async function checkTurn(
   log(input.directory, `injected session=${input.sessionID}`);
 }
 
-type IdleEvent = {
+type ExecutionEvent = {
   location?: { directory?: string };
   data: { sessionID: string };
 };
 
-async function onIdle(
+async function onExecution(
   ctx: Parameters<Parameters<typeof Plugin.define>[0]["setup"]>[0],
   state: { running: boolean },
   options: { command: string; timeoutMs: number },
-  event: IdleEvent,
+  event: ExecutionEvent,
 ): Promise<void> {
   const directory = ctx.location.directory;
   const sessionID = event.data.sessionID;
   const info = await ctx.session.get({ sessionID });
   const eventDirectory = event.location?.directory ?? info.location.directory;
-  if (path.resolve(eventDirectory) !== path.resolve(directory)) return;
+  if (path.resolve(eventDirectory) !== path.resolve(directory)) {
+    log(
+      directory,
+      `skip session=${sessionID}: other directory ${eventDirectory}`,
+    );
+    return;
+  }
   if (state.running) {
     log(directory, `skip session=${sessionID}: a check is already running`);
     return;
@@ -227,13 +233,8 @@ async function onIdle(
     log(directory, `skip session=${sessionID}: subagent turn`);
     return;
   }
-  if (info.outcome !== "succeeded") {
-    log(
-      directory,
-      `skip session=${sessionID}: outcome=${info.outcome ?? "none"}`,
-    );
-    return;
-  }
+  // No outcome gate: `session.execution.succeeded` is the success signal.
+  // Failed and interrupted turns emit their own execution events instead.
   const status = await runCommand("git status --porcelain", directory, 30_000);
   const lastPass = await ctx.storage.get(`pass:${path.resolve(directory)}`);
   if (lastPass === status.output) {
@@ -320,20 +321,33 @@ export default Plugin.define({
 
     const controller = new AbortController();
     const state = { running: false };
+    // `session.idle` is in the event schema but never emitted (verified on
+    // OpenCode 2.3.0: an unfiltered subscription saw 30 other event types
+    // while idle never appeared). `session.execution.succeeded` fires once
+    // per completed turn, so it is the turn-finished signal.
     const subscription = ctx.event.subscribe({
-      types: ["session.idle"],
+      types: ["session.execution.succeeded"],
       signal: controller.signal,
     });
     void (async () => {
-      for await (const event of subscription) {
-        try {
-          await onIdle(ctx, state, options, event as unknown as IdleEvent);
-        } catch (error) {
-          log(
-            directory,
-            `idle handler error: ${error instanceof Error ? error.message : String(error)}`,
-          );
+      try {
+        for await (const event of subscription) {
+          const turnEvent = event as unknown as ExecutionEvent;
+          log(directory, `execution event session=${turnEvent.data.sessionID}`);
+          try {
+            await onExecution(ctx, state, options, turnEvent);
+          } catch (error) {
+            log(
+              directory,
+              `execution handler error: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
         }
+      } catch (error) {
+        log(
+          directory,
+          `execution subscription error: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     })();
 
