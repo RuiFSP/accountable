@@ -1,9 +1,8 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-
 from app import db
 from app.main import app
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
 
 
 @pytest.fixture()
@@ -68,9 +67,13 @@ def _stage_entries(client, deal_id: int) -> list[dict]:
 
 def test_stage_move_resets_probability_and_writes_an_entry(client):
     setup = _setup(client)
-    deal = _create_deal(client, setup, "Manual deal", probability=60)  # hand-set probability
+    deal = _create_deal(
+        client, setup, "Manual deal", probability=60
+    )  # hand-set probability
 
-    response = client.post(f"/api/deals/{deal['id']}/stage", json={"stage": "Proposal", "position": 0})
+    response = client.post(
+        f"/api/deals/{deal['id']}/stage", json={"stage": "Proposal", "position": 0}
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -86,8 +89,8 @@ def test_stage_move_resets_probability_and_writes_an_entry(client):
 
 def test_within_column_move_keeps_probability_and_writes_no_entry(client):
     setup = _setup(client)
-    first = _create_deal(client, setup, "First")
-    second = _create_deal(client, setup, "Second")
+    _create_deal(client, setup, "First")
+    _create_deal(client, setup, "Second")
     third = _create_deal(client, setup, "Third")
 
     # A hand-set probability must survive a move within the same column.
@@ -102,7 +105,9 @@ def test_within_column_move_keeps_probability_and_writes_no_entry(client):
 
     assert response.status_code == 200
     assert response.json()["deal"]["probability"] == 40
-    positions = {deal["name"]: deal["position"] for deal in client.get("/api/deals").json()}
+    positions = {
+        deal["name"]: deal["position"] for deal in client.get("/api/deals").json()
+    }
     assert positions == {"Third": 0, "First": 1, "Second": 2}
     assert _stage_entries(client, third["id"]) == []
 
@@ -113,9 +118,13 @@ def test_cross_stage_move_renumbers_both_columns(client):
     _create_deal(client, setup, "Second")
     _create_deal(client, setup, "Third")
 
-    client.post(f"/api/deals/{first['id']}/stage", json={"stage": "Proposal", "position": 0})
+    client.post(
+        f"/api/deals/{first['id']}/stage", json={"stage": "Proposal", "position": 0}
+    )
 
-    positions = {deal["name"]: deal["position"] for deal in client.get("/api/deals").json()}
+    positions = {
+        deal["name"]: deal["position"] for deal in client.get("/api/deals").json()
+    }
     assert positions["First"] == 0  # alone at the top of Proposal
     assert positions["Second"] == 0  # gap closed in New
     assert positions["Third"] == 1
@@ -126,21 +135,24 @@ def test_move_position_is_clamped_to_the_column(client):
     first = _create_deal(client, setup, "First")
     _create_deal(client, setup, "Second")
 
-    client.post(f"/api/deals/{first['id']}/stage", json={"stage": "New", "position": 99})
-
-    positions = sorted(
-        deal["position"] for deal in client.get("/api/deals").json()
+    client.post(
+        f"/api/deals/{first['id']}/stage", json={"stage": "New", "position": 99}
     )
+
+    positions = sorted(deal["position"] for deal in client.get("/api/deals").json())
     assert positions == [0, 1]
 
 
 def test_move_returns_updated_totals(client):
     setup = _setup(client)
     open_deal = _create_deal(client, setup, "Open one", value_cents=100_000)
-    _create_deal(client, setup, "Won one", stage="Won", probability=100, value_cents=500_000)
+    _create_deal(
+        client, setup, "Won one", stage="Won", probability=100, value_cents=500_000
+    )
 
     body = client.post(
-        f"/api/deals/{open_deal['id']}/stage", json={"stage": "Negotiation", "position": 0}
+        f"/api/deals/{open_deal['id']}/stage",
+        json={"stage": "Negotiation", "position": 0},
     ).json()
 
     assert body["totals"]["board"] == {
@@ -183,16 +195,22 @@ def test_stage_change_entries_are_read_only(client):
     assert client.delete(f"/api/activities/{entry['id']}").status_code == 400
 
     # The entry is still there, untouched.
-    assert _stage_entries(client, deal["id"])[0]["description"] == "Moved from New to Won"
+    assert (
+        _stage_entries(client, deal["id"])[0]["description"] == "Moved from New to Won"
+    )
 
 
 def test_moving_a_missing_deal_or_bad_stage_fails(client):
     assert (
-        client.post("/api/deals/9999/stage", json={"stage": "Won", "position": 0}).status_code
+        client.post(
+            "/api/deals/9999/stage", json={"stage": "Won", "position": 0}
+        ).status_code
         == 404
     )
     assert (
-        client.post("/api/deals/1/stage", json={"stage": "Bogus", "position": 0}).status_code
+        client.post(
+            "/api/deals/1/stage", json={"stage": "Bogus", "position": 0}
+        ).status_code
         == 422
     )
 
@@ -204,7 +222,9 @@ def test_changing_the_stage_through_edit_moves_like_a_drag(client):
     _create_deal(client, setup, "Third", stage="Proposal", probability=50)
 
     # A hand-set probability on the deal being edited.
-    row = next(deal for deal in client.get("/api/deals").json() if deal["id"] == first["id"])
+    row = next(
+        deal for deal in client.get("/api/deals").json() if deal["id"] == first["id"]
+    )
     row["probability"] = 60
     assert client.put(f"/api/deals/{first['id']}", json=row).status_code == 200
 

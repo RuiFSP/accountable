@@ -12,7 +12,13 @@ router = APIRouter(prefix="/api/deals", tags=["deals"])
 
 Stage = Literal["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"]
 SortField = Literal[
-    "id", "name", "stage", "value_cents", "close_date", "organization_name", "contact_name"
+    "id",
+    "name",
+    "stage",
+    "value_cents",
+    "close_date",
+    "organization_name",
+    "contact_name",
 ]
 SortOrder = Literal["asc", "desc"]
 
@@ -48,7 +54,11 @@ def _base_stmt():
 
 
 def _read(conn, deal_id: int) -> dict:
-    row = conn.execute(select(db.deals).where(db.deals.c.id == deal_id)).mappings().one_or_none()
+    row = (
+        conn.execute(select(db.deals).where(db.deals.c.id == deal_id))
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Deal not found")
     return dict(row)
@@ -86,7 +96,9 @@ def list_deals(
 def create_deal(payload: DealIn) -> dict:
     with db.get_engine().begin() as connection:
         values = payload.model_dump()
-        require_exists(connection, db.organizations, values["organization_id"], "Organization")
+        require_exists(
+            connection, db.organizations, values["organization_id"], "Organization"
+        )
         if values["contact_id"] is not None:
             require_exists(connection, db.contacts, values["contact_id"], "Contact")
         if values["position"] is None:
@@ -97,7 +109,7 @@ def create_deal(payload: DealIn) -> dict:
             ).scalar_one()
             values["position"] = highest + 1
         result = connection.execute(db.deals.insert().values(**values))
-        deal_id = result.inserted_primary_key[0]
+        deal_id = db.inserted_id(result)
         return _read(connection, deal_id)
 
 
@@ -106,7 +118,9 @@ def update_deal(deal_id: int, payload: DealIn) -> dict:
     with db.get_engine().begin() as connection:
         existing = _read(connection, deal_id)
         values = payload.model_dump()
-        require_exists(connection, db.organizations, values["organization_id"], "Organization")
+        require_exists(
+            connection, db.organizations, values["organization_id"], "Organization"
+        )
         if values["contact_id"] is not None:
             require_exists(connection, db.contacts, values["contact_id"], "Contact")
 
@@ -176,18 +190,26 @@ def move_deal_stage(deal_id: int, payload: StageMoveIn) -> dict:
 def delete_deal(deal_id: int) -> dict:
     with db.get_engine().begin() as connection:
         _read(connection, deal_id)
-        activities = connection.execute(
-            select(db.activities.c.description)
-            .where(db.activities.c.deal_id == deal_id)
-            .order_by(db.activities.c.id)
-        ).scalars().all()
-        connection.execute(db.activities.delete().where(db.activities.c.deal_id == deal_id))
+        activities = (
+            connection.execute(
+                select(db.activities.c.description)
+                .where(db.activities.c.deal_id == deal_id)
+                .order_by(db.activities.c.id)
+            )
+            .scalars()
+            .all()
+        )
+        connection.execute(
+            db.activities.delete().where(db.activities.c.deal_id == deal_id)
+        )
         connection.execute(db.deals.delete().where(db.deals.c.id == deal_id))
 
     return {"activities": list(activities), "counts": {"activities": len(activities)}}
 
 
-def _write_stage_entry(connection, deal_id: int, from_stage: str, to_stage: str) -> None:
+def _write_stage_entry(
+    connection, deal_id: int, from_stage: str, to_stage: str
+) -> None:
     """The system timeline entry every stage change leaves behind."""
     connection.execute(
         db.activities.insert().values(

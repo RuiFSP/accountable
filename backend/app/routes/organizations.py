@@ -20,9 +20,13 @@ class OrganizationIn(BaseModel):
 
 
 def _read(conn, organization_id: int) -> dict:
-    row = conn.execute(
-        select(db.organizations).where(db.organizations.c.id == organization_id)
-    ).mappings().one_or_none()
+    row = (
+        conn.execute(
+            select(db.organizations).where(db.organizations.c.id == organization_id)
+        )
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Organization not found")
     return dict(row)
@@ -44,7 +48,9 @@ def list_organizations(
             )
         )
     column = db.organizations.c[sort]
-    stmt = stmt.order_by(column.desc() if order == "desc" else column.asc(), db.organizations.c.id)
+    stmt = stmt.order_by(
+        column.desc() if order == "desc" else column.asc(), db.organizations.c.id
+    )
     with db.get_engine().connect() as connection:
         rows = connection.execute(stmt).mappings().all()
     return [dict(row) for row in rows]
@@ -53,8 +59,10 @@ def list_organizations(
 @router.post("", status_code=201)
 def create_organization(payload: OrganizationIn) -> dict:
     with db.get_engine().begin() as connection:
-        result = connection.execute(db.organizations.insert().values(**payload.model_dump()))
-        organization_id = result.inserted_primary_key[0]
+        result = connection.execute(
+            db.organizations.insert().values(**payload.model_dump())
+        )
+        organization_id = db.inserted_id(result)
         return _read(connection, organization_id)
 
 
@@ -77,27 +85,41 @@ def delete_organization(organization_id: int) -> dict:
         contact_ids = select(db.contacts.c.id).where(
             db.contacts.c.organization_id == organization_id
         )
-        deal_ids = select(db.deals.c.id).where(db.deals.c.organization_id == organization_id)
+        deal_ids = select(db.deals.c.id).where(
+            db.deals.c.organization_id == organization_id
+        )
 
-        contacts = connection.execute(
-            select(db.contacts.c.name)
-            .where(db.contacts.c.organization_id == organization_id)
-            .order_by(db.contacts.c.id)
-        ).scalars().all()
-        deals = connection.execute(
-            select(db.deals.c.name)
-            .where(db.deals.c.organization_id == organization_id)
-            .order_by(db.deals.c.id)
-        ).scalars().all()
+        contacts = (
+            connection.execute(
+                select(db.contacts.c.name)
+                .where(db.contacts.c.organization_id == organization_id)
+                .order_by(db.contacts.c.id)
+            )
+            .scalars()
+            .all()
+        )
+        deals = (
+            connection.execute(
+                select(db.deals.c.name)
+                .where(db.deals.c.organization_id == organization_id)
+                .order_by(db.deals.c.id)
+            )
+            .scalars()
+            .all()
+        )
         cascade_condition = or_(
             db.activities.c.contact_id.in_(contact_ids),
             db.activities.c.deal_id.in_(deal_ids),
         )
-        activities = connection.execute(
-            select(db.activities.c.description)
-            .where(cascade_condition)
-            .order_by(db.activities.c.id)
-        ).scalars().all()
+        activities = (
+            connection.execute(
+                select(db.activities.c.description)
+                .where(cascade_condition)
+                .order_by(db.activities.c.id)
+            )
+            .scalars()
+            .all()
+        )
 
         connection.execute(db.activities.delete().where(cascade_condition))
         # Deals of other organizations that name one of these contacts as
@@ -107,11 +129,15 @@ def delete_organization(organization_id: int) -> dict:
             .where(db.deals.c.contact_id.in_(contact_ids))
             .values(contact_id=None)
         )
-        connection.execute(db.deals.delete().where(db.deals.c.organization_id == organization_id))
+        connection.execute(
+            db.deals.delete().where(db.deals.c.organization_id == organization_id)
+        )
         connection.execute(
             db.contacts.delete().where(db.contacts.c.organization_id == organization_id)
         )
-        connection.execute(db.organizations.delete().where(db.organizations.c.id == organization_id))
+        connection.execute(
+            db.organizations.delete().where(db.organizations.c.id == organization_id)
+        )
 
     return {
         "contacts": list(contacts),

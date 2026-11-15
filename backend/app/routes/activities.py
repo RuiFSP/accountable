@@ -38,9 +38,11 @@ def _validate_links(connection, payload: ActivityIn) -> None:
 
 
 def _read(conn, activity_id: int) -> dict:
-    row = conn.execute(
-        select(db.activities).where(db.activities.c.id == activity_id)
-    ).mappings().one_or_none()
+    row = (
+        conn.execute(select(db.activities).where(db.activities.c.id == activity_id))
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Activity not found")
     return dict(row)
@@ -56,7 +58,9 @@ def list_activities(
     if q:
         stmt = stmt.where(db.activities.c.description.like(f"%{q}%"))
     column = db.activities.c[sort]
-    stmt = stmt.order_by(column.desc() if order == "desc" else column.asc(), db.activities.c.id)
+    stmt = stmt.order_by(
+        column.desc() if order == "desc" else column.asc(), db.activities.c.id
+    )
     with db.get_engine().connect() as connection:
         rows = connection.execute(stmt).mappings().all()
     return [dict(row) for row in rows]
@@ -66,8 +70,10 @@ def list_activities(
 def create_activity(payload: ActivityIn) -> dict:
     with db.get_engine().begin() as connection:
         _validate_links(connection, payload)
-        result = connection.execute(db.activities.insert().values(**payload.model_dump()))
-        activity_id = result.inserted_primary_key[0]
+        result = connection.execute(
+            db.activities.insert().values(**payload.model_dump())
+        )
+        activity_id = db.inserted_id(result)
         return _read(connection, activity_id)
 
 
@@ -76,7 +82,9 @@ def update_activity(activity_id: int, payload: ActivityIn) -> dict:
     with db.get_engine().begin() as connection:
         existing = _read(connection, activity_id)
         if existing["type"] == "stage_change":
-            raise HTTPException(status_code=400, detail="Stage-change entries are read-only.")
+            raise HTTPException(
+                status_code=400, detail="Stage-change entries are read-only."
+            )
         _validate_links(connection, payload)
         connection.execute(
             db.activities.update()
@@ -91,6 +99,10 @@ def delete_activity(activity_id: int) -> dict:
     with db.get_engine().begin() as connection:
         existing = _read(connection, activity_id)
         if existing["type"] == "stage_change":
-            raise HTTPException(status_code=400, detail="Stage-change entries are read-only.")
-        connection.execute(db.activities.delete().where(db.activities.c.id == activity_id))
+            raise HTTPException(
+                status_code=400, detail="Stage-change entries are read-only."
+            )
+        connection.execute(
+            db.activities.delete().where(db.activities.c.id == activity_id)
+        )
     return {}

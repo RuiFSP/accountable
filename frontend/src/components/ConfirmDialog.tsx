@@ -30,8 +30,11 @@ export default function ConfirmDialog({
   }, [onCancel]);
 
   return (
+    // The backdrop is a mouse convenience: keyboard users close with Escape
+    // or the Cancel button, so the element itself carries no semantics.
     <div
       className="modal-overlay"
+      role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onCancel();

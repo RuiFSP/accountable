@@ -1,7 +1,6 @@
 import pytest
-from sqlalchemy import create_engine, func, select
-
 from app import db, seed
+from sqlalchemy import create_engine, func, select
 
 
 @pytest.fixture()
@@ -15,7 +14,9 @@ def engine(tmp_path):
 def _counts(engine) -> dict[str, int]:
     with engine.connect() as conn:
         return {
-            table.name: conn.execute(select(func.count()).select_from(table)).scalar_one()
+            table.name: conn.execute(
+                select(func.count()).select_from(table)
+            ).scalar_one()
             for table in (db.organizations, db.contacts, db.deals, db.activities)
         }
 

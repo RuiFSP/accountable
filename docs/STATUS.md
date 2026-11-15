@@ -5,7 +5,7 @@
 - `npm run dev` — starts the backend (http://127.0.0.1:8000) and the frontend (http://localhost:5173) together; open the frontend and you land on the dashboard.
 - `npm test` — backend (pytest), frontend (Vitest) and e2e (Playwright) together; tests run on their own database.
 - `npm run seed` — rebuilds the sample data, asking for confirmation before wiping anything.
-- `npm run lint` — strict TypeScript, ESLint, Prettier check; `npm run format` writes formatting.
+- `npm run check` — every gate at once: Prettier, ESLint (TypeScript, React Hooks, accessibility), ruff format + check, complexity ≤ 15 per function, `tsc` + `ty`, gitleaks, and `npm test` with unit coverage ≥ 80%; fails if any of them fails. `npm run check:quick` is the same without e2e, `npm run format` fixes formatting, `npm run lint` runs just the static checks.
 
 ## Design (done)
 
@@ -76,6 +76,18 @@ After the fixes: `npm test` green — 123 tests (53 backend, 43 frontend, 27 e2e
 - `docs/intent.md` and `docs/plan.md` moved to `docs/changes/mvp/` — the MVP is the first change, and every change from now on gets its own `docs/changes/<branch name>/` with its `intent.md` and `plan.md`. Only the current change's folder is read.
 - `docs/spec.md` rewritten: it now describes the whole product as it stands today, problem statement included, and is the first document to read and the authority for what the product is. A change updates it to describe the product after the change merges, before its code lands.
 - `AGENTS.md` points at `docs/spec.md` first; `docs/REVIEW.md` gained a pass that flags any code `docs/spec.md` doesn't describe.
+
+## Checks (2026-11-15)
+
+- `npm run check` = `check:static` (lint + secrets) + `npm test`; `npm run check:quick` = `check:static` + the unit tests only; `npm run format` = Prettier + ruff format. Documented in `AGENTS.md`.
+- Lint now spans both sides: `lint:frontend` (tsc, ESLint, Prettier) and `lint:backend` (ty, ruff check, ruff format check).
+- New rules, none weakened: ESLint gained `eslint-plugin-react-hooks` and `eslint-plugin-jsx-a11y` (recommended sets) plus `complexity: 15`; ruff runs `E4, E7, E9, F, I, C90` with `max-complexity = 15` pinned in `pyproject.toml` so the rule set doesn't drift with ruff versions; pytest enforces `--cov-fail-under=80`, Vitest enforces 80% on statements/branches/functions/lines; `gitleaks dir .` scans the repo through `.gitleaks.toml`, which extends the built-in rules and allows only `.env` / `.env.*`.
+- Tooling added: root dev deps `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y`; frontend `@vitest/coverage-v8`; uv dev group `ruff`, `ty`, `pytest-cov`. `.npmrc` sets `legacy-peer-deps=true` because `eslint-plugin-jsx-a11y` has not declared ESLint 10 support yet (the plugin runs fine — verified). The root `minimatch` override is now scoped to `@typescript-eslint/typescript-estree` (it must jump to the patched ≥11 line) so `eslint-plugin-jsx-a11y` can keep its own `minimatch@3`; `npm audit` stays at 0 vulnerabilities.
+- What the checks found and the fixes: modal backdrops got `role="presentation"` (their keyboard paths — Escape and the buttons — already existed); the deal card got real keyboard activation (Enter/Space open it; it was focusable but inert); `DealForm` and `ContactForm` complexity came down below 15 by extracting the initial-state computation; backend formatting, four unused assignments, three `lambda` assignments and import order; `ty` found SQLAlchemy's `inserted_primary_key` is optional — one `db.inserted_id()` helper now guards all seven call sites — and the dashboard month totals needed a `MonthTotal` TypedDict so `sum()` type-checks.
+- Frontend unit tests went from 43 to 193 (new suites for every page and component that had none: Contacts/Contact, Organizations/Organization, Deals/Deal, Pipeline, Dashboard, Modal, Field, DealForm, Timeline, PipelineBoard, plus API-client, routes and dates gaps), measured at 95.92% statements / 93.05% branches / 96.78% functions / 95.75% lines.
+- Verified 2026-11-15: `npm run check` exits 0 — 273 tests green (53 backend, 193 frontend, 27 e2e), backend coverage 98.59%, gitleaks clean.
+- The one caveat: `eslint-plugin-jsx-a11y` has not released an ESLint 10 peer range yet, so `.npmrc` sets `legacy-peer-deps=true` (plugin verified working under ESLint 10 — a planted violation is caught). And the recommended React Hooks set emits one warning on `DataTable.tsx` (`react-hooks/incompatible-library`, about TanStack Table under the React Compiler, which this project doesn't run); warnings don't fail the check and the rule stays on.
+- Worker-start reliability: a run of `npm test` died with 10 Vitest workers missing the 60s start handshake — `npm test` boots this suite alongside pytest and Playwright, and Vitest's default of one fork per CPU (11 here) overran a 7.7 GiB / swap-constrained box. Reproduced exactly under load (15 files, 140 tests, 10 errors) and fixed with `test.maxWorkers: 4` in `frontend/vite.config.ts`; under the same load the rerun had 0 timeouts, all 25 files green, and every suite finished faster.
 
 ## Not started
 

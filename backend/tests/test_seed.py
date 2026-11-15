@@ -1,10 +1,9 @@
 from datetime import date, datetime
 
 import pytest
+from app import db, seed
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, inspect, select
-
-from app import db, seed
 
 
 @pytest.fixture()
@@ -17,14 +16,21 @@ def engine(tmp_path):
 def _counts(engine) -> dict[str, int]:
     with engine.connect() as conn:
         return {
-            table.name: conn.execute(select(func.count()).select_from(table)).scalar_one()
+            table.name: conn.execute(
+                select(func.count()).select_from(table)
+            ).scalar_one()
             for table in (db.organizations, db.contacts, db.deals, db.activities)
         }
 
 
 def test_schema_has_the_four_tables(engine):
     seed.ensure_seeded(engine)
-    assert set(inspect(engine).get_table_names()) == {"organizations", "contacts", "deals", "activities"}
+    assert set(inspect(engine).get_table_names()) == {
+        "organizations",
+        "contacts",
+        "deals",
+        "activities",
+    }
 
 
 def test_schema_fields_match_the_data_model(engine):
@@ -93,9 +99,15 @@ def test_sample_data_has_open_deals_due_ahead_and_running_late(engine):
     seed.ensure_seeded(engine)
     today = date.today()
     with engine.connect() as conn:
-        open_dates = conn.execute(
-            select(db.deals.c.close_date).where(db.deals.c.stage.not_in(["Won", "Lost"]))
-        ).scalars().all()
+        open_dates = (
+            conn.execute(
+                select(db.deals.c.close_date).where(
+                    db.deals.c.stage.not_in(["Won", "Lost"])
+                )
+            )
+            .scalars()
+            .all()
+        )
     assert any(close_date > today for close_date in open_dates)
     assert any(close_date < today for close_date in open_dates)
 
@@ -117,9 +129,13 @@ def test_sample_data_has_follow_ups_overdue_upcoming_and_done(engine):
 def test_activities_link_to_exactly_one_record(engine):
     seed.ensure_seeded(engine)
     with engine.connect() as conn:
-        rows = conn.execute(select(db.activities.c.contact_id, db.activities.c.deal_id)).all()
+        rows = conn.execute(
+            select(db.activities.c.contact_id, db.activities.c.deal_id)
+        ).all()
     assert rows
-    assert all((contact_id is None) != (deal_id is None) for contact_id, deal_id in rows)
+    assert all(
+        (contact_id is None) != (deal_id is None) for contact_id, deal_id in rows
+    )
 
 
 def test_reseeding_is_idempotent(engine):
@@ -136,22 +152,38 @@ def test_startup_repairs_links_that_point_at_missing_records(engine):
     with engine.begin() as conn:
         deal_id = conn.execute(select(db.deals.c.id).limit(1)).scalar_one()
         contact_id = conn.execute(select(db.contacts.c.id).limit(1)).scalar_one()
-        conn.execute(db.deals.update().where(db.deals.c.id == deal_id).values(contact_id=999_999))
         conn.execute(
-            db.contacts.update().where(db.contacts.c.id == contact_id).values(organization_id=999_999)
+            db.deals.update().where(db.deals.c.id == deal_id).values(contact_id=999_999)
+        )
+        conn.execute(
+            db.contacts.update()
+            .where(db.contacts.c.id == contact_id)
+            .values(organization_id=999_999)
         )
 
     seed.repair_links(engine)
 
     with engine.connect() as conn:
-        assert conn.execute(
-            select(db.deals.c.contact_id).where(db.deals.c.id == deal_id)
-        ).scalar_one() is None
-        assert conn.execute(
-            select(db.contacts.c.organization_id).where(db.contacts.c.id == contact_id)
-        ).scalar_one() is None
+        assert (
+            conn.execute(
+                select(db.deals.c.contact_id).where(db.deals.c.id == deal_id)
+            ).scalar_one()
+            is None
+        )
+        assert (
+            conn.execute(
+                select(db.contacts.c.organization_id).where(
+                    db.contacts.c.id == contact_id
+                )
+            ).scalar_one()
+            is None
+        )
         # Links that were already valid, and every record, are left alone.
-        others = conn.execute(select(db.deals.c.contact_id).where(db.deals.c.id != deal_id)).scalars().all()
+        others = (
+            conn.execute(select(db.deals.c.contact_id).where(db.deals.c.id != deal_id))
+            .scalars()
+            .all()
+        )
         assert others and all(other is not None for other in others)
     assert all(count > 0 for count in _counts(engine).values())
 
@@ -165,10 +197,20 @@ def test_api_serves_the_seeded_records():
         deals = client.get("/api/deals").json()
         activities = client.get("/api/activities").json()
 
-    assert organizations and {"id", "name", "website", "industry", "notes"} <= set(organizations[0])
+    assert organizations and {"id", "name", "website", "industry", "notes"} <= set(
+        organizations[0]
+    )
     assert contacts and {"name", "email", "status"} <= set(contacts[0])
-    assert deals and {"stage", "value_cents", "probability", "close_date", "position"} <= set(deals[0])
-    assert activities and {"type", "description", "happened_at", "done"} <= set(activities[0])
+    assert deals and {
+        "stage",
+        "value_cents",
+        "probability",
+        "close_date",
+        "position",
+    } <= set(deals[0])
+    assert activities and {"type", "description", "happened_at", "done"} <= set(
+        activities[0]
+    )
 
     assert isinstance(activities[0]["happened_at"], str)
     assert isinstance(deals[0]["close_date"], str)

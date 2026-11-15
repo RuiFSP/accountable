@@ -188,22 +188,32 @@ interface ContactFormProps {
   onCancel: () => void;
 }
 
+function initialFormState(contact: Contact | undefined) {
+  return {
+    name: contact?.name ?? "",
+    email: contact?.email ?? "",
+    phone: contact?.phone ?? "",
+    jobTitle: contact?.job_title ?? "",
+    organizationId: contact?.organization_id
+      ? String(contact.organization_id)
+      : "",
+    status: contact?.status ?? "lead",
+  };
+}
+
 function ContactForm({
   organizations,
   contact,
   onSubmit,
   onCancel,
 }: ContactFormProps) {
-  const [name, setName] = useState(contact?.name ?? "");
-  const [email, setEmail] = useState(contact?.email ?? "");
-  const [phone, setPhone] = useState(contact?.phone ?? "");
-  const [jobTitle, setJobTitle] = useState(contact?.job_title ?? "");
-  const [organizationId, setOrganizationId] = useState(
-    contact?.organization_id ? String(contact.organization_id) : "",
-  );
-  const [status, setStatus] = useState<ContactStatus>(
-    contact?.status ?? "lead",
-  );
+  const initial = initialFormState(contact);
+  const [name, setName] = useState(initial.name);
+  const [email, setEmail] = useState(initial.email);
+  const [phone, setPhone] = useState(initial.phone);
+  const [jobTitle, setJobTitle] = useState(initial.jobTitle);
+  const [organizationId, setOrganizationId] = useState(initial.organizationId);
+  const [status, setStatus] = useState<ContactStatus>(initial.status);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

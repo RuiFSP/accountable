@@ -13,11 +13,21 @@ dependencies = [
 dev = [
     "httpx>=0.27",
     "pytest>=8.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.5",
+    "ty>=0.0.104",
 ]
 
 [tool.uv]
 package = false
 
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "C90"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 pythonpath = ["backend"]
+addopts = "--cov=app --cov-report=term --cov-fail-under=80"

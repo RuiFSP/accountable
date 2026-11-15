@@ -10,5 +10,19 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // `npm test` runs this suite alongside pytest and Playwright, so the
+    // default of one fork per CPU overloads small machines: workers miss
+    // Vitest's 60s start handshake and the run dies with unhandled errors.
+    maxWorkers: 4,
+    coverage: {
+      provider: "v8",
+      reporter: ["text"],
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
+    },
   },
 });

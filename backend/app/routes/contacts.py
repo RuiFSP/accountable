@@ -25,12 +25,18 @@ class ContactIn(BaseModel):
 
 def _base_stmt():
     return select(db.contacts).join(
-        db.organizations, db.contacts.c.organization_id == db.organizations.c.id, isouter=True
+        db.organizations,
+        db.contacts.c.organization_id == db.organizations.c.id,
+        isouter=True,
     )
 
 
 def _read(conn, contact_id: int) -> dict:
-    row = conn.execute(select(db.contacts).where(db.contacts.c.id == contact_id)).mappings().one_or_none()
+    row = (
+        conn.execute(select(db.contacts).where(db.contacts.c.id == contact_id))
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Contact not found")
     return dict(row)
@@ -67,9 +73,11 @@ def list_contacts(
 def create_contact(payload: ContactIn) -> dict:
     with db.get_engine().begin() as connection:
         if payload.organization_id is not None:
-            require_exists(connection, db.organizations, payload.organization_id, "Organization")
+            require_exists(
+                connection, db.organizations, payload.organization_id, "Organization"
+            )
         result = connection.execute(db.contacts.insert().values(**payload.model_dump()))
-        contact_id = result.inserted_primary_key[0]
+        contact_id = db.inserted_id(result)
         return _read(connection, contact_id)
 
 
@@ -78,7 +86,9 @@ def update_contact(contact_id: int, payload: ContactIn) -> dict:
     with db.get_engine().begin() as connection:
         _read(connection, contact_id)
         if payload.organization_id is not None:
-            require_exists(connection, db.organizations, payload.organization_id, "Organization")
+            require_exists(
+                connection, db.organizations, payload.organization_id, "Organization"
+            )
         connection.execute(
             db.contacts.update()
             .where(db.contacts.c.id == contact_id)
@@ -91,11 +101,15 @@ def update_contact(contact_id: int, payload: ContactIn) -> dict:
 def delete_contact(contact_id: int) -> dict:
     with db.get_engine().begin() as connection:
         _read(connection, contact_id)
-        activities = connection.execute(
-            select(db.activities.c.description)
-            .where(db.activities.c.contact_id == contact_id)
-            .order_by(db.activities.c.id)
-        ).scalars().all()
+        activities = (
+            connection.execute(
+                select(db.activities.c.description)
+                .where(db.activities.c.contact_id == contact_id)
+                .order_by(db.activities.c.id)
+            )
+            .scalars()
+            .all()
+        )
         # The contact goes, the deals that stay keep their organization but
         # lose their main contact.
         connection.execute(
@@ -103,7 +117,9 @@ def delete_contact(contact_id: int) -> dict:
             .where(db.deals.c.contact_id == contact_id)
             .values(contact_id=None)
         )
-        connection.execute(db.activities.delete().where(db.activities.c.contact_id == contact_id))
+        connection.execute(
+            db.activities.delete().where(db.activities.c.contact_id == contact_id)
+        )
         connection.execute(db.contacts.delete().where(db.contacts.c.id == contact_id))
 
     return {"activities": list(activities), "counts": {"activities": len(activities)}}

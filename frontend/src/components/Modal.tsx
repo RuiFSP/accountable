@@ -18,8 +18,11 @@ export default function Modal({ title, onClose, children }: ModalProps) {
   }, [onClose]);
 
   return (
+    // The backdrop is a mouse convenience: keyboard users close with Escape
+    // or the Close button, so the element itself carries no semantics.
     <div
       className="modal-overlay"
+      role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();

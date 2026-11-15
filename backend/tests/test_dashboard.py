@@ -1,11 +1,10 @@
 from datetime import date, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
-
 from app import db, stats
 from app.main import app
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
 
 # Fixed "today" so every figure in the fixture is deterministic.
 TODAY = date(2026, 6, 15)
@@ -17,21 +16,25 @@ def engine(tmp_path):
     db.metadata.create_all(test_engine)
 
     with test_engine.begin() as connection:
-        organization_id = connection.execute(
-            db.organizations.insert().values(
-                name="Fixture Org", website=None, industry=None, notes=None
+        organization_id = db.inserted_id(
+            connection.execute(
+                db.organizations.insert().values(
+                    name="Fixture Org", website=None, industry=None, notes=None
+                )
             )
-        ).inserted_primary_key[0]
-        contact_id = connection.execute(
-            db.contacts.insert().values(
-                name="Fixture Contact",
-                email=None,
-                phone=None,
-                job_title=None,
-                organization_id=organization_id,
-                status="lead",
+        )
+        contact_id = db.inserted_id(
+            connection.execute(
+                db.contacts.insert().values(
+                    name="Fixture Contact",
+                    email=None,
+                    phone=None,
+                    job_title=None,
+                    organization_id=organization_id,
+                    status="lead",
+                )
             )
-        ).inserted_primary_key[0]
+        )
 
         def deal(name, stage, value_cents, probability, close_date):
             connection.execute(
@@ -47,7 +50,9 @@ def engine(tmp_path):
                 )
             )
 
-        def activity(description, happened_at, follow_up_date=None, done=False, kind="note"):
+        def activity(
+            description, happened_at, follow_up_date=None, done=False, kind="note"
+        ):
             connection.execute(
                 db.activities.insert().values(
                     type=kind,
@@ -110,8 +115,16 @@ def test_won_revenue_is_bucketed_into_the_last_12_months(conn):
     assert won["months"][-1]["month"] == "2026-06"
 
     by_month = {month["month"]: month for month in won["months"]}
-    assert by_month["2026-06"] == {"month": "2026-06", "revenue_cents": 100_000, "deals": 1}
-    assert by_month["2025-07"] == {"month": "2025-07", "revenue_cents": 200_000, "deals": 1}
+    assert by_month["2026-06"] == {
+        "month": "2026-06",
+        "revenue_cents": 100_000,
+        "deals": 1,
+    }
+    assert by_month["2025-07"] == {
+        "month": "2025-07",
+        "revenue_cents": 200_000,
+        "deals": 1,
+    }
     assert by_month["2025-12"] == {"month": "2025-12", "revenue_cents": 0, "deals": 0}
 
     assert won["total_revenue_cents"] == 300_000  # the too-old win excluded
@@ -145,7 +158,11 @@ def test_a_won_deal_with_a_future_close_date_still_counts(conn):
     by_month = {month["month"]: month for month in won["months"]}
 
     # Both land in the current month, capped at today.
-    assert by_month["2026-06"] == {"month": "2026-06", "revenue_cents": 1_100_000, "deals": 3}
+    assert by_month["2026-06"] == {
+        "month": "2026-06",
+        "revenue_cents": 1_100_000,
+        "deals": 3,
+    }
     assert won["total_revenue_cents"] == 1_300_000  # the300_000 already in the fixture
     assert won["total_deals"] == 4
 
@@ -163,7 +180,12 @@ def test_funnel_shows_each_open_stage_plus_won_and_lost(conn):
 
     by_stage = {row["stage"]: row for row in funnel["stages"]}
     assert set(by_stage) == {"New", "Qualified", "Proposal", "Negotiation"}
-    assert by_stage["New"] == {"stage": "New", "count": 1, "value_cents": 100_000, "expected_cents": 10_000}
+    assert by_stage["New"] == {
+        "stage": "New",
+        "count": 1,
+        "value_cents": 100_000,
+        "expected_cents": 10_000,
+    }
     assert by_stage["Proposal"]["value_cents"] == 99_999
     assert by_stage["Qualified"] == {
         "stage": "Qualified",
@@ -182,9 +204,18 @@ def test_recent_activity_is_newest_first_and_includes_stage_changes(conn):
     recent = stats.recent_activity(conn)
 
     descriptions = [row["description"] for row in recent]
-    assert descriptions[:4] == ["Newest note", "Stage moved", "Middle note", "Oldest note"]
+    assert descriptions[:4] == [
+        "Newest note",
+        "Stage moved",
+        "Middle note",
+        "Oldest note",
+    ]
     assert "Stage moved" in descriptions
-    assert all(row["type"] == "stage_change" for row in recent if row["description"] == "Stage moved")
+    assert all(
+        row["type"] == "stage_change"
+        for row in recent
+        if row["description"] == "Stage moved"
+    )
     assert len(recent) <= stats.RECENT_ACTIVITY_LIMIT
 
 
@@ -200,7 +231,13 @@ def test_follow_ups_split_into_overdue_and_upcoming(conn):
 def test_dashboard_payload_holds_every_figure(conn):
     payload = stats.dashboard_payload(conn, TODAY)
 
-    assert set(payload) == {"won", "pipeline", "funnel", "recent_activity", "follow_ups"}
+    assert set(payload) == {
+        "won",
+        "pipeline",
+        "funnel",
+        "recent_activity",
+        "follow_ups",
+    }
     assert payload["won"]["total_revenue_cents"] == 300_000
     assert payload["pipeline"]["count"] == 2
     assert payload["follow_ups"]["overdue_count"] == 1
@@ -213,7 +250,13 @@ def test_dashboard_endpoint_serves_the_payload():
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload) == {"won", "pipeline", "funnel", "recent_activity", "follow_ups"}
+    assert set(payload) == {
+        "won",
+        "pipeline",
+        "funnel",
+        "recent_activity",
+        "follow_ups",
+    }
     assert len(payload["won"]["months"]) == 12
     assert payload["pipeline"]["count"] > 0
     assert payload["recent_activity"]

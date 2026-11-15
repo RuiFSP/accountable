@@ -58,7 +58,15 @@ function DealCard({ deal, organizationName, late, onOpen }: DealCardProps) {
       className={`deal-card${late ? " late" : ""}${isDragging ? " dragging" : ""}`}
       {...attributes}
       {...listeners}
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(deal)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(deal);
+        }
+      }}
     >
       <div className="deal-card-name">{deal.name}</div>
       <div className="deal-card-org muted">{organizationName}</div>

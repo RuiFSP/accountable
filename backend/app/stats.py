@@ -9,6 +9,7 @@ frontend computes it, so both sides always agree.
 from __future__ import annotations
 
 from datetime import date
+from typing import TypedDict
 
 from sqlalchemy import and_, func, select
 
@@ -16,6 +17,12 @@ from app import db
 
 OPEN_STAGES = ("New", "Qualified", "Proposal", "Negotiation")
 RECENT_ACTIVITY_LIMIT = 8
+
+
+class MonthTotal(TypedDict):
+    month: str
+    revenue_cents: int
+    deals: int
 
 
 def expected_revenue(value_cents: int, probability: int) -> int:
@@ -53,14 +60,16 @@ def won_summary(conn, today: date | None = None) -> dict:
         )
     ).all()
 
-    buckets = {start: {"revenue_cents": 0, "deals": 0} for start in _month_starts(today)}
+    buckets = {
+        start: {"revenue_cents": 0, "deals": 0} for start in _month_starts(today)
+    }
     for value_cents, close_date in rows:
         capped = min(close_date, today)
         bucket = buckets[date(capped.year, capped.month, 1)]
         bucket["revenue_cents"] += value_cents
         bucket["deals"] += 1
 
-    months = [
+    months: list[MonthTotal] = [
         {
             "month": start.strftime("%Y-%m"),
             "revenue_cents": buckets[start]["revenue_cents"],
@@ -90,8 +99,14 @@ def pipeline_totals(conn) -> dict:
             db.deals.c.stage.in_(OPEN_STAGES)
         )
     ).all()
-    expected_cents = sum(expected_revenue(value, probability) for value, probability in expected)
-    return {"value_cents": value_cents, "expected_cents": expected_cents, "count": count}
+    expected_cents = sum(
+        expected_revenue(value, probability) for value, probability in expected
+    )
+    return {
+        "value_cents": value_cents,
+        "expected_cents": expected_cents,
+        "count": count,
+    }
 
 
 def column_totals(conn) -> dict:
@@ -136,9 +151,10 @@ def funnel(conn, today: date | None = None) -> dict:
 
     won = won_summary(conn, today)
     lost = conn.execute(
-        select(func.coalesce(func.sum(db.deals.c.value_cents), 0), func.count(db.deals.c.id)).where(
-            db.deals.c.stage == "Lost"
-        )
+        select(
+            func.coalesce(func.sum(db.deals.c.value_cents), 0),
+            func.count(db.deals.c.id),
+        ).where(db.deals.c.stage == "Lost")
     ).one()
 
     return {

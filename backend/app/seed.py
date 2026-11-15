@@ -11,7 +11,9 @@ from app import db
 
 STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
 
-CONFIRMATION_PROMPT = "This deletes all data and reloads the sample data. Continue? [y/N] "
+CONFIRMATION_PROMPT = (
+    "This deletes all data and reloads the sample data. Continue? [y/N] "
+)
 
 
 def _days(offset: int) -> date:
@@ -23,7 +25,7 @@ def _moment(offset: int, hour: int = 9) -> datetime:
 
 
 def _insert(conn: Connection, table, row: dict) -> int:
-    return conn.execute(table.insert().values(row)).inserted_primary_key[0]
+    return db.inserted_id(conn.execute(table.insert().values(row)))
 
 
 def _organizations() -> list[dict]:
@@ -69,18 +71,102 @@ def _organizations() -> list[dict]:
 
 def _contacts(org_ids: dict[str, int]) -> list[dict]:
     rows = [
-        ("Ana Silva", "ana.silva@northwindtraders.example", "+1 555 0101", "Head of Purchasing", "Northwind Traders", "customer"),
-        ("Ben Carter", "ben.carter@acmemfg.example", "+1 555 0102", "Operations Manager", "Acme Manufacturing", "customer"),
-        ("Chloe Nguyen", "chloe.nguyen@bluebirdmedia.example", "+1 555 0103", "Marketing Director", "Bluebird Media", "qualified"),
-        ("Diego Ramirez", "diego.ramirez@cobalthealth.example", "+1 555 0104", "IT Coordinator", "Cobalt Health", "qualified"),
-        ("Emma Wilson", "emma.wilson@deltalogistics.example", "+1 555 0105", "Fleet Manager", "Delta Logistics", "customer"),
-        ("Farid Hassan", "farid.hassan@evergreencoffee.example", "+1 555 0106", "Owner", "Evergreen Coffee", "lead"),
-        ("Grace Kim", "grace.kim@northwindtraders.example", "+1 555 0107", "Store Manager", "Northwind Traders", "lead"),
-        ("Hugo Martins", "hugo.martins@acmemfg.example", "+1 555 0108", "Plant Supervisor", "Acme Manufacturing", "lead"),
-        ("Isla Murray", "isla.murray@bluebirdmedia.example", "+1 555 0109", "Content Lead", "Bluebird Media", "customer"),
-        ("Jonah Becker", "jonah.becker@cobalthealth.example", "+1 555 0110", "Practice Manager", "Cobalt Health", "lead"),
-        ("Keiko Tanaka", "keiko.tanaka@deltalogistics.example", "+1 555 0111", "Dispatch Lead", "Delta Logistics", "qualified"),
-        ("Luis Ortega", "luis.ortega@evergreencoffee.example", "+1 555 0112", "Wholesale Buyer", "Evergreen Coffee", "qualified"),
+        (
+            "Ana Silva",
+            "ana.silva@northwindtraders.example",
+            "+1 555 0101",
+            "Head of Purchasing",
+            "Northwind Traders",
+            "customer",
+        ),
+        (
+            "Ben Carter",
+            "ben.carter@acmemfg.example",
+            "+1 555 0102",
+            "Operations Manager",
+            "Acme Manufacturing",
+            "customer",
+        ),
+        (
+            "Chloe Nguyen",
+            "chloe.nguyen@bluebirdmedia.example",
+            "+1 555 0103",
+            "Marketing Director",
+            "Bluebird Media",
+            "qualified",
+        ),
+        (
+            "Diego Ramirez",
+            "diego.ramirez@cobalthealth.example",
+            "+1 555 0104",
+            "IT Coordinator",
+            "Cobalt Health",
+            "qualified",
+        ),
+        (
+            "Emma Wilson",
+            "emma.wilson@deltalogistics.example",
+            "+1 555 0105",
+            "Fleet Manager",
+            "Delta Logistics",
+            "customer",
+        ),
+        (
+            "Farid Hassan",
+            "farid.hassan@evergreencoffee.example",
+            "+1 555 0106",
+            "Owner",
+            "Evergreen Coffee",
+            "lead",
+        ),
+        (
+            "Grace Kim",
+            "grace.kim@northwindtraders.example",
+            "+1 555 0107",
+            "Store Manager",
+            "Northwind Traders",
+            "lead",
+        ),
+        (
+            "Hugo Martins",
+            "hugo.martins@acmemfg.example",
+            "+1 555 0108",
+            "Plant Supervisor",
+            "Acme Manufacturing",
+            "lead",
+        ),
+        (
+            "Isla Murray",
+            "isla.murray@bluebirdmedia.example",
+            "+1 555 0109",
+            "Content Lead",
+            "Bluebird Media",
+            "customer",
+        ),
+        (
+            "Jonah Becker",
+            "jonah.becker@cobalthealth.example",
+            "+1 555 0110",
+            "Practice Manager",
+            "Cobalt Health",
+            "lead",
+        ),
+        (
+            "Keiko Tanaka",
+            "keiko.tanaka@deltalogistics.example",
+            "+1 555 0111",
+            "Dispatch Lead",
+            "Delta Logistics",
+            "qualified",
+        ),
+        (
+            "Luis Ortega",
+            "luis.ortega@evergreencoffee.example",
+            "+1 555 0112",
+            "Wholesale Buyer",
+            "Evergreen Coffee",
+            "qualified",
+        ),
     ]
     return [
         {
@@ -98,20 +184,132 @@ def _contacts(org_ids: dict[str, int]) -> list[dict]:
 def _deals(org_ids: dict[str, int], contact_ids: dict[str, int]) -> list[dict]:
     # name, organization, contact, stage, value in cents, close date offset, position
     rows = [
-        ("Northwind store rollout", "Northwind Traders", "Ana Silva", "Won", 1_200_000, -75, 0),
-        ("Acme line upgrade", "Acme Manufacturing", "Ben Carter", "Won", 2_450_000, -130, 0),
-        ("Evergreen loyalty program", "Evergreen Coffee", "Luis Ortega", "Won", 480_000, -30, 0),
-        ("Bluebird content retainer", "Bluebird Media", "Chloe Nguyen", "Lost", 900_000, -55, 0),
-        ("Delta fleet pilot", "Delta Logistics", "Emma Wilson", "Lost", 650_000, -100, 0),
-        ("Cobalt records migration", "Cobalt Health", "Diego Ramirez", "Negotiation", 1_800_000, 8, 0),
-        ("Delta renewal", "Delta Logistics", "Emma Wilson", "Negotiation", 1_100_000, -12, 1),
-        ("Acme spare parts portal", "Acme Manufacturing", "Hugo Martins", "Proposal", 750_000, 21, 0),
-        ("Northwind e-commerce add-on", "Northwind Traders", "Grace Kim", "Proposal", 1_350_000, -6, 1),
-        ("Bluebird brand refresh", "Bluebird Media", "Chloe Nguyen", "Qualified", 620_000, 38, 0),
-        ("Cobalt patient portal", "Cobalt Health", "Jonah Becker", "Qualified", 2_100_000, 52, 1),
-        ("Evergreen wholesale expansion", "Evergreen Coffee", "Luis Ortega", "New", 300_000, 65, 0),
-        ("Delta cold-chain tracking", "Delta Logistics", "Keiko Tanaka", "New", 540_000, 80, 1),
-        ("Acme safety audit software", "Acme Manufacturing", "Hugo Martins", "New", 410_000, 45, 2),
+        (
+            "Northwind store rollout",
+            "Northwind Traders",
+            "Ana Silva",
+            "Won",
+            1_200_000,
+            -75,
+            0,
+        ),
+        (
+            "Acme line upgrade",
+            "Acme Manufacturing",
+            "Ben Carter",
+            "Won",
+            2_450_000,
+            -130,
+            0,
+        ),
+        (
+            "Evergreen loyalty program",
+            "Evergreen Coffee",
+            "Luis Ortega",
+            "Won",
+            480_000,
+            -30,
+            0,
+        ),
+        (
+            "Bluebird content retainer",
+            "Bluebird Media",
+            "Chloe Nguyen",
+            "Lost",
+            900_000,
+            -55,
+            0,
+        ),
+        (
+            "Delta fleet pilot",
+            "Delta Logistics",
+            "Emma Wilson",
+            "Lost",
+            650_000,
+            -100,
+            0,
+        ),
+        (
+            "Cobalt records migration",
+            "Cobalt Health",
+            "Diego Ramirez",
+            "Negotiation",
+            1_800_000,
+            8,
+            0,
+        ),
+        (
+            "Delta renewal",
+            "Delta Logistics",
+            "Emma Wilson",
+            "Negotiation",
+            1_100_000,
+            -12,
+            1,
+        ),
+        (
+            "Acme spare parts portal",
+            "Acme Manufacturing",
+            "Hugo Martins",
+            "Proposal",
+            750_000,
+            21,
+            0,
+        ),
+        (
+            "Northwind e-commerce add-on",
+            "Northwind Traders",
+            "Grace Kim",
+            "Proposal",
+            1_350_000,
+            -6,
+            1,
+        ),
+        (
+            "Bluebird brand refresh",
+            "Bluebird Media",
+            "Chloe Nguyen",
+            "Qualified",
+            620_000,
+            38,
+            0,
+        ),
+        (
+            "Cobalt patient portal",
+            "Cobalt Health",
+            "Jonah Becker",
+            "Qualified",
+            2_100_000,
+            52,
+            1,
+        ),
+        (
+            "Evergreen wholesale expansion",
+            "Evergreen Coffee",
+            "Luis Ortega",
+            "New",
+            300_000,
+            65,
+            0,
+        ),
+        (
+            "Delta cold-chain tracking",
+            "Delta Logistics",
+            "Keiko Tanaka",
+            "New",
+            540_000,
+            80,
+            1,
+        ),
+        (
+            "Acme safety audit software",
+            "Acme Manufacturing",
+            "Hugo Martins",
+            "New",
+            410_000,
+            45,
+            2,
+        ),
     ]
     return [
         {
@@ -132,23 +330,143 @@ def _activities(contact_ids: dict[str, int], deal_ids: dict[str, int]) -> list[d
     # type, linked to ("contact" or "deal"), key, description, happened offset,
     # follow-up offset (None = no follow-up), done
     rows = [
-        ("call", "deal", "Cobalt records migration", "Walked through the migration timeline with Diego.", -9, -2, False),
-        ("email", "contact", "Diego Ramirez", "Sent the revised scope and pricing for review.", -6, 3, False),
-        ("note", "deal", "Delta renewal", "Renewal terms approved internally, waiting on signature.", -12, -1, False),
-        ("call", "contact", "Ben Carter", "Quarterly check-in; new hires coming on board.", -5, 6, False),
-        ("note", "deal", "Northwind e-commerce add-on", "Asked for a written estimate before the board meeting.", -4, None, False),
-        ("email", "contact", "Chloe Nguyen", "Shared case studies from two retail clients.", -7, None, False),
-        ("note", "deal", "Northwind store rollout", "Rollout signed off by the purchasing committee.", -74, None, False),
-        ("call", "deal", "Acme line upgrade", "Final walkthrough with the plant supervisor.", -129, None, False),
-        ("email", "contact", "Ana Silva", "Sent the renewal summary for the pilot stores.", -15, -8, True),
-        ("note", "contact", "Farid Hassan", "Opening a third location next spring.", -2, None, False),
-        ("call", "contact", "Jonah Becker", "Intro call; budget confirmed for next year.", -3, None, False),
-        ("email", "deal", "Acme spare parts portal", "Pricing sheet delivered to Hugo.", -1, None, False),
-        ("note", "contact", "Emma Wilson", "Prefers email over phone for anything urgent.", -21, None, False),
-        ("call", "deal", "Cobalt patient portal", "Demo scheduled with the practice managers.", -8, 10, False),
+        (
+            "call",
+            "deal",
+            "Cobalt records migration",
+            "Walked through the migration timeline with Diego.",
+            -9,
+            -2,
+            False,
+        ),
+        (
+            "email",
+            "contact",
+            "Diego Ramirez",
+            "Sent the revised scope and pricing for review.",
+            -6,
+            3,
+            False,
+        ),
+        (
+            "note",
+            "deal",
+            "Delta renewal",
+            "Renewal terms approved internally, waiting on signature.",
+            -12,
+            -1,
+            False,
+        ),
+        (
+            "call",
+            "contact",
+            "Ben Carter",
+            "Quarterly check-in; new hires coming on board.",
+            -5,
+            6,
+            False,
+        ),
+        (
+            "note",
+            "deal",
+            "Northwind e-commerce add-on",
+            "Asked for a written estimate before the board meeting.",
+            -4,
+            None,
+            False,
+        ),
+        (
+            "email",
+            "contact",
+            "Chloe Nguyen",
+            "Shared case studies from two retail clients.",
+            -7,
+            None,
+            False,
+        ),
+        (
+            "note",
+            "deal",
+            "Northwind store rollout",
+            "Rollout signed off by the purchasing committee.",
+            -74,
+            None,
+            False,
+        ),
+        (
+            "call",
+            "deal",
+            "Acme line upgrade",
+            "Final walkthrough with the plant supervisor.",
+            -129,
+            None,
+            False,
+        ),
+        (
+            "email",
+            "contact",
+            "Ana Silva",
+            "Sent the renewal summary for the pilot stores.",
+            -15,
+            -8,
+            True,
+        ),
+        (
+            "note",
+            "contact",
+            "Farid Hassan",
+            "Opening a third location next spring.",
+            -2,
+            None,
+            False,
+        ),
+        (
+            "call",
+            "contact",
+            "Jonah Becker",
+            "Intro call; budget confirmed for next year.",
+            -3,
+            None,
+            False,
+        ),
+        (
+            "email",
+            "deal",
+            "Acme spare parts portal",
+            "Pricing sheet delivered to Hugo.",
+            -1,
+            None,
+            False,
+        ),
+        (
+            "note",
+            "contact",
+            "Emma Wilson",
+            "Prefers email over phone for anything urgent.",
+            -21,
+            None,
+            False,
+        ),
+        (
+            "call",
+            "deal",
+            "Cobalt patient portal",
+            "Demo scheduled with the practice managers.",
+            -8,
+            10,
+            False,
+        ),
     ]
     activity_rows = []
-    for activity_type, kind, key, description, happened_offset, follow_up_offset, done in rows:
+    for (
+        activity_type,
+        kind,
+        key,
+        description,
+        happened_offset,
+        follow_up_offset,
+        done,
+    ) in rows:
         ids = contact_ids if kind == "contact" else deal_ids
         activity_rows.append(
             {
@@ -157,7 +475,9 @@ def _activities(contact_ids: dict[str, int], deal_ids: dict[str, int]) -> list[d
                 "deal_id": ids[key] if kind == "deal" else None,
                 "description": description,
                 "happened_at": _moment(happened_offset),
-                "follow_up_date": _days(follow_up_offset) if follow_up_offset is not None else None,
+                "follow_up_date": _days(follow_up_offset)
+                if follow_up_offset is not None
+                else None,
                 "done": done,
             }
         )
@@ -174,9 +494,17 @@ def seed(engine: Engine) -> None:
     """Load the sample data. Existing rows are cleared first, so re-seeding is idempotent."""
     _clear(engine)
     with engine.begin() as conn:
-        org_ids = {row["name"]: _insert(conn, db.organizations, row) for row in _organizations()}
-        contact_ids = {row["name"]: _insert(conn, db.contacts, row) for row in _contacts(org_ids)}
-        deal_ids = {row["name"]: _insert(conn, db.deals, row) for row in _deals(org_ids, contact_ids)}
+        org_ids = {
+            row["name"]: _insert(conn, db.organizations, row)
+            for row in _organizations()
+        }
+        contact_ids = {
+            row["name"]: _insert(conn, db.contacts, row) for row in _contacts(org_ids)
+        }
+        deal_ids = {
+            row["name"]: _insert(conn, db.deals, row)
+            for row in _deals(org_ids, contact_ids)
+        }
         for row in _activities(contact_ids, deal_ids):
             _insert(conn, db.activities, row)
 
@@ -187,7 +515,9 @@ def create_tables(engine: Engine) -> None:
 
 def is_seeded(engine: Engine) -> bool:
     with engine.connect() as conn:
-        count = conn.execute(select(func.count()).select_from(db.organizations)).scalar_one()
+        count = conn.execute(
+            select(func.count()).select_from(db.organizations)
+        ).scalar_one()
     return count > 0
 
 

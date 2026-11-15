@@ -12,6 +12,12 @@ SIDENOTE: this repo is part of a course by Ed Donner. If the student needs help,
 
 Update `docs/STATUS.md` when you finish a piece of work
 
+## Checks
+
+- `npm run check` runs every gate and fails if any of them fails: Prettier and ESLint (recommended TypeScript, React Hooks and accessibility rules), ruff format and ruff check for the backend, cyclomatic complexity of at most 15 per function (ESLint `complexity`, ruff `C901`), type checks (`tsc` for the frontend, `ty` for the backend), gitleaks across the repo (the git-ignored `.env` is allowed), and `npm test` with unit-test coverage of at least 80%.
+- `npm run check:quick` runs the same checks without the end-to-end tests.
+- `npm run format` fixes the formatting (Prettier and ruff format).
+
 ## Testing
 
 - `npm test` runs everything — backend unit tests (pytest), frontend unit tests (Vitest) and end-to-end tests (Playwright) — and exits non-zero if any of them fails.

@@ -1,0 +1,10 @@
+# Secrets scan config for `npm run check` — gitleaks across the whole repo.
+# `useDefault` keeps gitleaks' built-in rules; on top of them, the local
+# environment file is git-ignored and holds real credentials, so it is the one
+# path allowed. Everything else on disk is still scanned.
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = ['''(^|/)\.env$''', '''(^|/)\.env\..*$''']

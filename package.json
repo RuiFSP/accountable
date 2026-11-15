@@ -13,11 +13,19 @@
     "test": "concurrently --names backend,frontend,e2e \"npm:test:backend\" \"npm:test:frontend\" \"npm:test:e2e\"",
     "test:backend": "uv run pytest",
     "test:frontend": "npm run test --workspace frontend",
+    "test:unit": "concurrently --names backend,frontend \"npm:test:backend\" \"npm:test:frontend\"",
     "test:e2e": "playwright test",
     "seed": "uv run --directory backend python -m app.seed",
     "typecheck": "tsc --noEmit",
-    "lint": "npm run typecheck && eslint . && prettier --check .",
-    "format": "prettier --write ."
+    "typecheck:backend": "uv run ty check backend",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "npm run typecheck && eslint . && prettier --check .",
+    "lint:backend": "npm run typecheck:backend && uv run ruff check backend && uv run ruff format --check backend",
+    "format": "prettier --write . && uv run ruff format backend",
+    "secrets": "gitleaks dir . --no-banner",
+    "check:static": "npm run lint && npm run secrets",
+    "check:quick": "npm run check:static && npm run test:unit",
+    "check": "npm run check:static && npm test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -26,11 +34,15 @@
     "concurrently": "^10.0.7",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.10.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.2"
   },
   "overrides": {
-    "minimatch": "^11.0.8"
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.8"
+    }
   }
 }

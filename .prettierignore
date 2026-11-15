@@ -1,6 +1,11 @@
 node_modules
+.venv
 frontend/dist
 frontend/public
+frontend/coverage
+coverage
+playwright-report
+test-results
 uv.lock
 package-lock.json
 course

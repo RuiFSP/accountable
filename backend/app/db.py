@@ -19,7 +19,7 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import CursorResult, Engine
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "accountable.db"
 
@@ -90,6 +90,13 @@ def database_path() -> Path:
     if override:
         return Path(override)
     return DEFAULT_DB_PATH
+
+
+def inserted_id(result: CursorResult) -> int:
+    """The primary key of the single row an insert just wrote."""
+    primary_key = result.inserted_primary_key
+    assert primary_key is not None, "insert returned no primary key"
+    return primary_key[0]
 
 
 @lru_cache(maxsize=1)

@@ -16,6 +16,22 @@ interface DealFormProps {
   onCancel: () => void;
 }
 
+function initialFormState(
+  deal: Deal | undefined,
+  initialStage: Stage | undefined,
+) {
+  const stage = deal?.stage ?? initialStage ?? "New";
+  return {
+    stage,
+    name: deal?.name ?? "",
+    organizationId: deal ? String(deal.organization_id) : "",
+    contactId: deal?.contact_id != null ? String(deal.contact_id) : "",
+    probability: String(deal?.probability ?? STAGE_META[stage].probability),
+    valueText: deal ? formatUsd(deal.value_cents) : "",
+    closeDate: deal?.close_date ?? "",
+  };
+}
+
 export default function DealForm({
   organizations,
   contacts,
@@ -24,22 +40,14 @@ export default function DealForm({
   onSubmit,
   onCancel,
 }: DealFormProps) {
-  const startingStage = deal?.stage ?? initialStage ?? "New";
-  const [name, setName] = useState(deal?.name ?? "");
-  const [organizationId, setOrganizationId] = useState(
-    deal ? String(deal.organization_id) : "",
-  );
-  const [contactId, setContactId] = useState(
-    deal?.contact_id != null ? String(deal.contact_id) : "",
-  );
-  const [stage, setStage] = useState<Stage>(startingStage);
-  const [probability, setProbability] = useState(
-    String(deal?.probability ?? STAGE_META[startingStage].probability),
-  );
-  const [valueText, setValueText] = useState(
-    deal ? formatUsd(deal.value_cents) : "",
-  );
-  const [closeDate, setCloseDate] = useState(deal?.close_date ?? "");
+  const initial = initialFormState(deal, initialStage);
+  const [name, setName] = useState(initial.name);
+  const [organizationId, setOrganizationId] = useState(initial.organizationId);
+  const [contactId, setContactId] = useState(initial.contactId);
+  const [stage, setStage] = useState<Stage>(initial.stage);
+  const [probability, setProbability] = useState(initial.probability);
+  const [valueText, setValueText] = useState(initial.valueText);
+  const [closeDate, setCloseDate] = useState(initial.closeDate);
   const [error, setError] = useState<string | null>(null);
 
   const handleStageChange = (nextStage: Stage) => {
