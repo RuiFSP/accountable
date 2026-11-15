@@ -1,24 +1,71 @@
-# Spec: the Accountable MVP
+# Spec: Accountable
 
-Requirements come from `docs/intent.md`; that document is the bar. This spec fixes the design choices intent left open.
+Accountable as it stands today: the problem it solves, what it does and how it is built. This is the description of the product and the authority for what it is. Each change updates it so it describes the product after the change merges, and keeps its own intent and plan in `docs/changes/<branch name>/`.
 
-## Concerns
+## Problem
 
-1. **Google Fonts need the internet.** Brand fonts (Instrument Sans, Instrument Serif, JetBrains Mono) come from Google Fonts, but the app must work offline. Bundle the font files locally so the app needs no connection.
-2. **Stage probabilities aren't specified.** Intent says each stage has a usual probability but doesn't give values. This spec sets them (see Design); change them here if they feel wrong.
-3. **Position within a pipeline column.** "Stays where it was dropped" needs a stored order per deal. This spec adds a `position` field, renumbered on every drop. Refresh behaviour is covered by a test.
-4. **Stage-change entries aren't activities.** Intent gives activities only three types (note, call, email), but stage changes must appear in timelines and recent activity. This spec records them as system-generated entries in the same list, read-only.
-5. **Dashboard chart choice is the designer's call.** This spec picks the charts so the UI has one target; the designer can swap them as long as intent's requirements (line, bar, pipeline visual, correct figures) still hold.
-6. **Cascade delete grows the confirmation.** The delete dialog lists every record and activity that will go; with sample data an organization can take a dozen rows. The dialog must scroll, not truncate.
+A small business keeps track of its customers and sales in spreadsheets, inboxes and people's heads. Nobody can see at a glance which companies we deal with, who our contacts are, what's in the sales pipeline, what happened last with a customer or what needs doing next.
 
-## Requirements (summary)
+## What Accountable is
 
-- Five sections: Dashboard, Organizations, Contacts, Deals, Pipeline. Four record types: Organization, Contact, Deal, Activity.
-- Every table: search box, sortable columns, add, edit, delete per row; delete confirms and cascades (org → contacts + deals; contact/deal → activities).
-- Contacts filter by status (lead, qualified, customer). One activity links to exactly one contact or deal; follow-ups show on the dashboard until done.
-- Pipeline: one column per stage (New, Qualified, Proposal, Negotiation, Won, Lost), drag between and within columns, add a deal directly in a column, board and column totals update live, overdue deals stand out.
-- Dashboard: last-12-months won deals and revenue, open pipeline and expected revenue, funnel by stage, recent activity, upcoming/overdue follow-ups.
-- Sample data on first start; one command resets to it after confirmation; all changes survive refresh and restart. Out of scope per intent (sign-in, dark mode, mobile, AI, integrations, non-USD, tags, custom stages, import/export).
+Accountable is a business management system: a sales CRM that will grow into a full Business OS, including ERP. Today it is a complete sales CRM for one person, running on their own computer — a private Salesforce that does the everyday CRM essentials really well. It feels sharp, modern and professional, and is a pleasure to use.
+
+- One salesperson uses it on their own computer every day; the rest of the sales team joins later.
+- No other systems are involved.
+
+## Out of scope
+
+Not part of this version: sign-in, user accounts or several users; a dark mode or a layout for phones; AI features; email, calendar or phone integrations; currencies other than US dollars; reports beyond the dashboard; tags or custom fields; changing the pipeline stages; importing or exporting data.
+
+## The product
+
+### Five sections
+
+- **Dashboard**, the landing page: how sales are going at a glance. Deals won and revenue won month by month over the last 12 months, the open pipeline and its expected revenue (each deal's value times its probability of close), a sales funnel showing how much value reaches each stage, recent activity, and the follow-ups that are coming up or overdue. It is visually striking, with at least a line chart, a bar chart and a visual of the pipeline.
+- **Organizations**: the companies we do business with. Open one to see its contacts and deals — just the lists, no merged timeline; history lives on each contact and deal.
+- **Contacts**: the people we deal with, including leads and customers, with a filter by status. Open one to see their organization and a timeline of everything that has happened with them.
+- **Deals**: the potential sales, with each one's stage, value and close date. Open one to see its details and its timeline. A deal still open after its expected close date stands out, in the table and on its pipeline card.
+- **Pipeline**: the deals as cards on a board, one column per stage. Drag a card to another column to change the deal's stage, or within a column to change its place; a card can be dropped anywhere in a column, and it stays where it was dropped. A new deal can be added straight into a column, at that stage. The board shows the total value and expected revenue of the deals still open, each column shows its own, and the figures change as soon as a card moves.
+
+### Four kinds of record
+
+- **Organization**: a company we do business with. Name, website, industry and notes. An organization has many contacts and many deals.
+- **Contact**: a person we deal with. Name, email, phone, job title, the organization they belong to, and a status (lead, qualified or customer). A lead is a contact with the lead status, so there's no separate list of leads.
+- **Deal**: a potential sale. Name, the organization and the main contact it is with, its stage (New, Qualified, Proposal, Negotiation, Won or Lost), its value in US dollars, its probability of close, and its expected or actual close date. Each stage has a usual probability of close, and a deal takes its new stage's probability when it moves; a probability set by hand is kept until the stage changes.
+- **Activity**: something that happened, or needs to happen, with a contact or deal. Type (note, call or email), the contact or deal it relates to, a description and when it happened, and optionally a follow-up date and whether it's done.
+
+### Tables
+
+Every table has a search box, columns you can sort by clicking their headings, a way to add a new record, and edit and delete on each row. That's how a new deal, a new lead or a new customer is added. Deleting asks first, and says what will happen to the records linked to the one being deleted. Deletion cascades: deleting an organization deletes its contacts and deals, and deleting a contact or deal deletes its activities — the confirmation lists everything that will go. Search is per table only: each box searches its own records, and there is no global search.
+
+### Activities and follow-ups
+
+From any contact or deal you can log an activity (a note, call or email) and give it a follow-up date. An activity relates to exactly one record — a contact or a deal, never both. A follow-up shows on the dashboard as a task until it's marked done. Activities can be edited and deleted too. When a deal moves to another stage, including Won or Lost, an entry such as "Moved from Proposal to Negotiation" appears in its timeline and in the dashboard's recent activity by itself.
+
+### Sample data
+
+Accountable comes with realistic sample data, so every screen looks alive the first time it starts: organizations across several industries, contacts at every status, deals at every stage (including deals won and lost over the past months, deals expected to close in the months ahead and a few running late), and activities with some follow-ups due soon and some overdue.
+
+### Running it
+
+- One documented command starts it, working on Mac, Linux and Windows; it needs no internet connection to use and runs in the latest Chrome or Edge.
+- Every change is kept: it's still there after a browser refresh, and every time the app starts it shows every change made before.
+- One documented command resets the data to the sample data, to start again from scratch; it asks for confirmation before wiping anything.
+
+### Look and feel
+
+The look follows Accountable's brand guidelines, which take priority over any general design guidance. Light mode, designed for a laptop or desktop screen. The copy stays neutral: it doesn't assume the user is the business owner or a hired salesperson.
+
+## Design decisions
+
+Points this spec fixes:
+
+1. **Fonts are bundled, not fetched.** Brand fonts (Instrument Sans, Instrument Serif, JetBrains Mono) come from Google Fonts, but the app must work offline. The font files are bundled locally so the app needs no connection.
+2. **Stage probabilities.** Each stage has a usual probability of close: New 10%, Qualified 25%, Proposal 50%, Negotiation 75%, Won 100%, Lost 0%. They live here; change them here if they feel wrong.
+3. **Position within a pipeline column.** A card dropped anywhere in a column keeps its exact slot, so every deal stores a `position`, renumbered on every drop. Refresh behaviour is covered by a test.
+4. **Stage changes are system entries, not activities.** Activities have only three types (note, call, email), but a stage change must still appear in timelines and recent activity. It is recorded as a system-generated entry in the same list, read-only.
+5. **Dashboard charts.** The dashboard shows a line chart (revenue won per month), a bar chart (deals won per month) and a funnel built from stage bars. The figures must match the data.
+6. **The cascade confirmation scrolls.** The delete dialog lists every record and activity that will go; with sample data an organization can take a dozen rows. The dialog scrolls, never truncates the list.
 
 ## Design
 

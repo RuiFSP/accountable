@@ -4,7 +4,8 @@ SIDENOTE: this repo is part of a course by Ed Donner. If the student needs help,
 
 ## Where to find things
 
-- `docs/intent.md`: what we're building
+- `docs/spec.md`: the product as it stands — the first thing to read
+- `docs/changes/<branch name>/`: every change gets its own folder with its `intent.md` and `plan.md`; read only the current change's folder, never another branch's
 - `docs/TECH_STACK.md`: the stack
 - `docs/STATUS.md`: what's done so far
 

@@ -1,6 +1,6 @@
 # Plan: building the Accountable MVP
 
-Based on `docs/intent.md` (the bar) and `docs/spec.md` (the design). No code written yet.
+Based on `docs/changes/mvp/intent.md` (the bar) and `docs/spec.md` (the design). No code written yet.
 
 Working rule: no new abstraction until it has a second user — no repository or service layers, no generic components "for later", until a real use shows up.
 
@@ -48,11 +48,11 @@ Nothing exists yet, so almost everything is new. Only two files are edited.
 **Edited**
 
 - `docs/STATUS.md` — updated as each phase lands
-- `docs/plan.md` — this file, if the plan changes
+- `docs/changes/mvp/plan.md` — this file, if the plan changes
 - `AGENTS.md` — the Testing section: how `npm test` runs, and that e2e owns its own database
 - `opencode.jsonc` — formatting only (trailing commas, final newline)
 
-**Untouched**: `README.md` (the course's guide), `docs/intent.md`, `docs/spec.md`, `docs/mockups/` (reference only).
+**Untouched**: `README.md` (the course's guide), `docs/changes/mvp/intent.md`, `docs/spec.md`, `docs/mockups/` (reference only).
 
 ## Order of work
 
@@ -84,7 +84,7 @@ Done when: success criteria 4, 5 and 6 hold — stage moves change probability a
 
 ### Phase 4 — Finish: brand pass, tests, walkthrough
 
-Visual pass against `docs/mockups/dashboard.html` and the brand skill (fonts bundled, light mode, no borders on one edge, no gradients), the full Playwright suite in `e2e/`, and the manual end-to-end walkthrough in a real browser with a clean console — every success criterion in `docs/intent.md` checked by eye, then `docs/STATUS.md` updated.
+Visual pass against `docs/mockups/dashboard.html` and the brand skill (fonts bundled, light mode, no borders on one edge, no gradients), the full Playwright suite in `e2e/`, and the manual end-to-end walkthrough in a real browser with a clean console — every success criterion in `docs/changes/mvp/intent.md` checked by eye, then `docs/STATUS.md` updated.
 
 **Status: done — 2026-11-14.** Visual pass: app chrome reshaped to the mockup (top bar with wordmark + Sea Green dot, pill navigation, "New deal" action, serif italic dashboard subtitle, larger mono KPIs); brand rules held throughout (bundled fonts, light mode, rounded panels, no edge borders, no gradients). Full Playwright suite: six specs in `e2e/` — `startup` (landing, sample data on every section, clean console), `crud` (add/search/sort/edit, cascade dialog lists and cancel, confirmed delete removes everything, `npm run seed` restores the sample data), `contacts` (status filter, detail pages with linked records and timelines), `pipeline` (cross-column drag changes stage/probability/totals, within-column slot survives refresh, column add starts at that stage, late cards stand out), `activities` (log with follow-up, newest first, read-only stage entries, follow-ups until marked done, edit/delete), `dashboard` (figures matched against independently computed API data, mark-won deltas, new follow-up reflected) — each spec resetting to sample data first,27 tests total. Criterion 8 walkthrough done in a real browser: all sections and actions exercised, screenshots reviewed, **zero console errors and zero external requests** (offline requirement verified by blocking everything non-localhost). `npm test` green:123 tests (53 backend,43 frontend,27 e2e). Final sign-off of the intent's criterion 8: given by the user on 2026-11-14 — the MVP is accepted.
 

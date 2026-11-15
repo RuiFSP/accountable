@@ -8,7 +8,7 @@ My fork of [ed-donner/accountable](https://github.com/ed-donner/accountable), wh
 - **Test:** `npm test` (pytest, Vitest and Playwright together)
 - **Sample data:** `npm run seed`
 - **Stack:** FastAPI + SQLite backend (`backend/`), React + Vite frontend (`frontend/`) — see [docs/TECH_STACK.md](docs/TECH_STACK.md)
-- **Status and progress:** [docs/STATUS.md](docs/STATUS.md) · **What we're building:** [docs/intent.md](docs/intent.md)
+- **Status and progress:** [docs/STATUS.md](docs/STATUS.md) · **What we're building:** [docs/spec.md](docs/spec.md)
 
 ## Accountable: the course project
 
