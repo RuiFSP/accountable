@@ -9,6 +9,7 @@ SIDENOTE: this repo is part of a course by Ed Donner. If the student needs help,
 - `docs/STANDARDS.md`: how we write code here
 - `docs/TECH_STACK.md`: the stack
 - `docs/STATUS.md`: what's done so far
+- `docs/IMPROVE.md`: follow at Deploy, after the review fixes and before the merge
 
 Update `docs/STATUS.md` when you finish a piece of work
 
