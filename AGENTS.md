@@ -17,6 +17,8 @@ Update `docs/STATUS.md` when you finish a piece of work
 - `npm run check` runs every gate and fails if any of them fails: Prettier and ESLint (recommended TypeScript, React Hooks and accessibility rules), ruff format and ruff check for the backend, cyclomatic complexity of at most 15 per function (ESLint `complexity`, ruff `C901`), type checks (`tsc` for the frontend, `ty` for the backend), gitleaks across the repo (the git-ignored `.env` is allowed), and `npm test` with unit-test coverage of at least 80%.
 - `npm run check:quick` runs the same checks without the end-to-end tests.
 - `npm run format` fixes the formatting (Prettier and ruff format).
+- A lefthook pre-commit hook (installed by `npm install` through the `prepare` script) formats the staged files, then runs lint, type checks and gitleaks; it skips the tests so commits stay quick.
+- The `plugins/hooks/` OpenCode plugin runs `npm run check:quick` when a turn in this repo ends and sends a failing run back to the agent — at most once per user prompt, so it can't loop forever — and denies agent edits to `.env` (committed templates such as `.env.example` stay editable). Both hooks log to `logs/hooks.log`.
 
 ## Testing
 

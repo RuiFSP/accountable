@@ -23,6 +23,7 @@
     "lint:backend": "npm run typecheck:backend && uv run ruff check backend && uv run ruff format --check backend",
     "format": "prettier --write . && uv run ruff format backend",
     "secrets": "gitleaks dir . --no-banner",
+    "prepare": "lefthook install",
     "check:static": "npm run lint && npm run secrets",
     "check:quick": "npm run check:static && npm run test:unit",
     "check": "npm run check:static && npm test"
@@ -36,6 +37,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "lefthook": "^2.2.2",
     "prettier": "^3.10.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.2"

@@ -1,0 +1,31 @@
+# Pre-commit: format the staged files first, then lint, type-check and scan
+# for secrets. Lefthook runs jobs sequentially by default, so formatting
+# always lands before linting. Tests are left out on purpose to keep the hook
+# quick — `npm run check` still runs them.
+#
+# `glob_matcher: doublestar` makes `**/*` match files at any depth, root
+# included (the default matcher only matches nested paths with `**/`).
+glob_matcher: doublestar
+
+pre-commit:
+  jobs:
+    - name: format-frontend
+      run: npx prettier --write --ignore-unknown {staged_files}
+      glob: "**/*.{js,jsx,mjs,cjs,ts,tsx,json,css,md,yml,yaml,html}"
+      stage_fixed: true
+    - name: format-backend
+      run: uv run ruff format {staged_files}
+      glob: "**/*.py"
+      stage_fixed: true
+    - name: lint-frontend
+      run: npx eslint {staged_files}
+      glob: "**/*.{js,jsx,mjs,cjs,ts,tsx}"
+    - name: lint-backend
+      run: uv run ruff check {staged_files}
+      glob: "**/*.py"
+    - name: types-frontend
+      run: npx tsc --noEmit
+    - name: types-backend
+      run: uv run ty check backend
+    - name: secrets
+      run: gitleaks git --pre-commit --staged --no-banner

@@ -6,4 +6,11 @@
     { "action": "shell", "resource": "npm *", "effect": "allow" },
     { "action": "read", "resource": "*.env", "effect": "deny" },
   ],
+  // Agent hooks: turn-end `check:quick` + .env protection — see plugins/hooks/.
+  "plugins": [
+    {
+      "package": "./plugins/hooks",
+      "options": { "checkCommand": "exit 1" },
+    },
+  ],
 }
