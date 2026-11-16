@@ -105,10 +105,11 @@ After the fixes: `npm test` green — 123 tests (53 backend, 43 frontend, 27 e2e
 - The report did not exist before: Playwright's default reporter is `dot` on CI and `list` locally (`defaultReporter = process.env.CI ? "dot" : "list"`), neither of which writes a report. `playwright.config.ts` now sets `reporter: [["list"], ["html", { open: "never" }]]`, keeping the terminal output and adding the HTML report the upload step needs.
 - Tested: actionlint v1.7.12 exits 0 on the workflow, Prettier accepts it, and `npm run check:quick` — the same gates the job runs — exits 0.
 
-## Dark mode change, spec updated (2026-11-16)
+## Dark mode change, docs done (2026-11-16)
 
 - `docs/changes/dark-mode/intent.md` written and refined in an interview: toggle in the top bar on every page (the intent first said sidebar, but the app's navigation is the top bar and moving it would break "light mode looks exactly as today"), light stays the default and is remembered, colors as one set of tokens, WCAG AA contrast, charts/dialogs/messages follow the mode, an e2e test for the toggle and a Playwright screenshot script.
 - `docs/spec.md` updated ahead of the code to describe the product after this change merges: dark mode removed from the out-of-scope list, the toggle and remembered choice in Look and feel, the brand skill's dark palette (page `#04232E`, black panels, Sea Mist ink) plus tokens-per-mode in the design, and WCAG AA as design decision 7.
+- `docs/changes/dark-mode/plan.md` written: four phases (tokens → toggle and memory → everything follows the mode → proof), grounded in the real file layout — the seven hex literals in `Dashboard.tsx`, the three hexes and ten `rgba()`s in `brand.css` that must become tokens — plus seven risks and the unit + e2e proof list. No new dependencies: Playwright is already there.
 
 ## Not started
 
