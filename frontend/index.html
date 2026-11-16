@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Accountable</title>
+    <!--
+      Apply the stored theme before first paint, so a dark reload never
+      flashes light. The key and value mirror src/lib/theme.ts, which
+      theme.test.ts keeps in step.
+    -->
+    <script>
+      (function () {
+        var theme = "light";
+        try {
+          if (localStorage.getItem("theme") === "dark") {
+            theme = "dark";
+          }
+        } catch (error) {
+          theme = "light";
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

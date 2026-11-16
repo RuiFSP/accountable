@@ -18,7 +18,14 @@ import { formatDue, formatWhen, isOverdue } from "../lib/dates";
 import { formatUsd, formatUsdCompact } from "../lib/money";
 import { STAGE_META } from "../lib/pipeline";
 
-const AXIS_TICK = { fill: "#597b87", fontSize: 12 };
+const AXIS_TICK = { fill: "var(--color-ink-muted)", fontSize: 12 };
+
+/** Recharts' default tooltip is a white box; both modes take it from tokens. */
+const TOOLTIP_STYLE = {
+  backgroundColor: "var(--color-panel)",
+  border: "1px solid var(--color-tooltip-border)",
+  color: "var(--color-ink)",
+};
 
 interface KpiCardProps {
   label: string;
@@ -165,7 +172,10 @@ export default function Dashboard() {
                     data={revenuePoints}
                     margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                   >
-                    <CartesianGrid stroke="#e2e9eb" vertical={false} />
+                    <CartesianGrid
+                      stroke="var(--color-grid)"
+                      vertical={false}
+                    />
                     <XAxis
                       dataKey="label"
                       tickLine={false}
@@ -181,13 +191,16 @@ export default function Dashboard() {
                         formatUsdCompact(Number(value))
                       }
                     />
-                    <Tooltip formatter={(value) => formatUsd(Number(value))} />
+                    <Tooltip
+                      formatter={(value) => formatUsd(Number(value))}
+                      contentStyle={TOOLTIP_STYLE}
+                    />
                     <Area
                       type="monotone"
                       dataKey="revenueCents"
-                      stroke="#06d6a0"
+                      stroke="var(--color-sea-green)"
                       strokeWidth={2.5}
-                      fill="#06d6a0"
+                      fill="var(--color-sea-green)"
                       fillOpacity={0.12}
                     />
                   </AreaChart>
@@ -226,7 +239,7 @@ export default function Dashboard() {
                 <div className="chip">
                   <span
                     className="chip-dot"
-                    style={{ background: "#06d6a0" }}
+                    style={{ background: "var(--color-sea-green)" }}
                   />
                   Won,12 months{" "}
                   <strong className="num">
@@ -236,7 +249,7 @@ export default function Dashboard() {
                 <div className="chip">
                   <span
                     className="chip-dot"
-                    style={{ background: "#ef476f" }}
+                    style={{ background: "var(--color-raspberry)" }}
                   />
                   Lost{" "}
                   <strong className="num">
@@ -257,7 +270,10 @@ export default function Dashboard() {
                     data={revenuePoints}
                     margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                   >
-                    <CartesianGrid stroke="#e2e9eb" vertical={false} />
+                    <CartesianGrid
+                      stroke="var(--color-grid)"
+                      vertical={false}
+                    />
                     <XAxis
                       dataKey="label"
                       tickLine={false}
@@ -271,8 +287,15 @@ export default function Dashboard() {
                       tick={AXIS_TICK}
                       allowDecimals={false}
                     />
-                    <Tooltip formatter={(value) => `${value} deals`} />
-                    <Bar dataKey="deals" fill="#118ab2" radius={[4, 4, 0, 0]} />
+                    <Tooltip
+                      formatter={(value) => `${value} deals`}
+                      contentStyle={TOOLTIP_STYLE}
+                    />
+                    <Bar
+                      dataKey="deals"
+                      fill="var(--color-cerulean)"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
