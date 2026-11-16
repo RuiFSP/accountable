@@ -63,6 +63,7 @@
   --color-on-primary: #073b4c;
   --color-on-danger: #ffffff;
   --color-danger-hover: #d93a61;
+  --color-btn-bg: #ffffff;
   --color-grid: #e2e9eb;
   --color-tooltip-border: #ccc;
   --border-hairline: rgba(7, 59, 76, 0.07);
@@ -102,8 +103,14 @@
   --tint-cerulean: rgba(17, 138, 178, 0.24);
   --tint-raspberry: rgba(239, 71, 111, 0.22);
   --color-on-primary: #04232e;
-  --color-on-danger: #ffffff;
-  --color-danger-hover: #d93a61;
+  /* White on Raspberry is 3.6:1, under spec decision 7's 4.5:1; the same
+     dark ink as on-primary holds 4.5:1, and the hover lightens the way
+     Sea Green's does. */
+  --color-on-danger: #04232e;
+  --color-danger-hover: #f4708a;
+  /* Page lifted 10% toward Sea Mist, so the secondary button still reads
+     as a surface on the black topbar and panels. */
+  --color-btn-bg: #18353f;
   --color-grid: rgba(205, 216, 219, 0.15);
   --color-tooltip-border: rgba(205, 216, 219, 0.35);
   --border-hairline: rgba(205, 216, 219, 0.14);
@@ -244,7 +251,7 @@ a {
   padding: 8px 18px;
   border: none;
   border-radius: 999px;
-  background: var(--color-panel);
+  background: var(--color-btn-bg);
   box-shadow: var(--shadow-soft);
   color: var(--color-ink);
   font: inherit;

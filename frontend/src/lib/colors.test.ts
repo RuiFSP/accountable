@@ -45,7 +45,10 @@ function sourceFiles(): string[] {
 
 /** The custom properties declared inside one selector's block. */
 function parseBlock(css: string, selector: RegExp): Record<string, string> {
-  const body = css.match(selector)?.[1] ?? "";
+  const raw = css.match(selector)?.[1] ?? "";
+  // Strip comments first: a semicolon inside one would otherwise split a
+  // declaration in half and drop the token.
+  const body = raw.replace(/\/\*[\s\S]*?\*\//g, "");
   const tokens: Record<string, string> = {};
   for (const declaration of body.split(";")) {
     const [name, ...rest] = declaration.split(":");
@@ -158,6 +161,7 @@ const LIGHT: Record<string, string> = {
   "--color-on-primary": "#073b4c",
   "--color-on-danger": "#ffffff",
   "--color-danger-hover": "#d93a61",
+  "--color-btn-bg": "#ffffff",
   "--color-grid": "#e2e9eb",
   "--color-tooltip-border": "#ccc",
   "--border-hairline": "rgba(7, 59, 76, 0.07)",
@@ -261,6 +265,20 @@ describe("dark mode contrast (WCAG AA)", () => {
       contrast(onPanel("--color-on-primary"), onPanel("--color-sea-green")),
       "primary button text",
     ).toBeGreaterThanOrEqual(4.5);
+    // The late pill (11px) and the delete button (15px) are normal text on
+    // the danger fill and its hover — spec decision 7's 4.5:1, not 3:1.
+    expect(
+      contrast(onPanel("--color-on-danger"), onPanel("--color-raspberry")),
+      "late pill and danger button text",
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrast(onPanel("--color-on-danger"), onPanel("--color-danger-hover")),
+      "danger button hover text",
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrast(onPanel("--color-ink"), onPanel("--color-btn-bg")),
+      "secondary button text",
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it("holds 4.5:1 for pill text on every dark tint", () => {
@@ -301,14 +319,5 @@ describe("dark mode contrast (WCAG AA)", () => {
         `${token} on panel`,
       ).toBeGreaterThanOrEqual(3);
     }
-    const white = onPanel("--color-on-danger");
-    expect(
-      contrast(white, onPanel("--color-raspberry")),
-      "danger button text",
-    ).toBeGreaterThanOrEqual(3);
-    expect(
-      contrast(white, onPanel("--color-danger-hover")),
-      "danger button hover",
-    ).toBeGreaterThanOrEqual(3);
   });
 });

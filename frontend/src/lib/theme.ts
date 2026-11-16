@@ -11,11 +11,22 @@ export type Theme = "light" | "dark";
 export const THEME_STORAGE_KEY = "theme";
 
 export function getTheme(): Theme {
-  return localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === "dark"
+      ? "dark"
+      : "light";
+  } catch {
+    // Storage can be denied (cookies blocked, storage off): light is the default.
+    return "light";
+  }
 }
 
 export function setTheme(theme: Theme): void {
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Can't remember it, but the choice still applies for this session.
+  }
   document.documentElement.setAttribute("data-theme", theme);
 }
 

@@ -13,6 +13,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("theme", () => {
@@ -46,6 +47,25 @@ describe("theme", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "sepia");
 
     expect(getTheme()).toBe("light");
+  });
+
+  it("falls back to light when reading storage is blocked", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage denied");
+    });
+
+    expect(getTheme()).toBe("light");
+  });
+
+  it("still marks <html> when writing storage is blocked", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage denied");
+    });
+
+    expect(() => setTheme("dark")).not.toThrow();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(toggleTheme()).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 
   it("reads the same storage key from index.html's blocking script", () => {

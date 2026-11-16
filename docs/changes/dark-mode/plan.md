@@ -10,14 +10,14 @@ No backend change: `backend/` is untouched and gets no new tests.
 
 **New — frontend (`frontend/`)**
 
-- `src/lib/theme.ts` — `getTheme` / `setTheme` / `toggleTheme`: localStorage only (never `prefers-color-scheme`), light on a fresh browser, writes `data-theme` on `<html>`
+- `src/lib/theme.ts` — `getTheme` / `setTheme` / `toggleTheme`: localStorage only (never `prefers-color-scheme`), light on a fresh browser, writes `data-theme` on `<html>`; storage denied (cookies blocked, storage off) falls back to light instead of breaking render
 - `src/lib/theme.test.ts` — the module's behaviour (see Proof)
 - `src/lib/colors.test.ts` — the one-place and contrast rules, read straight out of `brand.css` (see Proof)
 
 **Edited — frontend**
 
-- `src/styles/brand.css` — the `:root` block keeps today's light values byte for byte; every mode-blind literal becomes a token with its current value (the three hexes, the hairline `rgba(7, 59, 76, 0.07)` borders, the sticky-header wash, the modal backdrop, both shadows, the sea-green wash); a new `[data-theme="dark"]` block re-points every token — page `#04232E`, black panels, Sea Mist `#CDD8DB` ink, lightened Sea Green/Marigold inks for small text, dark tints for pills and washes, hairlines and shadows that read on dark
-- `src/pages/Dashboard.tsx` — seven hex literals (axis tick, two grids, line stroke, bar fill, two KPI dots) become token references; the tick is `--color-ink-muted`, the accents already have tokens
+- `src/styles/brand.css` — the `:root` block keeps today's light values byte for byte; every mode-blind literal becomes a token with its current value (the three hexes, the hairline `rgba(7, 59, 76, 0.07)` borders, the sticky-header wash, the modal backdrop, both shadows, the sea-green wash); a new `[data-theme="dark"]` block re-points every token — page `#04232E`, black panels, Sea Mist `#CDD8DB` ink, lightened Sea Green/Marigold inks for small text, dark tints for pills and washes, hairlines and shadows that read on dark; dark ink on Raspberry for the late pill and delete button (white is 3.6:1, under decision 7) with a lightened hover, and `--color-btn-bg` so the secondary button doesn't sit black-on-black on the topbar
+- `src/pages/Dashboard.tsx` — eight hex literals (axis tick, two grids, the area's stroke and fill, the bar fill, two chip dots) become token references; the tick is `--color-ink-muted`, the accents already have tokens; both `<Tooltip>`s take their box from tokens (`--color-panel`, `--color-tooltip-border`, `--color-ink`) so Recharts' default white tooltip follows the mode
 - `src/routes.tsx` — the toggle button in the top bar, next to "New deal"
 - `index.html` — a small blocking script in `<head>` applying the stored theme before first paint, so a dark reload never flashes light
 - `src/routes.test.tsx` — toggle assertions (see Proof)
@@ -44,7 +44,7 @@ Both reuse `helpers.ts` as it stands (sample-data reset, console watcher); Playw
 
 ### Phase 1 — Tokens: the dark palette in one place
 
-Everything colored starts reading from tokens. The light `:root` block keeps its exact current values; every mode-blind literal in `brand.css` (three hexes, ten `rgba()`s) is promoted to a token holding its current value; then the new `[data-theme="dark"]` block re-points every token with the brand skill's dark palette. `Dashboard.tsx` loses its seven hex literals to the same tokens.
+Everything colored starts reading from tokens. The light `:root` block keeps its exact current values; every mode-blind literal in `brand.css` (three hexes, ten `rgba()`s) is promoted to a token holding its current value; then the new `[data-theme="dark"]` block re-points every token with the brand skill's dark palette. `Dashboard.tsx` loses its eight hex literals to the same tokens.
 
 Done when: `colors.test.ts` is green — no color literal outside `brand.css`, today's light values unchanged, and every dark pair the spec names meets its ratio.
 
@@ -68,7 +68,7 @@ Done when: intent criteria 1, 2 and 3 hold.
 
 ## Risks
 
-1. **Scattered color.** Seven hexes in `Dashboard.tsx`, three hexes and ten `rgba()`s in `brand.css` — easy to fix, easy to re-acquire. Mitigation: promote everything to tokens in Phase 1 and let `colors.test.ts` fail any literal that appears outside `brand.css` afterwards.
+1. **Scattered color.** Eight hexes in `Dashboard.tsx`, three hexes and ten `rgba()`s in `brand.css` — easy to fix, easy to re-acquire. Mitigation: promote everything to tokens in Phase 1 and let `colors.test.ts` fail any literal that appears outside `brand.css` afterwards.
 2. **Contrast in dark mode.** Accents are tuned for light: Sea Green and Marigold glare on dark, pastel tints wash out, Midnight-based hairlines and shadows disappear. Mitigation: dark variants for inks, tints, hairlines and shadows in the dark block, with `colors.test.ts` computing WCAG AA (4.5:1 text, 3:1 large text and UI) from the parsed tokens until spec decision 7 holds.
 3. **Light mode drifting.** "Exactly as today, apart from the toggle" breaks if a token value shifts during the refactor. Mitigation: `:root` keeps byte-identical values, asserted by test; Phase 3 walks light mode too and compares against `main`.
 4. **Flash of light on a dark reload.** React applies the theme after first paint. Mitigation: the blocking `<head>` script in `index.html` runs before the stylesheet paints; checked by eye on reload — Playwright cannot see the flash.
@@ -80,8 +80,8 @@ Done when: intent criteria 1, 2 and 3 hold.
 
 ### Unit — frontend (Vitest, `frontend/src/**/*.test.ts(x)`)
 
-- `lib/theme.test.ts` — fresh storage → light with `matchMedia` never consulted; toggle writes the choice and sets `data-theme`; the stored choice round-trips; an unknown stored value falls back to light.
-- `lib/colors.test.ts` — every color literal under `frontend/src` sits in `brand.css` (the "one place" constraint); the `:root` light values are exactly today's; dark pairs computed from the parsed CSS meet WCAG AA — ink and muted ink on page and panel at 4.5:1, pills, dots and buttons (large text and UI) at 3:1.
+- `lib/theme.test.ts` — fresh storage → light with `matchMedia` never consulted; toggle writes the choice and sets `data-theme`; the stored choice round-trips; an unknown stored value falls back to light; blocked storage (getItem/setItem throwing) falls back to light and still marks `<html>`.
+- `lib/colors.test.ts` — every color literal under `frontend/src` sits in `brand.css` (the "one place" constraint); the `:root` light values are exactly today's; dark pairs computed from the parsed CSS meet WCAG AA — ink and muted ink on page and panel at 4.5:1, pill and button labels at 4.5:1, dots and UI chrome at 3:1.
 - `routes.test.tsx` — the toggle sits in the top bar on the five sections and the detail pages, has an accessible name, reads light on a fresh load, and flips `data-theme` when clicked.
 
 ### End-to-end (Playwright, `e2e/`, installed Chrome)
