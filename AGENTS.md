@@ -13,6 +13,10 @@ SIDENOTE: this repo is part of a course by Ed Donner. If the student needs help,
 
 Update `docs/STATUS.md` when you finish a piece of work
 
+## Numbers in docs
+
+A count or coverage figure written into `docs/` — test totals, coverage percentages, how many literals a file has — comes from the run output or from counting the code, never from memory. The dark-mode change wrote both wrong and review caught them: `docs/changes/dark-mode/plan.md` said seven hex literals in `Dashboard.tsx` where there were eight, and `docs/STATUS.md` labelled 96.85% "statements" when it was functions.
+
 ## Checks
 
 - `npm run check` runs every gate and fails if any of them fails: Prettier and ESLint (recommended TypeScript, React Hooks and accessibility rules), ruff format and ruff check for the backend, cyclomatic complexity of at most 15 per function (ESLint `complexity`, ruff `C901`), type checks (`tsc` for the frontend, `ty` for the backend), gitleaks across the repo (the git-ignored `.env` is allowed), and `npm test` with unit-test coverage of at least 80%.

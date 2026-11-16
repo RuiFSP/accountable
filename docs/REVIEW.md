@@ -8,7 +8,7 @@ Make a separate pass over every change for each of these:
 
 - **Bugs:** the code does what it's meant to, including when something goes wrong.
 - **Security:** no secrets or personal data are exposed, and nobody can do what they shouldn't.
-- **Matches spec.md and plan.md:** the change does what those documents say, with nothing missing and nothing extra.
+- **Matches spec.md and plan.md:** the change does what those documents say, with nothing missing and nothing extra. Where they disagree, spec.md wins — a plan or a test that restates a spec rule with a weaker number or a looser wording is a finding against that document, not a pass.
 - **Described by spec.md:** every piece of behavior in the change has a home in spec.md — flag any code that spec.md doesn't describe.
 - **Matches STANDARDS.md:** the code follows `docs/STANDARDS.md`, the repo's coding guidelines.
 
