@@ -27,7 +27,7 @@ test("the dashboard shows charts, funnel, activity and follow-ups", async ({
   await expect(page.locator(".kpi-grid .kpi")).toHaveCount(4);
   await expect(page.locator(".chart-box svg")).toHaveCount(2); // line + bar
   await expect(page.locator(".funnel-row")).toHaveCount(4);
-  await expect(page.locator(".funnel-chips")).toContainText("Won,12 months");
+  await expect(page.locator(".funnel-chips")).toContainText("Won, 12 months");
   await expect(page.locator(".funnel-chips")).toContainText("Lost");
   await expect(
     page.locator(".activity-list .activity-row").first(),

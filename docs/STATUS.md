@@ -109,7 +109,7 @@ After the fixes: `npm test` green — 123 tests (53 backend, 43 frontend, 27 e2e
 
 - `docs/changes/dark-mode/intent.md` written and refined in an interview: toggle in the top bar on every page (the intent first said sidebar, but the app's navigation is the top bar and moving it would break "light mode looks exactly as today"), light stays the default and is remembered, colors as one set of tokens, WCAG AA contrast, charts/dialogs/messages follow the mode, an e2e test for the toggle and a Playwright screenshot script.
 - `docs/spec.md` updated ahead of the code to describe the product after this change merges: dark mode removed from the out-of-scope list, the toggle and remembered choice in Look and feel, the brand skill's dark palette (page `#04232E`, black panels, Sea Mist ink) plus tokens-per-mode in the design, and WCAG AA as design decision 7.
-- `docs/changes/dark-mode/plan.md` written: four phases (tokens → toggle and memory → everything follows the mode → proof), grounded in the real file layout — the seven hex literals in `Dashboard.tsx`, the three hexes and ten `rgba()`s in `brand.css` that must become tokens — plus seven risks and the unit + e2e proof list. No new dependencies: Playwright is already there.
+- `docs/changes/dark-mode/plan.md` written: four phases (tokens → toggle and memory → everything follows the mode → proof), grounded in the real file layout — the eight hex literals in `Dashboard.tsx`, the three hexes and ten `rgba()`s in `brand.css` that must become tokens — plus seven risks and the unit + e2e proof list. No new dependencies: Playwright is already there.
 
 ## Dark mode (2026-11-16)
 
@@ -129,6 +129,25 @@ Reviewed against `docs/REVIEW.md`, then the fixes applied:
 - **Nits.** plan.md said seven hex literals in `Dashboard.tsx` (there are eight — the area's fill was missing from the list) and never mentioned the tooltip `contentStyle`; STATUS called 96.85% "statements" (it is functions); the secondary `.btn` was `--color-panel`, i.e. black on the black topbar in dark, so `:root` gains `--color-btn-bg: #ffffff` (byte-identical in light) and the dark block points it at `#18353f` — the page lifted 10% toward Sea Mist — which `colors.test.ts` pins along with the new pairs. The same test's block parser now strips `/* */` comments: a semicolon inside a comment used to split a declaration in half and silently drop the token.
 
 Proof: `npm run check` green — 295 tests (53 backend, 211 frontend, 31 e2e), frontend coverage 96.02% statements / 96.85% functions / 95.86% lines. The screenshots back the "light looks exactly as today" claim: both light PNGs stayed byte-identical, and `dashboard-dark.png` did too — it catches the toggle in its hover state, whose color never changed. Only `pipeline-dark.png` moved, for the pill's ink and the toggle's new surface.
+
+## Subagents (2026-11-17)
+
+- `.opencode/agents/reviewer.md` — read-only reviewer, following `docs/REVIEW.md`: reads the branch's changes (shell is limited to `git diff`, `git log`, `git show`, `git status`, `git merge-base`, `git rev-parse`, `git grep`, `grep`, `rg`) and reads every changed file plus `docs/spec.md`, `docs/STANDARDS.md`, `AGENTS.md` and the current change's intent/plan; reports Important findings first, then at most five nits, each with file and line, and a line per pass that came up clean. `edit`, every other shell command, questions and launching subagents are denied, so it can only report.
+- `.opencode/agents/ui-check.md` — read-only UI checker: loads the `brand` skill, reads `docs/spec.md`, opens every route from `frontend/src/routes.tsx` (five sections, three detail pages, the fallback) with the Playwright MCP server, screenshots each page in light and dark mode into `.playwright-mcp/` (git-ignored), and reports Broken / Off-brand / Spec mismatch findings naming the exact brand line or spec section broken. `edit` and shell are denied, so it never starts the app or touches code — a down dev server is reported, not fixed.
+- Both verified registered as `mode: subagent` through `GET /api/agent` for this location, permissions merged in order (base policy, project rules, agent rules — last match wins). Screenshot names resolve against the workspace root (Playwright MCP `--help`), so `.playwright-mcp/<page>.png` lands in the repo.
+
+## Review and UI-check fixes (2026-11-17)
+
+The reviewer ran over `6e9d55a` and ui-check over the dashboard and pipeline; the fixes:
+
+- **Stale count (Important).** `STATUS.md` said "the seven hex literals in `Dashboard.tsx`" on the plan.md line while the file has eight — the same commit had already corrected the Phase 1 line, so the file contradicted itself. Now eight in both places, which is also what `plan.md` itself says.
+- **Wrong guide path.** The Subagents section above and `.opencode/agents/reviewer.md` named `docs/AGENTS.md`, which does not exist; the guide is the root `AGENTS.md`. Both corrected — the agent file was what sent the reviewer looking for it.
+- **Missing favicon (Broken).** No icon file and no `<link rel="icon">`, so every load logged `GET /favicon.ico → 404` — the only console error on either page. `frontend/public/favicon.svg` draws the topbar's brand mark (Sea Green dot on Midnight) and `index.html` links it; the console now holds only the React DevTools info line.
+- **Funnel chip copy.** `Won,12 months` → `Won, 12 months`, matching `docs/mockups/dashboard.html`; the two unit assertions and the e2e `toContainText` follow it.
+- **Bar chart labels.** Recharts dropped four of the twelve month ticks in the narrow panel (Mar, May, Aug, Oct) while the mockup shows all twelve; the bar's `XAxis` now takes `interval={0}` and all twelve render without overlap.
+- **Light-mode contrast left alone.** ui-check measured 3.6–4.1:1 for small light-mode text, but spec decision 7 freezes light mode ("light mode's contrast is unchanged"), so no color moved — recorded here rather than changed.
+
+Proof: `npm run check` green — 295 tests (53 backend, 211 frontend, 31 e2e), frontend coverage 96.02% statements / 96.85% functions / 95.86% lines, backend 98.59%. The four dark-mode PNGs the run rewrites carry the new chip copy and all twelve bar labels; their date-only drift is the sample seed moving with the day, not a visual change.
 
 ## Not started
 

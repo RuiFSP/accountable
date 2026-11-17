@@ -241,7 +241,7 @@ export default function Dashboard() {
                     className="chip-dot"
                     style={{ background: "var(--color-sea-green)" }}
                   />
-                  Won,12 months{" "}
+                  Won, 12 months{" "}
                   <strong className="num">
                     {formatUsd(payload.funnel.won_12m_cents)}
                   </strong>
@@ -279,6 +279,7 @@ export default function Dashboard() {
                       tickLine={false}
                       axisLine={false}
                       tick={AXIS_TICK}
+                      interval={0}
                     />
                     <YAxis
                       tickLine={false}

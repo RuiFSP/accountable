@@ -336,7 +336,7 @@ describe("Dashboard page", () => {
     expect(within(funnel).getByText("2 deals")).toBeTruthy();
     // One deal in a stage is labelled in the singular.
     expect(within(funnel).getAllByText("1 deal")).toHaveLength(2);
-    expect(within(funnel).getByText("Won,12 months")).toBeTruthy();
+    expect(within(funnel).getByText("Won, 12 months")).toBeTruthy();
     expect(within(funnel).getByText("$50,000")).toBeTruthy();
     expect(within(funnel).getByText("Lost")).toBeTruthy();
     expect(within(funnel).getByText("$5,000")).toBeTruthy();
@@ -441,7 +441,7 @@ describe("Dashboard page", () => {
 
     const funnel = panelSection("Sales funnel");
     expect(within(funnel).getAllByText("0 deals")).toHaveLength(4);
-    expect(within(funnel).getByText("Won,12 months")).toBeTruthy();
+    expect(within(funnel).getByText("Won, 12 months")).toBeTruthy();
     expect(within(funnel).getByText("Lost")).toBeTruthy();
 
     expect(screen.getByText("Nothing open.")).toBeTruthy();
