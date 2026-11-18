@@ -22,8 +22,10 @@ change code, files or servers — you only browse, read and report.
 ## Before you start
 
 - Load the `brand` skill; its guidelines decide what "on-brand" means.
-- Read `docs/spec.md`, especially "Five sections", "Look and feel" (the
-  product part and the design part) and "Running it".
+- Read `docs/spec.md` — the summary and its index — then the area files in
+  `docs/specs/` for the pages you check: `dashboard.md`, `organizations.md`,
+  `contacts.md`, `deals.md`, `pipeline.md`, `look-and-feel.md` (the product
+  part and the design part) and `running.md`. The index links the rest.
 
 ## Setup
 
@@ -38,7 +40,7 @@ start, restart or stop anything.
 Enumerate every route from `frontend/src/routes.tsx` — the five sections
 (`/`, `/organizations`, `/contacts`, `/deals`, `/pipeline`), the detail pages
 (`/organizations/:id`, `/contacts/:id`, `/deals/:id`) and the `*` fallback
-that redirects to `/` — plus any screen `docs/spec.md` describes that routes
+that redirects to `/` — plus any screen the spec describes that routes
 misses. For detail pages, navigate from the list page so a real id is used.
 
 ## Per page
@@ -47,7 +49,7 @@ misses. For detail pages, navigate from the list page so a real id is used.
    `.playwright-mcp/<page>.png` (for example `.playwright-mcp/deals.png`;
    use a name that identifies the page and, where relevant, the theme). This
    directory is git-ignored; keep every screenshot in it.
-2. Check the screenshot against the brand skill and `docs/spec.md`: fonts,
+2. Check the screenshot against the brand skill and the spec: fonts,
    colors, surfaces, spacing, tone of the copy (neutral — no assumption that
    the user is the owner or a hired salesperson), topbar and nav, tables and
    records, empty states.
@@ -62,7 +64,7 @@ misses. For detail pages, navigate from the list page so a real id is used.
 
 - Group findings by severity: **Broken** (page fails to load, errors, missing
   functionality) first, then **Off-brand** (violates the brand skill), then
-  **Spec mismatch** (violates docs/spec.md).
+  **Spec mismatch** (violates the spec).
 - Each finding names the page, what's wrong, and the exact rule it breaks —
   quote the brand line or the spec section — plus the screenshot path.
 - End with a one-line-per-page status list and the screenshot paths.

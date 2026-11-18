@@ -149,6 +149,13 @@ The reviewer ran over `6e9d55a` and ui-check over the dashboard and pipeline; th
 
 Proof: `npm run check` green — 295 tests (53 backend, 211 frontend, 31 e2e), frontend coverage 96.02% statements / 96.85% functions / 95.86% lines, backend 98.59%. The four dark-mode PNGs the run rewrites carry the new chip copy and all twelve bar labels; their date-only drift is the sample seed moving with the day, not a visual change.
 
+## Spec split by area (2026-11-18)
+
+- `docs/spec.md` is now a short summary of the whole product — problem, what Accountable is, out of scope and an index — with the detail moved to `docs/specs/`, one file per product area: `dashboard.md`, `organizations.md`, `contacts.md`, `deals.md`, `pipeline.md`, `activities.md`, `tables.md`, `running.md`, `look-and-feel.md` and `design.md`. Every rule, description and decision kept its wording, only its home moved; the seven design decisions went to the area each applies to, keeping their numbers (decision 7 is still decision 7, now in `look-and-feel.md`).
+- `AGENTS.md`: read `docs/spec.md` first, then only the area files the current change touches, and keep the spec files that a change affects up to date in the same change.
+- `docs/REVIEW.md`: both spec passes now cover `docs/spec.md` and the area files.
+- `.opencode/agents/reviewer.md` and `.opencode/agents/ui-check.md` followed the old layout: the reviewer read only `docs/spec.md`, and ui-check was told to read "Five sections", "Look and feel" and "Running it" from it. Both now read the summary and the area files their work needs, and the reviewer's pass names follow `docs/REVIEW.md`.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.

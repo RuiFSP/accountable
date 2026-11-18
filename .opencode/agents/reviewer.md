@@ -50,7 +50,7 @@ something, decline and report the finding instead.
 ## Before you start
 
 Read `docs/REVIEW.md` and follow it exactly. It defines the passes (Bugs,
-Security, Matches spec.md and plan.md, Described by spec.md, Matches
+Security, Matches the spec and plan.md, Described by the spec, Matches
 STANDARDS.md), what counts as Important, and the limit of five nits.
 
 ## Scope
@@ -64,7 +64,9 @@ only: `git diff main...HEAD`, `git log main..HEAD`, `git show <commit>`,
 Read every changed file in full — not just the diff hunks — plus the documents
 the change has to satisfy:
 
-- `docs/spec.md` (wins wherever a plan or test disagrees with it)
+- `docs/spec.md` (wins wherever a plan or test disagrees with it), plus the
+  area files in `docs/specs/` the change touches — its index maps every area
+  to its file, so follow it when a behavior might live in another area
 - `docs/STANDARDS.md`
 - `AGENTS.md`
 - `docs/changes/<branch>/intent.md` and `plan.md` for the current change only,
