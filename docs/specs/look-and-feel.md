@@ -2,7 +2,7 @@
 
 ## Look and feel
 
-The look follows Accountable's brand guidelines, which take priority over any general design guidance. Light mode by default; a toggle in the top bar switches to dark mode on every page, the app remembers the choice, and it never follows the device's own setting. Designed for a laptop or desktop screen. The copy stays neutral: it doesn't assume the user is the business owner or a hired salesperson.
+The look follows Accountable's brand guidelines, which take priority over any general design guidance. Light mode by default; a menu under your initials in the top bar holds the theme — light, dark or system — on every page, the app remembers the choice, and system follows the device's own setting. Designed for a laptop or desktop screen. The copy stays neutral: it doesn't assume the user is the business owner or a hired salesperson.
 
 ## Design
 
@@ -12,5 +12,6 @@ Follow the brand skill: Instrument Sans headings/body, Instrument Serif accent, 
 
 Points this spec fixes:
 
-1. **Fonts are bundled, not fetched.** Brand fonts (Instrument Sans, Instrument Serif, JetBrains Mono) come from Google Fonts, but the app must work offline. The font files are bundled locally so the app needs no connection.
+1. **Fonts are bundled, not fetched.** Brand fonts (Instrument Sans, Instrument Serif, JetBrains Mono) come from Google Fonts, but the font files are bundled locally, so a page load never waits on Google Fonts and the brand comes from the app itself.
 7. **Dark mode meets WCAG AA.** Dark mode text holds 4.5:1 for normal text and 3:1 for large text and UI elements; light mode's contrast is unchanged.
+11. **The theme lives in the user menu.** The top-bar toggle is gone: the menu under your initials offers light, dark or system, the choice is remembered, and system follows the device's own setting.
