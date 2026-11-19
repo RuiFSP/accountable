@@ -212,6 +212,16 @@ Two findings from the build, fixed as they showed up: this machine's clock steps
   - **No record showed attribution in the running app** — the local `backend/accountable.db` predated the change and held old rows. `npm run seed` (against that local file only — `ACCOUNTABLE_DB` wins, so Supabase was never in the target) rebuilt it, and the API now reports e.g. Northwind Traders added by alex@brightloop.example and last changed by priya@brightloop.example, 2 of 6 organizations changed by someone other than the adder.
 - Left for the project owner, as the plan sets out: `npm run check` with `.env` moved aside (the agent may not touch `.env`), the `npm start` walk against Supabase with a wrong password and every kind of save, and the first Render deploy after this merges to `main`.
 
+## Ui-check fixes — pipeline and dashboard (2026-11-19)
+
+The ui-check pass over every signed-in page (report and screenshots in the session, three proof PNGs in `docs/changes/multi-user/`) came back "pass with minor issues"; the three findings, fixed in `frontend/src/styles/brand.css`:
+
+- **Pipeline columns clipped at 1440px (the one real defect).** Six fixed 258px columns plus gaps need 1638px while the content area is 1272px, so Won and Lost were cut off mid-card with no sign the board scrolls — against `docs/specs/look-and-feel.md`'s "designed for a laptop or desktop screen". Columns now share the width (`flex: 1 1 0`, `min-width: 195px`): at 1440 all six fit (6×200 + 5×14 = 1270 ≤ 1272, no overflow). Below that the board scrolls, now with a visible brand-coloured scrollbar (`scrollbar-width: thin` + a styled `::-webkit-scrollbar`), and a card's date wraps to its own line instead of squeezing. `docs/specs/pipeline.md` records it.
+- **Dead space under "Deals won per month".** The chart box was a fixed 220px while the grid row stretched the panel to its neighbours' height; the chart now fills the panel it sits in.
+- **Funnel chip label wrapping.** `.chip` was a flex row with the figure pushed right, so "Won, 12 months" broke mid-label at half panel width; label and figure now stack, as `docs/mockups/dashboard.html` does.
+
+Proof: `npm run check` green after the change (256 frontend, 125 backend, 50 e2e tests), and the run regenerated the four `docs/changes/dark-mode/` PNGs — `pipeline-light/dark.png` now show all six columns. Proof screenshots for these fixes: `docs/changes/multi-user/pipeline-fit-1440.png`, `pipeline-scroll-1100.png`, `dashboard-nits-1440.png`.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.

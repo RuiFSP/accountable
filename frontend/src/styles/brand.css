@@ -813,6 +813,19 @@ textarea:focus-visible {
   gap: 20px;
 }
 
+/* Panels share the row's height; the chart fills its panel instead of
+   leaving the stretched card empty underneath a fixed-height chart. */
+.dashboard-lower .panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-lower .chart-box-short {
+  flex: 1;
+  height: auto;
+  min-height: 220px;
+}
+
 .dashboard h2 {
   margin: 0;
   font-size: 16px;
@@ -877,11 +890,11 @@ textarea:focus-visible {
   margin-top: 18px;
 }
 
+/* The label and its figure stack, as in the mockup, so the label of a
+   long chip such as "Won, 12 months" never wraps mid-label. */
 .chip {
   flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
   padding: 10px 14px;
   border-radius: var(--radius-control);
   background: var(--color-page);
@@ -889,14 +902,16 @@ textarea:focus-visible {
 }
 
 .chip strong {
-  margin-left: auto;
+  display: block;
+  margin-top: 2px;
 }
 
 .chip-dot {
+  display: inline-block;
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  flex: none;
+  margin-right: 6px;
 }
 
 .activity-list,
@@ -1005,17 +1020,36 @@ textarea:focus-visible {
   font-size: 20px;
 }
 
+/* Columns share the width so all six fit a laptop screen (1280px content);
+   below that the board scrolls, and the scrollbar below is the affordance
+   that says so. */
 .pipeline-board {
   display: flex;
-  gap: 18px;
+  gap: 14px;
   align-items: flex-start;
   overflow-x: auto;
   padding-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-muted) var(--color-page);
+}
+
+.pipeline-board::-webkit-scrollbar {
+  height: 10px;
+}
+
+.pipeline-board::-webkit-scrollbar-track {
+  background: var(--color-page);
+  border-radius: 999px;
+}
+
+.pipeline-board::-webkit-scrollbar-thumb {
+  background: var(--color-ink-muted);
+  border-radius: 999px;
 }
 
 .pipeline-column {
-  flex: none;
-  width: 258px;
+  flex: 1 1 0;
+  min-width: 195px;
   padding: 14px;
   border-radius: var(--radius-panel);
   transition: background 120ms ease;
@@ -1091,10 +1125,12 @@ textarea:focus-visible {
   margin-top: 1px;
 }
 
+/* Narrow columns put the date on its own line rather than squeezing it. */
 .deal-card-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
   margin-top: 9px;
   font-size: 13px;
 }
