@@ -2,18 +2,34 @@
 
 from __future__ import annotations
 
+import itertools
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 
 from app import db
+from app.auth import TEAMMATES
 
 STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
 
 CONFIRMATION_PROMPT = (
     "This deletes all data and reloads the sample data. Continue? [y/N] "
 )
+
+
+def _attribution(offset: int) -> dict[str, str]:
+    """Who added a sample row and who last changed it: made-up teammates.
+
+    Every third row shows a different teammate as who last changed it, so
+    both lines on a record's page have a case in the sample data.
+    """
+    added = TEAMMATES[offset % len(TEAMMATES)]["email"]
+    if offset % 3 == 0:
+        changed = TEAMMATES[(offset + 1) % len(TEAMMATES)]["email"]
+    else:
+        changed = added
+    return {"created_by": added, "updated_by": changed}
 
 
 def _days(offset: int) -> date:
@@ -456,6 +472,44 @@ def _activities(contact_ids: dict[str, int], deal_ids: dict[str, int]) -> list[d
             10,
             False,
         ),
+        # Moves the sample boards have been through, so a timeline and the
+        # dashboard's recent activity show a stage change of their own.
+        (
+            "stage_change",
+            "deal",
+            "Delta renewal",
+            "Moved from Qualified to Negotiation",
+            -13,
+            None,
+            True,
+        ),
+        (
+            "stage_change",
+            "deal",
+            "Cobalt records migration",
+            "Moved from Proposal to Negotiation",
+            -10,
+            None,
+            True,
+        ),
+        (
+            "stage_change",
+            "deal",
+            "Northwind e-commerce add-on",
+            "Moved from Qualified to Proposal",
+            -8,
+            None,
+            True,
+        ),
+        (
+            "stage_change",
+            "deal",
+            "Evergreen loyalty program",
+            "Moved from Proposal to Won",
+            -29,
+            None,
+            True,
+        ),
     ]
     activity_rows = []
     for (
@@ -494,19 +548,25 @@ def seed(engine: Engine) -> None:
     """Load the sample data. Existing rows are cleared first, so re-seeding is idempotent."""
     _clear(engine)
     with engine.begin() as conn:
+        offset = itertools.count()
+
+        def insert_sample(table, row: dict) -> int:
+            """One sample row, recorded to a made-up teammate."""
+            return _insert(conn, table, {**row, **_attribution(next(offset))})
+
         org_ids = {
-            row["name"]: _insert(conn, db.organizations, row)
+            row["name"]: insert_sample(db.organizations, row)
             for row in _organizations()
         }
         contact_ids = {
-            row["name"]: _insert(conn, db.contacts, row) for row in _contacts(org_ids)
+            row["name"]: insert_sample(db.contacts, row) for row in _contacts(org_ids)
         }
         deal_ids = {
-            row["name"]: _insert(conn, db.deals, row)
+            row["name"]: insert_sample(db.deals, row)
             for row in _deals(org_ids, contact_ids)
         }
         for row in _activities(contact_ids, deal_ids):
-            _insert(conn, db.activities, row)
+            insert_sample(db.activities, row)
 
 
 def create_tables(engine: Engine) -> None:
@@ -556,10 +616,22 @@ def repair_links(engine: Engine) -> None:
 
 
 def reset(engine: Engine) -> None:
-    """Drop everything and rebuild the sample data."""
-    db.metadata.drop_all(engine)
-    create_tables(engine)
-    seed(engine)
+    """Drop every table, including the version table, and build again.
+
+    The schema comes back through the migrations, so the version table and
+    the schema can't disagree, and prepare() loads the sample data after it.
+    """
+    tables = inspect(engine).get_table_names()
+    with engine.begin() as connection:
+        ordered = [
+            table.name
+            for table in reversed(db.metadata.sorted_tables)
+            if table.name in tables
+        ]
+        ordered += [name for name in tables if name not in ordered]
+        for name in ordered:
+            connection.execute(text(f'DROP TABLE "{name}"'))
+    db.prepare(engine)
 
 
 def confirm(prompt: str = CONFIRMATION_PROMPT) -> bool:

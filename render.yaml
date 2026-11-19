@@ -1,0 +1,33 @@
+# The one web service Accountable runs as on Render (docs/specs/running.md).
+# The three Supabase settings are named here with sync: false: their values
+# are entered in Render's dashboard and never written into this file.
+
+services:
+  - type: web
+    name: accountable
+    runtime: python
+    plan: free
+    # The Supabase project is in eu-west-1 (Ireland); London is Render's
+    # nearest region to it.
+    region: london
+    buildCommand: >-
+      uv sync && npm ci && cd frontend && node ../node_modules/vite/bin/vite.js build
+    # The way Render runs it: one worker, on Render's port, with the built
+    # frontend served by the backend itself.
+    startCommand: >-
+      uv run --directory backend uvicorn app.main:app
+      --host 0.0.0.0 --port $PORT --workers 1
+    # / serves the built page; /api answers 401 without a token.
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      # Dates are computed on the server, which otherwise runs UTC.
+      - key: TZ
+        value: Europe/Lisbon
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false

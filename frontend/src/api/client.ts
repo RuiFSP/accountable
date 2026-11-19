@@ -1,5 +1,7 @@
 /** Typed fetch wrapper for the Accountable JSON API. */
 
+import { currentToken, endSession } from "../lib/session";
+
 export type Stage =
   "New" | "Qualified" | "Proposal" | "Negotiation" | "Won" | "Lost";
 
@@ -10,7 +12,16 @@ export type ActivityType = "note" | "call" | "email" | "stage_change";
 /** What a person can log through the activity form. */
 export type ActivityCreateType = "note" | "call" | "email";
 
-export interface Organization {
+/**
+ * Who added a record and who last changed it: an email, or nothing for a
+ * record written before this was recorded.
+ */
+export interface Attribution {
+  created_by?: string | null;
+  updated_by?: string | null;
+}
+
+export interface Organization extends Attribution {
   id: number;
   name: string;
   website: string | null;
@@ -18,7 +29,7 @@ export interface Organization {
   notes: string | null;
 }
 
-export interface Contact {
+export interface Contact extends Attribution {
   id: number;
   name: string;
   email: string | null;
@@ -28,7 +39,7 @@ export interface Contact {
   status: ContactStatus;
 }
 
-export interface Deal {
+export interface Deal extends Attribution {
   id: number;
   name: string;
   organization_id: number;
@@ -41,7 +52,7 @@ export interface Deal {
   position: number;
 }
 
-export interface Activity {
+export interface Activity extends Attribution {
   id: number;
   type: ActivityType;
   contact_id: number | null;
@@ -98,6 +109,16 @@ export interface CascadeResult {
   counts?: Record<string, number>;
 }
 
+/** What a search can match: the three kinds of record, as the API names them. */
+export type SearchKind = "organization" | "contact" | "deal";
+
+/** One match from the top-bar search: its kind, id and name. */
+export interface SearchResult {
+  kind: SearchKind;
+  id: number;
+  name: string;
+}
+
 export interface WonMonth {
   month: string;
   revenue_cents: number;
@@ -150,13 +171,20 @@ export interface StageMoveResult {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = currentToken();
   const response = await fetch(path, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      // Only ever with a token: a signed-out request is today's request.
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+  if (response.status === 401) {
+    // The backend refused who we thought we were; the screen comes back.
+    endSession();
+  }
   if (!response.ok) {
     let detail = "";
     try {
@@ -213,6 +241,10 @@ export const api = {
   },
   dashboard: {
     get: () => request<DashboardPayload>("/api/dashboard"),
+  },
+  search: {
+    find: (q: string) =>
+      request<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}`),
   },
   activities: {
     list: () => request<Activity[]>("/api/activities"),

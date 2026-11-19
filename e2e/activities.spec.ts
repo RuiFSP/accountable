@@ -1,9 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { isoDaysFromNow, resetSampleData } from "./helpers";
+import { isoDaysFromNow, resetSampleData, signIn, test } from "./helpers";
 
 test.beforeAll(() => {
   resetSampleData();
+});
+
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
 });
 
 test("a logged activity with a follow-up appears on the timeline, newest first", async ({
@@ -26,6 +30,8 @@ test("a logged activity with a follow-up appears on the timeline, newest first",
   const items = page.locator(".timeline-item");
   await expect(items.first()).toContainText("E2E follow-up call");
   await expect(items.first()).toContainText("Follow-up:");
+  // The entry says who logged it.
+  await expect(items.first()).toContainText("alex@brightloop.example");
   // The sample activity is older, so it sits below the new one.
   await expect(items.nth(1)).toContainText(
     "Sent the revised scope and pricing for review.",
@@ -64,6 +70,8 @@ test("a stage move adds its own read-only entry to the deal's timeline", async (
   await expect(entry).toBeVisible();
   await expect(entry.locator(".type-tag")).toHaveText("Stage change");
   await expect(entry.locator(".timeline-actions")).toHaveCount(0); // read-only
+  // The move went down to whoever dragged the card.
+  await expect(entry).toContainText("alex@brightloop.example");
 
   // The same entry shows up in the dashboard's recent activity.
   await page.goto("/");

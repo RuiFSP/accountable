@@ -1,8 +1,7 @@
 from datetime import date, datetime
 
 import pytest
-from app import db, seed
-from fastapi.testclient import TestClient
+from app import auth, db, seed
 from sqlalchemy import create_engine, func, inspect, select
 
 
@@ -42,6 +41,8 @@ def test_schema_fields_match_the_data_model(engine):
         "website",
         "industry",
         "notes",
+        "created_by",
+        "updated_by",
     ]
     assert [column["name"] for column in columns("contacts")] == [
         "id",
@@ -51,6 +52,8 @@ def test_schema_fields_match_the_data_model(engine):
         "job_title",
         "organization_id",
         "status",
+        "created_by",
+        "updated_by",
     ]
     assert [column["name"] for column in columns("deals")] == [
         "id",
@@ -62,6 +65,8 @@ def test_schema_fields_match_the_data_model(engine):
         "probability",
         "close_date",
         "position",
+        "created_by",
+        "updated_by",
     ]
     assert [column["name"] for column in columns("activities")] == [
         "id",
@@ -72,6 +77,8 @@ def test_schema_fields_match_the_data_model(engine):
         "happened_at",
         "follow_up_date",
         "done",
+        "created_by",
+        "updated_by",
     ]
 
 
@@ -138,6 +145,63 @@ def test_activities_link_to_exactly_one_record(engine):
     )
 
 
+def _attribution(engine) -> list[tuple]:
+    """The two emails every sample row carries: who added it, who changed it."""
+    with engine.connect() as connection:
+        rows = []
+        for table in (db.organizations, db.contacts, db.deals, db.activities):
+            rows += connection.execute(
+                select(table.c.created_by, table.c.updated_by)
+            ).all()
+    return rows
+
+
+def test_the_sample_comes_with_four_teammates_one_without_a_name(engine):
+    seed.ensure_seeded(engine)
+
+    assert len(auth.TEAMMATES) == 4
+    assert [teammate["name"] for teammate in auth.TEAMMATES].count("") == 1
+    # Every teammate is in the data, so the one with no name has records
+    # whose line has only the email to fall back to.
+    assert {teammate["email"] for teammate in auth.TEAMMATES} <= {
+        email for row in _attribution(engine) for email in row
+    }
+
+
+def test_every_sample_record_is_attributed_to_a_teammate(engine):
+    seed.ensure_seeded(engine)
+    teammate_emails = {teammate["email"] for teammate in auth.TEAMMATES}
+
+    rows = _attribution(engine)
+
+    assert rows
+    assert all(created and updated for created, updated in rows)
+    assert {email for row in rows for email in row} <= teammate_emails
+
+
+def test_some_sample_records_were_last_changed_by_another_teammate(engine):
+    seed.ensure_seeded(engine)
+
+    rows = _attribution(engine)
+
+    assert any(created != updated for created, updated in rows)
+
+
+def test_sample_stage_changes_go_down_to_a_teammate(engine):
+    seed.ensure_seeded(engine)
+    teammate_emails = {teammate["email"] for teammate in auth.TEAMMATES}
+
+    with engine.connect() as connection:
+        moves = connection.execute(
+            select(db.activities.c.created_by, db.activities.c.updated_by).where(
+                db.activities.c.type == "stage_change"
+            )
+        ).all()
+
+    assert moves
+    assert all(email in teammate_emails for move in moves for email in move)
+
+
 def test_reseeding_is_idempotent(engine):
     seed.ensure_seeded(engine)
     before = _counts(engine)
@@ -188,10 +252,10 @@ def test_startup_repairs_links_that_point_at_missing_records(engine):
     assert all(count > 0 for count in _counts(engine).values())
 
 
-def test_api_serves_the_seeded_records():
+def test_api_serves_the_seeded_records(client_for, sign_in_as):
     from app.main import app
 
-    with TestClient(app) as client:
+    with client_for(app, sign_in_as()) as client:
         organizations = client.get("/api/organizations").json()
         contacts = client.get("/api/contacts").json()
         deals = client.get("/api/deals").json()

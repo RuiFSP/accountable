@@ -377,3 +377,47 @@ describe("Deal detail page", () => {
     expect(within(itemFor("No due date")).queryByText(/Follow-up/)).toBeNull();
   });
 });
+
+describe("who added and who changed it", () => {
+  it("shows both lines with an email", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([
+      {
+        ...deal,
+        created_by: "alex@brightloop.example",
+        updated_by: "priya@brightloop.example",
+      },
+    ]);
+
+    renderDeal();
+
+    expect(
+      await screen.findByRole("heading", { name: "Store rollout" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Added by")).toBeTruthy();
+    expect(screen.getByText("alex@brightloop.example")).toBeTruthy();
+    expect(screen.getByText("Last changed by")).toBeTruthy();
+    expect(screen.getByText("priya@brightloop.example")).toBeTruthy();
+  });
+
+  it("leaves a line out when there is nobody for it", async () => {
+    renderDeal();
+
+    expect(
+      await screen.findByRole("heading", { name: "Store rollout" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Added by")).toBeNull();
+    expect(screen.queryByText("Last changed by")).toBeNull();
+
+    cleanup();
+    vi.mocked(api.deals.list).mockResolvedValue([
+      { ...deal, created_by: "alex@brightloop.example" },
+    ]);
+    renderDeal();
+
+    expect(
+      await screen.findByRole("heading", { name: "Store rollout" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Added by")).toBeTruthy();
+    expect(screen.queryByText("Last changed by")).toBeNull();
+  });
+});

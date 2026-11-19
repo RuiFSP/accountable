@@ -29,7 +29,9 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev",
-    url: "http://127.0.0.1:8000/api/organizations",
+    // The API refuses without a token now; the local sign-in route is what
+    // says the backend is up (docs/changes/multi-user/plan.md, Part I).
+    url: "http://127.0.0.1:8000/api/local/teammates",
     reuseExistingServer: false,
     timeout: 60_000,
     env: { ACCOUNTABLE_DB: testDatabase },

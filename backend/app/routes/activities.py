@@ -1,11 +1,11 @@
 from datetime import date, datetime
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app import db
+from app import auth, db
 from app.routes.common import require_exists
 
 router = APIRouter(prefix="/api/activities", tags=["activities"])
@@ -67,18 +67,24 @@ def list_activities(
 
 
 @router.post("", status_code=201)
-def create_activity(payload: ActivityIn) -> dict:
+def create_activity(
+    payload: ActivityIn, user: str = Depends(auth.current_user)
+) -> dict:
     with db.get_engine().begin() as connection:
         _validate_links(connection, payload)
         result = connection.execute(
-            db.activities.insert().values(**payload.model_dump())
+            db.activities.insert().values(
+                **payload.model_dump(), created_by=user, updated_by=user
+            )
         )
         activity_id = db.inserted_id(result)
         return _read(connection, activity_id)
 
 
 @router.put("/{activity_id}")
-def update_activity(activity_id: int, payload: ActivityIn) -> dict:
+def update_activity(
+    activity_id: int, payload: ActivityIn, user: str = Depends(auth.current_user)
+) -> dict:
     with db.get_engine().begin() as connection:
         existing = _read(connection, activity_id)
         if existing["type"] == "stage_change":
@@ -86,10 +92,14 @@ def update_activity(activity_id: int, payload: ActivityIn) -> dict:
                 status_code=400, detail="Stage-change entries are read-only."
             )
         _validate_links(connection, payload)
+        values = payload.model_dump()
+        # Saving the same values back changes nothing, so nobody did.
+        if any(existing[name] != value for name, value in values.items()):
+            values["updated_by"] = user
         connection.execute(
             db.activities.update()
             .where(db.activities.c.id == activity_id)
-            .values(**payload.model_dump())
+            .values(**values)
         )
         return _read(connection, activity_id)
 

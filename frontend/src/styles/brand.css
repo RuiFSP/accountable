@@ -213,13 +213,6 @@ a {
   gap: 10px;
 }
 
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 7px 9px;
-}
-
 .app-main {
   max-width: 1280px;
   width: 100%;
@@ -1146,4 +1139,237 @@ textarea:focus-visible {
   .dashboard-lower {
     grid-template-columns: 1fr;
   }
+}
+
+/* Sign-in: the gate's own screen, before any of the app shows. */
+
+.signin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.signin-panel {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+  background: var(--color-panel);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.signin-title {
+  margin: 0 0 4px;
+  font-size: 26px;
+}
+
+.signin-message {
+  margin: 0 0 18px;
+  color: var(--color-ink-muted);
+}
+
+.signin-error {
+  margin: 0 0 14px;
+  color: var(--color-raspberry);
+}
+
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signin-form label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.signin-form input {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.signin-form .btn {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.signin-teammates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signin-teammate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--color-page);
+  box-shadow: var(--shadow-soft);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.signin-teammate:hover {
+  background: var(--tint-sea-green);
+}
+
+.signin-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-sea-green);
+  color: var(--color-on-primary);
+  font-weight: 700;
+}
+
+.signin-teammate-name {
+  font-weight: 600;
+}
+
+.signin-teammate-email {
+  margin-left: auto;
+  color: var(--color-ink-muted);
+  font-size: 13px;
+}
+
+/* Top-bar search: the box, and the results panel it drops. */
+
+.search-box {
+  position: relative;
+  flex: 1;
+  max-width: 320px;
+}
+
+.search-box input {
+  width: 100%;
+}
+
+.search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 8px;
+  background: var(--color-panel);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-modal);
+}
+
+.search-group + .search-group {
+  margin-top: 8px;
+}
+
+.search-group-label {
+  display: block;
+  padding: 2px 8px 4px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.search-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-group button {
+  display: block;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search-group button:hover {
+  background: var(--tint-sea-green);
+}
+
+/* User menu: the button under your initials, and the panel it opens. */
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--color-sea-green);
+  color: var(--color-on-primary);
+  font-weight: 700;
+}
+
+.user-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 230px;
+  padding: 14px;
+  background: var(--color-panel);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-modal);
+}
+
+.user-menu-email {
+  margin: 0 0 10px;
+  color: var(--color-ink-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.user-menu-choices {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.theme-choice {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--color-page);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.theme-choice[aria-pressed="true"] {
+  background: var(--tint-sea-green);
+  font-weight: 700;
+}
+
+.user-menu-sign-out {
+  color: var(--color-raspberry);
 }

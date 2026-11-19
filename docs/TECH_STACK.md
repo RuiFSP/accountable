@@ -7,7 +7,7 @@ The frontend gets its data from the backend's JSON API. The backend keeps the da
 
 Prefer popular, well-supported libraries to custom code, such as for the data tables, the charts and the drag-and-drop pipeline. Don't hand-roll what a mature library does well.
 
-Supabase provides sign-in and the database, and the app deploys to Render as one web service (see `docs/specs/running.md`). It still runs locally with the same command; the local app reaches Supabase over the internet.
+Supabase provides sign-in and the database, and the app deploys to Render as one web service (see `docs/specs/running.md`). `npm start` runs the same app on this computer the way Render does, reaching Supabase over the internet; `npm run dev` is the local copy and never touches Supabase.
 
 Commands are npm scripts in a `package.json` at the repo root, with `frontend/` as an npm workspace, so they work the same on Mac, Linux and Windows:
 

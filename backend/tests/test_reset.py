@@ -1,6 +1,6 @@
 import pytest
 from app import db, seed
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, inspect, select, text
 
 
 @pytest.fixture()
@@ -55,3 +55,16 @@ def test_reset_restores_the_sample_data_after_confirmation(engine, monkeypatch):
     seed.main()
 
     assert _counts(engine) == _sample_counts()
+
+
+def test_reset_leaves_the_version_table_and_the_schema_agreeing(engine):
+    seed.reset(engine)
+
+    with engine.connect() as connection:
+        version = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+    assert version == "0002"
+    for table in db.metadata.sorted_tables:
+        names = [column["name"] for column in inspect(engine).get_columns(table.name)]
+        assert names == [column.name for column in table.columns]

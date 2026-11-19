@@ -25,6 +25,19 @@ interface TimelineProps {
   recordId: number;
 }
 
+/** Who the entry is credited to: who added it, then who changed it if that
+ * isn't the same person. */
+function attributedTo(activity: Activity): string {
+  const parts: string[] = [];
+  if (activity.created_by) {
+    parts.push(activity.created_by);
+  }
+  if (activity.updated_by && activity.updated_by !== activity.created_by) {
+    parts.push(activity.updated_by);
+  }
+  return parts.join(" → ");
+}
+
 export default function Timeline({
   activities,
   recordType,
@@ -105,6 +118,9 @@ export default function Timeline({
                   </span>
                   <span className="timeline-time num">
                     {formatDateTime(activity.happened_at)}
+                    {attributedTo(activity)
+                      ? ` · ${attributedTo(activity)}`
+                      : ""}
                   </span>
                 </div>
                 <div className="timeline-meta">

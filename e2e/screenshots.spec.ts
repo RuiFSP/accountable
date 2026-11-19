@@ -1,11 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
-import { resetSampleData } from "./helpers";
+import { chooseTheme, resetSampleData, signIn, test } from "./helpers";
 
 // docs/changes/dark-mode/intent.md, criterion 3: the dashboard and the
 // pipeline captured in both modes into docs/changes/dark-mode/. Fixed
 // laptop viewport, sample data reset, fonts and charts settled first, so
-// the four PNGs change only when the visuals do.
+// the four PNGs change only when the visuals do. The mode is switched
+// through the user menu, which is where the theme lives now.
 
 const OUT = "docs/changes/dark-mode";
 
@@ -15,9 +16,9 @@ test.beforeAll(() => {
   resetSampleData();
 });
 
-function toggle(page: Page) {
-  return page.getByRole("switch", { name: "Dark mode" });
-}
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
+});
 
 /** Fonts loaded and the dashboard's chart animations finished. */
 async function settleDashboard(page: Page): Promise<void> {
@@ -39,7 +40,7 @@ test("dashboard and pipeline in both modes", async ({ page }) => {
     fullPage: true,
   });
 
-  await toggle(page).click();
+  await chooseTheme(page, "Dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({ path: `${OUT}/dashboard-dark.png`, fullPage: true });
 
@@ -51,7 +52,7 @@ test("dashboard and pipeline in both modes", async ({ page }) => {
     fullPage: true,
   });
 
-  await toggle(page).click();
+  await chooseTheme(page, "Light");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.screenshot({
     path: `${OUT}/pipeline-light.png`,

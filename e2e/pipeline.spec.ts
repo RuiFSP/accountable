@@ -1,9 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { resetSampleData } from "./helpers";
+import { resetSampleData, signIn, test } from "./helpers";
 
 test.beforeAll(() => {
   resetSampleData();
+});
+
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
 });
 
 function stageMoveResponse(page: import("@playwright/test").Page) {

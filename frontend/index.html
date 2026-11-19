@@ -6,21 +6,30 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Accountable</title>
     <!--
-      Apply the stored theme before first paint, so a dark reload never
-      flashes light. The key and value mirror src/lib/theme.ts, which
-      theme.test.ts keeps in step.
+      Apply the stored theme before first paint, so a System reload never
+      flashes the wrong mode. The key, the values and the resolution mirror
+      src/lib/theme.ts, which theme.test.ts keeps in step by running this.
     -->
     <script>
       (function () {
-        var theme = "light";
+        var choice = "light";
         try {
-          if (localStorage.getItem("theme") === "dark") {
-            theme = "dark";
+          var stored = localStorage.getItem("theme");
+          if (stored === "light" || stored === "dark" || stored === "system") {
+            choice = stored;
           }
         } catch (error) {
-          theme = "light";
+          choice = "light";
         }
-        document.documentElement.setAttribute("data-theme", theme);
+        var mode = choice;
+        if (choice === "system") {
+          mode =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        }
+        document.documentElement.setAttribute("data-theme", mode);
       })();
     </script>
   </head>

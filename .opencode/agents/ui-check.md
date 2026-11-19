@@ -35,6 +35,12 @@ You have no shell, so if pages don't load, report that the app appears to be
 down (navigating failed, connection refused, etc.) and stop — never try to
 start, restart or stop anything.
 
+The app is signed out at first. Check the sign-in screen first — the four
+made-up teammates with their initials and emails — then choose one (click it;
+there is no password) to reach the pages. Sign-in is in
+`docs/specs/sign-in.md`; the teammate list comes from the API, so a missing
+list or a screen that never lets you in is a finding.
+
 ## Pages
 
 Enumerate every route from `frontend/src/routes.tsx` — the five sections
@@ -55,10 +61,13 @@ misses. For detail pages, navigate from the list page so a real id is used.
    records, empty states.
 3. Check it isn't broken: console errors, failed requests, missing or clipped
    content, overlapping elements, controls that do nothing obvious.
-4. The spec requires light mode by default and a topbar toggle to dark mode on
-   every page. Capture dark mode too (toggle, screenshot), and check the dark
-   surfaces against the brand skill. If the toggle is missing or doesn't
-   persist across a reload, that's a finding.
+4. The spec requires light mode by default and the theme under your initials —
+   a menu with Light, Dark and System, and signing out. Capture dark mode too
+   (open the menu by the initials button, choose Dark, screenshot), and check
+   the dark surfaces against the brand skill; System should follow the
+   device's setting. There is no dark-mode toggle in the top bar any more — a
+   switch there is a finding, and so is a menu whose choice doesn't apply at
+   once or doesn't survive a reload.
 
 ## Report
 

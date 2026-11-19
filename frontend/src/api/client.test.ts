@@ -1,10 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  SESSION_ENDED,
+  SESSION_STORAGE_KEY,
+  currentToken,
+  getSessionState,
+  signInLocal,
+  signOut,
+} from "../lib/session";
 import { api, type ContactInput } from "./client";
 
 afterEach(() => {
+  signOut();
   vi.unstubAllGlobals();
 });
+
+async function signInForTests(): Promise<void> {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        token: "local-token",
+        email: "alex@brightloop.example",
+      }),
+    }),
+  );
+  await signInLocal("alex");
+}
 
 describe("api client", () => {
   it("fetches organizations as typed records", async () => {
@@ -96,5 +119,54 @@ describe("api client", () => {
     await expect(api.deals.list()).rejects.toThrow(
       "/api/deals failed with status 500",
     );
+  });
+
+  it("carries the token only while there is one", async () => {
+    await signInForTests();
+    const withToken = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal("fetch", withToken);
+
+    await api.organizations.list();
+
+    expect(withToken).toHaveBeenCalledWith("/api/organizations", {
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer local-token",
+      },
+    });
+
+    signOut();
+    const withoutToken = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal("fetch", withoutToken);
+
+    await api.organizations.list();
+
+    expect(withoutToken).toHaveBeenCalledWith("/api/organizations", {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("ends the session when the API refuses with a 401", async () => {
+    await signInForTests();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ detail: "Sign in to use Accountable." }),
+      }),
+    );
+
+    await expect(api.organizations.list()).rejects.toThrow(
+      "Sign in to use Accountable.",
+    );
+
+    expect(currentToken()).toBeNull();
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    expect(getSessionState().message).toBe(SESSION_ENDED);
   });
 });

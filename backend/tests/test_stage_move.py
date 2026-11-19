@@ -1,7 +1,5 @@
 import pytest
 from app import db
-from app.main import app
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 
 
@@ -11,13 +9,6 @@ def engine(tmp_path):
     db.metadata.create_all(test_engine)
     yield test_engine
     test_engine.dispose()
-
-
-@pytest.fixture()
-def client(engine, monkeypatch):
-    monkeypatch.setattr(db, "get_engine", lambda: engine)
-    # No context manager on purpose: the lifespan would seed sample data.
-    return TestClient(app)
 
 
 def _setup(client) -> dict:

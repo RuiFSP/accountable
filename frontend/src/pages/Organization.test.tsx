@@ -232,3 +232,47 @@ describe("Organization detail page", () => {
     expect(screen.getByText("Nothing logged yet.")).toBeTruthy();
   });
 });
+
+describe("who added and who changed it", () => {
+  it("shows both lines with an email", async () => {
+    vi.mocked(api.organizations.list).mockResolvedValue([
+      {
+        ...organizations[0],
+        created_by: "alex@brightloop.example",
+        updated_by: "priya@brightloop.example",
+      },
+    ]);
+
+    renderOrganization("/organizations/7");
+
+    expect(
+      await screen.findByRole("heading", { name: "Northwind Traders" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Added by")).toBeTruthy();
+    expect(screen.getByText("alex@brightloop.example")).toBeTruthy();
+    expect(screen.getByText("Last changed by")).toBeTruthy();
+    expect(screen.getByText("priya@brightloop.example")).toBeTruthy();
+  });
+
+  it("leaves a line out when there is nobody for it", async () => {
+    renderOrganization("/organizations/7");
+
+    expect(
+      await screen.findByRole("heading", { name: "Northwind Traders" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Added by")).toBeNull();
+    expect(screen.queryByText("Last changed by")).toBeNull();
+
+    cleanup();
+    vi.mocked(api.organizations.list).mockResolvedValue([
+      { ...organizations[0], created_by: "alex@brightloop.example" },
+    ]);
+    renderOrganization("/organizations/7");
+
+    expect(
+      await screen.findByRole("heading", { name: "Northwind Traders" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Added by")).toBeTruthy();
+    expect(screen.queryByText("Last changed by")).toBeNull();
+  });
+});

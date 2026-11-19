@@ -64,6 +64,18 @@ export default function Organization() {
           <dd>{organization.industry ?? "—"}</dd>
           <dt>Notes</dt>
           <dd>{organization.notes ?? "—"}</dd>
+          {organization.created_by ? (
+            <>
+              <dt>Added by</dt>
+              <dd>{organization.created_by}</dd>
+            </>
+          ) : null}
+          {organization.updated_by ? (
+            <>
+              <dt>Last changed by</dt>
+              <dd>{organization.updated_by}</dd>
+            </>
+          ) : null}
         </dl>
       </section>
 

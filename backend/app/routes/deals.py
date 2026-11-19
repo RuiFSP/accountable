@@ -1,11 +1,11 @@
 from datetime import date, datetime
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app import db, stats
+from app import auth, db, stats
 from app.routes.common import require_exists
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
@@ -93,7 +93,7 @@ def list_deals(
 
 
 @router.post("", status_code=201)
-def create_deal(payload: DealIn) -> dict:
+def create_deal(payload: DealIn, user: str = Depends(auth.current_user)) -> dict:
     with db.get_engine().begin() as connection:
         values = payload.model_dump()
         require_exists(
@@ -108,13 +108,16 @@ def create_deal(payload: DealIn) -> dict:
                 )
             ).scalar_one()
             values["position"] = highest + 1
+        values |= {"created_by": user, "updated_by": user}
         result = connection.execute(db.deals.insert().values(**values))
         deal_id = db.inserted_id(result)
         return _read(connection, deal_id)
 
 
 @router.put("/{deal_id}")
-def update_deal(deal_id: int, payload: DealIn) -> dict:
+def update_deal(
+    deal_id: int, payload: DealIn, user: str = Depends(auth.current_user)
+) -> dict:
     with db.get_engine().begin() as connection:
         existing = _read(connection, deal_id)
         values = payload.model_dump()
@@ -135,6 +138,10 @@ def update_deal(deal_id: int, payload: DealIn) -> dict:
         elif values["position"] is None:
             values["position"] = existing["position"]
 
+        # Saving the same deal back changes nothing, so nobody did.
+        if any(existing[name] != value for name, value in values.items()):
+            values["updated_by"] = user
+
         connection.execute(
             db.deals.update().where(db.deals.c.id == deal_id).values(**values)
         )
@@ -144,13 +151,17 @@ def update_deal(deal_id: int, payload: DealIn) -> dict:
             _apply_positions(connection, target)
             source = _column_ids(connection, existing["stage"], exclude_id=deal_id)
             _apply_positions(connection, source)
-            _write_stage_entry(connection, deal_id, existing["stage"], values["stage"])
+            _write_stage_entry(
+                connection, deal_id, existing["stage"], values["stage"], user
+            )
 
         return _read(connection, deal_id)
 
 
 @router.post("/{deal_id}/stage")
-def move_deal_stage(deal_id: int, payload: StageMoveIn) -> dict:
+def move_deal_stage(
+    deal_id: int, payload: StageMoveIn, user: str = Depends(auth.current_user)
+) -> dict:
     """Move a card between or within columns: stage, probability, position.
 
     A stage change resets the probability to the new stage's default and writes
@@ -164,18 +175,22 @@ def move_deal_stage(deal_id: int, payload: StageMoveIn) -> dict:
         values = {"stage": payload.stage}
         if changed:
             values["probability"] = db.STAGE_PROBABILITIES[payload.stage]
+        target = _column_ids(connection, payload.stage, exclude_id=deal_id)
+        position = min(payload.position, len(target))
+        # The card that moved changed; the cards renumbered around it did not.
+        if changed or position != deal["position"]:
+            values["updated_by"] = user
         connection.execute(
             db.deals.update().where(db.deals.c.id == deal_id).values(**values)
         )
 
-        target = _column_ids(connection, payload.stage, exclude_id=deal_id)
-        target.insert(min(payload.position, len(target)), deal_id)
+        target.insert(position, deal_id)
         _apply_positions(connection, target)
 
         if changed:
             source = _column_ids(connection, deal["stage"], exclude_id=deal_id)
             _apply_positions(connection, source)
-            _write_stage_entry(connection, deal_id, deal["stage"], payload.stage)
+            _write_stage_entry(connection, deal_id, deal["stage"], payload.stage, user)
 
         return {
             "deal": _read(connection, deal_id),
@@ -208,7 +223,7 @@ def delete_deal(deal_id: int) -> dict:
 
 
 def _write_stage_entry(
-    connection, deal_id: int, from_stage: str, to_stage: str
+    connection, deal_id: int, from_stage: str, to_stage: str, user: str
 ) -> None:
     """The system timeline entry every stage change leaves behind."""
     connection.execute(
@@ -220,6 +235,8 @@ def _write_stage_entry(
             happened_at=datetime.now(),
             follow_up_date=None,
             done=True,
+            created_by=user,
+            updated_by=user,
         )
     )
 

@@ -86,7 +86,7 @@ These are the only surfaces between parts. Each part tests its side against them
 | File | Change |
 |---|---|
 | `frontend/src/pages/Organization.tsx`, `Contact.tsx`, `Deal.tsx` | "Added by" and "Last changed by" lines in the detail grid, each omitted when there's no email for it |
-| `frontend/src/components/Timeline.tsx` | Each entry shows who added it, beside when |
+| `frontend/src/components/Timeline.tsx` | Each entry shows who added it and who changed it, beside when |
 | Their `*.test.tsx` files | The lines with and without a name |
 
 ### Part G — shell: gate, search box, user menu, theme (frontend)

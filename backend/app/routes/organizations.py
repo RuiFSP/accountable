@@ -1,10 +1,10 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
-from app import db
+from app import auth, db
 
 router = APIRouter(prefix="/api/organizations", tags=["organizations"])
 
@@ -57,23 +57,35 @@ def list_organizations(
 
 
 @router.post("", status_code=201)
-def create_organization(payload: OrganizationIn) -> dict:
+def create_organization(
+    payload: OrganizationIn, user: str = Depends(auth.current_user)
+) -> dict:
     with db.get_engine().begin() as connection:
         result = connection.execute(
-            db.organizations.insert().values(**payload.model_dump())
+            db.organizations.insert().values(
+                **payload.model_dump(), created_by=user, updated_by=user
+            )
         )
         organization_id = db.inserted_id(result)
         return _read(connection, organization_id)
 
 
 @router.put("/{organization_id}")
-def update_organization(organization_id: int, payload: OrganizationIn) -> dict:
+def update_organization(
+    organization_id: int,
+    payload: OrganizationIn,
+    user: str = Depends(auth.current_user),
+) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, organization_id)
+        existing = _read(connection, organization_id)
+        values = payload.model_dump()
+        # Saving the same values back changes nothing, so nobody did.
+        if any(existing[name] != value for name, value in values.items()):
+            values["updated_by"] = user
         connection.execute(
             db.organizations.update()
             .where(db.organizations.c.id == organization_id)
-            .values(**payload.model_dump())
+            .values(**values)
         )
         return _read(connection, organization_id)
 

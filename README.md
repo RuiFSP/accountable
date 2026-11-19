@@ -4,8 +4,9 @@
 
 My fork of [ed-donner/accountable](https://github.com/ed-donner/accountable), where I'm building Accountable on top of the course: a sales CRM that grows into a full Business OS. Everything below this section is Ed's course guide, kept as it was.
 
-- **Run:** `npm run dev` — opens the dashboard at [http://localhost:5173](http://localhost:5173)
-- **Test:** `npm test` (pytest, Vitest and Playwright together)
+- **Run:** `npm run dev` — opens the dashboard at [http://localhost:5173](http://localhost:5173), the local copy on sample data with a made-up teammate to sign in as, never touching Supabase
+- **Run the shared copy:** `npm start` — with `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env`, builds the frontend and serves it the way Render does at [http://localhost:8000](http://localhost:8000)
+- **Test:** `npm test` (pytest, Vitest, Playwright and the script tests together)
 - **Sample data:** `npm run seed`
 - **Stack:** FastAPI + SQLite backend (`backend/`), React + Vite frontend (`frontend/`) — see [docs/TECH_STACK.md](docs/TECH_STACK.md)
 - **Status and progress:** [docs/STATUS.md](docs/STATUS.md) · **What we're building:** [docs/spec.md](docs/spec.md)

@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { resetSampleData, watchConsole } from "./helpers";
+import { resetSampleData, watchConsole, signIn, test } from "./helpers";
 
 const sections = [
   { path: "/", label: "Dashboard" },
@@ -12,6 +12,10 @@ const sections = [
 
 test.beforeAll(() => {
   resetSampleData();
+});
+
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
 });
 
 test("the app starts on the dashboard with no console errors", async ({

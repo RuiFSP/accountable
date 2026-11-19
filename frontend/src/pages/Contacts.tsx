@@ -25,7 +25,7 @@ export default function Contacts() {
     queryKey: ["contacts"],
     queryFn: api.contacts.list,
   });
-  const { data: organizations = [] } = useQuery({
+  const organizationsQuery = useQuery({
     queryKey: ["organizations"],
     queryFn: api.organizations.list,
   });
@@ -35,6 +35,11 @@ export default function Contacts() {
   });
 
   const contacts = contactsQuery.data ?? [];
+  const organizations = organizationsQuery.data ?? [];
+  // The Organization cells read from the organizations list, and TanStack
+  // caches a cell's value on its row's first render — a row built while the
+  // list was still loading would keep "—" for good, so the table waits.
+  const tableLoading = contactsQuery.isLoading || organizationsQuery.isLoading;
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState<Contact | null>(null);
@@ -117,7 +122,7 @@ export default function Contacts() {
           <p className="form-error" role="alert">
             Could not load contacts.
           </p>
-        ) : contactsQuery.isLoading ? (
+        ) : tableLoading ? (
           <p className="muted">Loading…</p>
         ) : (
           <DataTable

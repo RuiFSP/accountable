@@ -208,6 +208,24 @@ describe("Deals page", () => {
     expect(within(rowFor("Fleet pilot")).getByText("$2,500")).toBeTruthy();
   });
 
+  it("does not freeze a lookup cell at a dash", async () => {
+    // The deals list lands before the contact list it reads cells from, and
+    // TanStack keeps each row's first value: a row built while the contact
+    // list was still loading would keep "—" for good.
+    vi.mocked(api.contacts.list).mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(contacts), 50)),
+    );
+
+    renderDeals();
+
+    const cell = await screen.findByText("Wholesale rollout");
+    const row = cell.closest("tr");
+    if (!row) {
+      throw new Error("No table row found for Wholesale rollout");
+    }
+    expect(within(row).getByText("Ana Silva")).toBeTruthy();
+  });
+
   it("shows a loading message while the list is pending", () => {
     vi.mocked(api.deals.list).mockImplementation(() => new Promise(() => {}));
     renderDeals();

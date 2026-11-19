@@ -82,6 +82,18 @@ export default function Deal() {
               "—"
             )}
           </dd>
+          {deal.created_by ? (
+            <>
+              <dt>Added by</dt>
+              <dd>{deal.created_by}</dd>
+            </>
+          ) : null}
+          {deal.updated_by ? (
+            <>
+              <dt>Last changed by</dt>
+              <dd>{deal.updated_by}</dd>
+            </>
+          ) : null}
         </dl>
       </section>
 

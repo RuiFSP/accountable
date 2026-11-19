@@ -1,9 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { isoDaysFromNow, resetSampleData } from "./helpers";
+import { isoDaysFromNow, resetSampleData, signIn, test } from "./helpers";
 
 test.beforeAll(() => {
   resetSampleData();
+});
+
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
 });
 
 const usd = (cents: number): string =>

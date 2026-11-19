@@ -17,11 +17,11 @@ export default function Deals() {
   const queryClient = useQueryClient();
 
   const dealsQuery = useQuery({ queryKey: ["deals"], queryFn: api.deals.list });
-  const { data: organizations = [] } = useQuery({
+  const organizationsQuery = useQuery({
     queryKey: ["organizations"],
     queryFn: api.organizations.list,
   });
-  const { data: contacts = [] } = useQuery({
+  const contactsQuery = useQuery({
     queryKey: ["contacts"],
     queryFn: api.contacts.list,
   });
@@ -31,6 +31,16 @@ export default function Deals() {
   });
 
   const deals = dealsQuery.data ?? [];
+  const organizations = organizationsQuery.data ?? [];
+  const contacts = contactsQuery.data ?? [];
+  // The Organization and Contact cells read from these two lists, and TanStack
+  // caches a cell's value on its row's first render — a row built while a list
+  // was still loading would keep "—" for good, so the table waits for all
+  // three queries rather than painting cells that can't catch up.
+  const tableLoading =
+    dealsQuery.isLoading ||
+    organizationsQuery.isLoading ||
+    contactsQuery.isLoading;
   const [searchParams, setSearchParams] = useSearchParams();
   // The add modal is driven by ?new=1 rather than local state: a search-param
   // change on this route never remounts the page, so state alone would leave
@@ -150,7 +160,7 @@ export default function Deals() {
           <p className="form-error" role="alert">
             Could not load deals.
           </p>
-        ) : dealsQuery.isLoading ? (
+        ) : tableLoading ? (
           <p className="muted">Loading…</p>
         ) : (
           <DataTable

@@ -11,6 +11,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "./api/client";
+import { signInLocal } from "./lib/session";
 import { AppRoutes } from "./routes";
 
 vi.mock("./api/client", () => ({
@@ -44,12 +45,28 @@ vi.mock("./api/client", () => ({
   },
 }));
 
+/** Sign in the way the screen does, then leave fetch alone for the pages. */
+async function signInForTests(): Promise<void> {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        token: "local-token",
+        email: "alex@brightloop.example",
+      }),
+    }),
+  );
+  await signInLocal("alex");
+  vi.unstubAllGlobals();
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks();
   vi.mocked(api.dashboard.get).mockResolvedValue({
     won: { months: [], total_revenue_cents: 0, total_deals: 0 },
@@ -68,6 +85,7 @@ beforeEach(() => {
   vi.mocked(api.organizations.list).mockResolvedValue([]);
   vi.mocked(api.contacts.list).mockResolvedValue([]);
   vi.mocked(api.activities.list).mockResolvedValue([]);
+  await signInForTests();
 });
 
 function renderAt(path: string) {

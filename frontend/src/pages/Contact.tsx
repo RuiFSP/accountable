@@ -77,6 +77,18 @@ export default function Contact() {
               "—"
             )}
           </dd>
+          {contact.created_by ? (
+            <>
+              <dt>Added by</dt>
+              <dd>{contact.created_by}</dd>
+            </>
+          ) : null}
+          {contact.updated_by ? (
+            <>
+              <dt>Last changed by</dt>
+              <dd>{contact.updated_by}</dd>
+            </>
+          ) : null}
         </dl>
       </section>
 

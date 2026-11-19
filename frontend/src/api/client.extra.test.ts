@@ -242,3 +242,43 @@ describe("api client writes", () => {
     );
   });
 });
+
+describe("api client replies", () => {
+  it("reads who added and who changed a record", async () => {
+    const fetchMock = stubFetch([
+      {
+        id: 7,
+        ...organization,
+        created_by: "alex@brightloop.example",
+        updated_by: "priya@brightloop.example",
+      },
+      { id: 8, ...organization, created_by: null, updated_by: null },
+    ]);
+
+    const organizations = await api.organizations.list();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/organizations", {
+      headers: { Accept: "application/json" },
+    });
+    expect(organizations[0].created_by).toBe("alex@brightloop.example");
+    expect(organizations[0].updated_by).toBe("priya@brightloop.example");
+    // A record written before this was recorded says so with a null.
+    expect(organizations[1].created_by).toBeNull();
+    expect(organizations[1].updated_by).toBeNull();
+  });
+});
+
+describe("api client search", () => {
+  it("puts the query on the query string, escaping what it must", async () => {
+    const fetchMock = stubFetch([
+      { kind: "deal", id: 9, name: "100% Fun Club" },
+    ]);
+
+    const found = await api.search.find("100% F");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/search?q=100%25%20F", {
+      headers: { Accept: "application/json" },
+    });
+    expect(found).toEqual([{ kind: "deal", id: 9, name: "100% Fun Club" }]);
+  });
+});

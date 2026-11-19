@@ -1,10 +1,10 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
-from app import db
+from app import auth, db
 from app.routes.common import require_exists
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
@@ -70,29 +70,37 @@ def list_contacts(
 
 
 @router.post("", status_code=201)
-def create_contact(payload: ContactIn) -> dict:
+def create_contact(payload: ContactIn, user: str = Depends(auth.current_user)) -> dict:
     with db.get_engine().begin() as connection:
         if payload.organization_id is not None:
             require_exists(
                 connection, db.organizations, payload.organization_id, "Organization"
             )
-        result = connection.execute(db.contacts.insert().values(**payload.model_dump()))
+        result = connection.execute(
+            db.contacts.insert().values(
+                **payload.model_dump(), created_by=user, updated_by=user
+            )
+        )
         contact_id = db.inserted_id(result)
         return _read(connection, contact_id)
 
 
 @router.put("/{contact_id}")
-def update_contact(contact_id: int, payload: ContactIn) -> dict:
+def update_contact(
+    contact_id: int, payload: ContactIn, user: str = Depends(auth.current_user)
+) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, contact_id)
+        existing = _read(connection, contact_id)
         if payload.organization_id is not None:
             require_exists(
                 connection, db.organizations, payload.organization_id, "Organization"
             )
+        values = payload.model_dump()
+        # Saving the same values back changes nothing, so nobody did.
+        if any(existing[name] != value for name, value in values.items()):
+            values["updated_by"] = user
         connection.execute(
-            db.contacts.update()
-            .where(db.contacts.c.id == contact_id)
-            .values(**payload.model_dump())
+            db.contacts.update().where(db.contacts.c.id == contact_id).values(**values)
         )
         return _read(connection, contact_id)
 

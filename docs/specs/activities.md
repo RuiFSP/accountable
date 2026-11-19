@@ -1,6 +1,6 @@
 # Spec: Activities
 
-- **Activity**: something that happened, or needs to happen, with a contact or deal. Type (note, call or email), the contact or deal it relates to, a description and when it happened, and optionally a follow-up date and whether it's done. Every activity also records who added it and who last changed it, shown as their email wherever the activity is read.
+- **Activity**: something that happened, or needs to happen, with a contact or deal. Type (note, call or email), the contact or deal it relates to, a description and when it happened, and optionally a follow-up date and whether it's done. Every activity also records who added it and who last changed it, shown as their email on the record's detail page.
 
 ## Activities and follow-ups
 

@@ -2,8 +2,6 @@ from datetime import date, datetime, timedelta
 
 import pytest
 from app import db, stats
-from app.main import app
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 
 # Fixed "today" so every figure in the fixture is deterministic.
@@ -244,9 +242,8 @@ def test_dashboard_payload_holds_every_figure(conn):
     assert payload["recent_activity"][0]["description"] == "Newest note"
 
 
-def test_dashboard_endpoint_serves_the_payload():
-    with TestClient(app) as client:
-        response = client.get("/api/dashboard")
+def test_dashboard_endpoint_serves_the_payload(client):
+    response = client.get("/api/dashboard")
 
     assert response.status_code == 200
     payload = response.json()

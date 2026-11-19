@@ -337,3 +337,67 @@ describe("Timeline", () => {
     expect(api.activities.update).not.toHaveBeenCalled();
   });
 });
+
+describe("who added an entry", () => {
+  it("shows it beside when, and shows nothing when there is no one", () => {
+    renderTimeline();
+
+    expect(screen.queryByText(/@/)).toBeNull();
+
+    cleanup();
+    renderTimeline({
+      activities: [
+        {
+          id: 9,
+          type: "note",
+          contact_id: 5,
+          deal_id: null,
+          description: "Signed the contract",
+          happened_at: "2026-11-14T10:30:00",
+          follow_up_date: null,
+          done: false,
+          created_by: "alex@brightloop.example",
+        },
+      ],
+    });
+
+    expect(screen.getByText("Signed the contract")).toBeTruthy();
+    expect(screen.getByText(/· alex@brightloop\.example/)).toBeTruthy();
+  });
+
+  it("shows who changed it too, and only when that is someone else", () => {
+    renderTimeline({
+      activities: [
+        {
+          id: 9,
+          type: "note",
+          contact_id: 5,
+          deal_id: null,
+          description: "Signed the contract",
+          happened_at: "2026-11-14T10:30:00",
+          follow_up_date: null,
+          done: false,
+          created_by: "alex@brightloop.example",
+          updated_by: "alex@brightloop.example",
+        },
+        {
+          id: 10,
+          type: "note",
+          contact_id: 5,
+          deal_id: null,
+          description: "Amended the contract",
+          happened_at: "2026-11-15T10:30:00",
+          follow_up_date: null,
+          done: false,
+          created_by: "alex@brightloop.example",
+          updated_by: "priya@brightloop.example",
+        },
+      ],
+    });
+
+    expect(screen.getByText(/· alex@brightloop\.example$/)).toBeTruthy();
+    expect(
+      screen.getByText(/alex@brightloop\.example → priya@brightloop\.example/),
+    ).toBeTruthy();
+  });
+});

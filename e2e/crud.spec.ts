@@ -1,9 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { resetSampleData } from "./helpers";
+import { resetSampleData, signIn, test } from "./helpers";
 
 test.beforeAll(() => {
   resetSampleData();
+});
+
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
 });
 
 test("an organization can be added, searched, sorted and edited, and survives a refresh", async ({
@@ -226,4 +230,54 @@ test("the delete dialog lists a stage entry written moments earlier by an edit",
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("Moved from Negotiation to Proposal");
   await dialog.getByRole("button", { name: "Cancel" }).click();
+});
+
+test("a new record shows who added it, and an edit by another teammate who last changed it", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/organizations");
+  await page.getByRole("button", { name: "Add organization" }).click();
+  const modal = page.getByRole("dialog", { name: "Add organization" });
+  await modal.getByLabel("Name", { exact: true }).fill("Attribution Works");
+  await modal.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    page.locator("tbody tr", { hasText: "Attribution Works" }),
+  ).toBeVisible();
+
+  await page
+    .locator("tbody tr", { hasText: "Attribution Works" })
+    .getByRole("button", { name: "View" })
+    .click();
+  await page.waitForURL(/\/organizations\/\d+/);
+  await expect(
+    page.getByRole("heading", { name: "Attribution Works", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText("Added by")).toBeVisible();
+  await expect(page.getByText("Last changed by")).toBeVisible();
+  // On an add, both lines name the teammate who made it.
+  await expect(page.getByText("alex@brightloop.example")).toHaveCount(2);
+
+  // Another teammate edits it: sign in as Priya through the local route and
+  // save a change as her, the way her browser would.
+  const path = `/api${new URL(page.url()).pathname}`;
+  const signIn = await request.post("/api/local/sign-in", {
+    data: { user_id: "priya" },
+  });
+  const { token } = (await signIn.json()) as { token: string };
+  const saved = await request.put(path, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      name: "Attribution Works",
+      website: null,
+      industry: null,
+      notes: "Edited by Priya",
+    },
+  });
+  expect(saved.ok(), `${saved.status()}: ${await saved.text()}`).toBe(true);
+
+  await page.reload();
+  await expect(page.getByText("Last changed by")).toBeVisible();
+  await expect(page.getByText("priya@brightloop.example")).toBeVisible();
+  await expect(page.getByText("alex@brightloop.example")).toBeVisible();
 });
