@@ -222,6 +222,13 @@ The ui-check pass over every signed-in page (report and screenshots in the sessi
 
 Proof: `npm run check` green after the change (256 frontend, 125 backend, 50 e2e tests), and the run regenerated the four `docs/changes/dark-mode/` PNGs — `pipeline-light/dark.png` now show all six columns. Proof screenshots for these fixes: `docs/changes/multi-user/pipeline-fit-1440.png`, `pipeline-scroll-1100.png`, `dashboard-nits-1440.png`.
 
+## Supabase security advisors (2026-11-19)
+
+The live project's security advisors, run against the database as it stands: 46 tables in total, 32 with row-level security on, 14 with it off — all 14 Supabase-managed (`auth`, `realtime`, `vault`), none ours to change, and `vault` isn't reachable by the `anon` or `authenticated` roles anyway. Two findings:
+
+- **RLS Enabled No Policy (INFO, the five `public` tables) — left alone on purpose.** RLS on with no policy means nothing is allowed through, so Supabase's Data API returns no rows to the publishable key; that is the whole defence, as `docs/specs/design.md` now spells out. Writing a policy would open the Data API rather than close a hole, and the advisor will keep reporting it either way — it is the expected result, not a defect. Recorded in the spec so the next run isn't "fixed" into a vulnerability.
+- **Leaked Password Protection Disabled (WARN) — accepted, it is a paid feature.** Supabase Auth isn't checking a password being set against HaveIBeenPwned, so a password from a breach would be accepted when it is created. Supabase's feature table lists it as "Not included" on Free and "Included" from Pro up, and there is no API or SQL behind it — it is only ever a dashboard toggle — so on this plan the advisor keeps reporting it and that is the accepted state, not an oversight. The exposure is narrow: there is no sign-up page, so the only passwords ever set are the ones typed when a person is added in the dashboard. What stands in for it: pick a long, unique password for each person and check it first at https://haveibeenpwned.com/passwords — the same check the feature performs — and raise the minimum length and required characters on the same settings page (Authentication → Sign In / Providers → Email) — Supabase's password-security guide attaches the Pro requirement only to the leaked-password check, so those two should still be there; if they are greyed out too, the manual check above is all there is.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.
