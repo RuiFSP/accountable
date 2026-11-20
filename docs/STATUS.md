@@ -251,6 +251,12 @@ The reviewer's report against `main` (merge base `a8442a6`), style excluded; eve
 - The two earlier PRs holding the same material, #4 (`rui-mvp-docs`) and #8 (`day4-standards`), were closed by hand: the title and the flat structure are replaced by this set.
 - `course/for_agents/AGENT_GIT_GUIDE.md` brought in line with what was done, and kept in this fork rather than offered as a PR: the week-and-day folders as the shape of a share, one branch and one pull request per day with the titles used, the day documents' real paths (`.opencode/agents/` for the subagents), and this repo's remotes throughout — `upstream` is Ed's repo, `origin` is the fork.
 
+## README rewritten for this fork (2026-11-20)
+
+- `README.md` now describes this build only: what Accountable is, the live Render address (`https://accountable-qie9.onrender.com/`), the feature list, screenshots, the stack, quick start and command table, the deploy steps, the project layout, the docs index, where it stands, and a one-line credit linking to `ed-donner/accountable`. Ed's course guide — the journey, the branch-switching table, the agent guides and the community-PR section — is no longer in this README; the course material stays in `course/` and upstream, as the credit says.
+- Screenshots copied from `docs/changes/dark-mode/` into `assets/`: `dashboard-light.png`, `dashboard-dark.png` and `pipeline.png` (the pipeline board). The originals are untouched.
+- `docs/TECH_STACK.md`'s line describing the README updated to match the new one.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.

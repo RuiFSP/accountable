@@ -1,116 +1,98 @@
-# AI SDLC: The AI-Native Software Engineer in the Agentic Era
+# Accountable
 
-## This fork: my build of Accountable
+A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, a pipeline board, activities and follow-ups, with a dashboard that shows how sales are going at a glance.
 
-My fork of [ed-donner/accountable](https://github.com/ed-donner/accountable), where I'm building Accountable on top of the course: a sales CRM that grows into a full Business OS. Everything below this section is Ed's course guide, kept as it was.
+**Live: [accountable-qie9.onrender.com](https://accountable-qie9.onrender.com/)** — sign in with your email and password (people are added in Supabase's dashboard; there is no sign-up page).
 
-- **Run:** `npm run dev` — opens the dashboard at [http://localhost:5173](http://localhost:5173), the local copy on sample data with a made-up teammate to sign in as, never touching Supabase
-- **Run the shared copy:** `npm start` — with `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env`, builds the frontend and serves it the way Render does at [http://localhost:8000](http://localhost:8000)
-- **Test:** `npm test` (pytest, Vitest, Playwright and the script tests together)
-- **Sample data:** `npm run seed`
-- **Stack:** FastAPI + SQLite backend (`backend/`), React + Vite frontend (`frontend/`) — see [docs/TECH_STACK.md](docs/TECH_STACK.md)
-- **Status and progress:** [docs/STATUS.md](docs/STATUS.md) · **What we're building:** [docs/spec.md](docs/spec.md)
+![The Accountable dashboard in light mode](assets/dashboard-light.png)
 
-## Accountable: the course project
+## Features
 
-![An alien holds a model ship by Tower Bridge at sunrise](assets/accountable.jpg)
+- **Dashboard** — revenue won in the last 12 months, open pipeline, expected revenue, overdue follow-ups, the sales funnel, recent activity and the follow-up list, all computed server-side from one endpoint.
+- **Organizations, contacts, deals** — full list pages with search, sorting and filters, detail pages with a newest-first timeline, and add/edit dialogs.
+- **Pipeline** — the open deals as cards on a board, one column per stage, drag between or within columns, with column totals and late deals called out.
+- **Activities and follow-ups** — log calls, emails and tasks on a record, with overdue and upcoming follow-ups on the dashboard and a mark-done checkbox.
+- **Team sign-in** — Supabase Auth with email and password; every record shows who added it and who last changed it.
+- **Search** — one search box in the top bar across organizations, contacts and deals, plus the search box on each table.
+- **Light, dark and system** — the theme follows the device or your choice, remembered across visits, WCAG AA contrast in both modes.
+- **Safe deletes** — a confirmation lists exactly what a delete will cascade to, with counts and names, before anything is removed.
 
-This is the repo that accompanies the course. Accountable is a business management system: a sales CRM that grows into a full Business OS, including ERP. Over the two weeks you and your coding agent build it together, using the practices the course teaches.
+## Screenshots
 
-_If you're looking at this in VS Code or Cursor, right-click `README.md` in the Explorer on the left and choose **Open Preview** to see it formatted._
+| Light mode                                                                                               | Dark mode                                                                                                |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| ![Dashboard in light mode](assets/dashboard-light.png)                                                    | ![Dashboard in dark mode](assets/dashboard-dark.png)                                                      |
 
-## What's in this repo
+![The pipeline board](assets/pipeline.png)
 
-- `docs/`: the documents for Accountable, such as what we build and the tech stack it uses.
-- `course/`: your guides. [course/SETUP.md](course/SETUP.md) installs the tools, and [course/coding_agents/](course/coding_agents/) has the steps for each coding agent.
-- `course/for_agents/`: guides for your coding agent, so it can help you with the course.
-- `course/instructions/`: extra instructions for some days, such as every prompt for Week 1 Days 3 to 5, the worktree demo for Week 2 Day 1, my checkpoints for Week 2 Days 2 to 4, and every prompt for Week 2 Day 5.
-- `course/cheap_llm_instructions/`: the same days with simpler prompts and a smaller build, for cheap or free models.
-- `AGENTS.md`: the instructions your coding agent reads at the start of each session.
-- `community_contributions/`: work shared by students, added by pull request.
+## Tech stack
 
-## Key links
+| Layer       |                                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| Backend     | FastAPI, SQLAlchemy Core, SQLite locally / Postgres on Supabase, Alembic migrations, Pydantic settings |
+| Frontend    | React 19, TypeScript, Vite, TanStack Table, Recharts, dnd-kit                                        |
+| Sign-in     | Supabase Auth (RS256 JWT verified on every request) and a local sign-in for the sample data           |
+| Tests       | pytest (backend), Vitest (frontend), Playwright (end-to-end on Chrome), node:test (scripts)           |
+| Quality     | Prettier, ESLint, ruff, ty, complexity ≤ 15, gitleaks, unit coverage ≥ 80% — all in `npm run check`    |
+| Deployment  | Render (`render.yaml`) in front of Supabase, one free web service                                     |
 
-- The slides for every day and the two PDF handouts: [my Google Drive folder](https://drive.google.com/drive/folders/1ar40RuSIJxJC5CJavHsEDE8CECqEZrC1?usp=sharing)
-- My curriculum of courses on Udemy: [edwarddonner.com/curriculum](https://edwarddonner.com/curriculum)
-- My digital avatar, which answers common questions about my courses: [edwarddonner.com/avatar](https://edwarddonner.com/avatar)
+Details: [docs/TECH_STACK.md](docs/TECH_STACK.md).
 
-And in case you haven't heard it from me enough, I'd be delighted if you'd consider connecting or following on [LinkedIn](https://www.linkedin.com/in/eddonner/) or subscribing on [YouTube](https://youtube.com/@edward.donner).
+## Quick start
 
-## Four ways to take the course
-
-1. **Follow me exactly.** I use Claude Code in the terminal in VS Code, on a Claude paid plan ([claude.com/pricing](https://claude.com/pricing)).
-2. **Use your own paid plan** with another coding agent. The guide for your agent in [course/coding_agents/](course/coding_agents/) has every step.
-3. **Use a free or cheap plan:** OpenCode with its free models, Pi with OpenRouter, or Antigravity CLI on a free Google account. Follow the guide for your agent, and expect free models to need a lot of patience. The alternative instructions in [course/cheap_llm_instructions/](course/cheap_llm_instructions/) give these models a better chance of success. You build a simpler CRM through the same stages, with a pipeline board in place of the AI Copilot.
-4. **Go free and live vicariously through me.** Switch to my code with git each day (below) and get my results without spending tokens or time.
-
-The guides for each agent:
-
-- [Claude Code](course/coding_agents/claude_code.md)
-- [Codex](course/coding_agents/codex.md)
-- [GitHub Copilot](course/coding_agents/github_copilot.md)
-- [Cursor](course/coding_agents/cursor.md)
-- [OpenCode](course/coding_agents/opencode.md)
-- [Pi](course/coding_agents/pi.md)
-- [Antigravity CLI](course/coding_agents/antigravity.md)
-
-## For immediate help
-
-Just ask your coding agent. It knows it's working on this course, and the guides in `course/for_agents/` tell it what each day covers.
-
-## Switching to my version
-
-You can follow the whole course with your own build. On each day that we work on Accountable with a coding agent, my version at the end of the day is on its own branch:
-
-| Command | What it gets you |
-|---|---|
-| `git checkout main` | Your own build. When you first clone, it's the starting point: the documents in `docs/` and nothing set up yet |
-| `git checkout week1day2-end` | My setup from Week 1 Day 2 in Claude Code: permissions, the Playwright MCP server, the brand skill and the frontend-design plugin |
-| `git checkout week1day3-end` | My build from Week 1 Day 3 in Claude Code: the MVP of the sales CRM, with its documents and tests |
-| `git checkout week1day4-end` | My build from Week 1 Day 4 in Claude Code: the harness (my coding standards, `npm run check`, hooks and CI) and dark mode. Install gitleaks first, as the Day 4 instructions show, because its commit hook needs it |
-| `git checkout week1day5-end` | My build from Week 1 Day 5 in Claude Code: the reviewer and ui-check subagents, then sign-in with Supabase, search and the user menu, ready to deploy to Render. To run it against Supabase or deploy it, you need your own Supabase project and `.env`, as the Day 5 instructions show |
-| `git checkout week2day2-end` | My build from Week 2 Day 2: products and company settings, built as two features at the same time |
-| `git checkout week2day3-end` | My build from Week 2 Day 3: quotes, invoices and bills, the cash flow chart and one Money section |
-| `git checkout week2day4-end` | My build from Week 2 Day 4, from a software factory on GitHub: the double-entry books, profit and loss, a balance sheet, the journal, aged balances, and an invoice made from an accepted quote |
-| `git checkout week2day5-end` | My build from Week 2 Day 5: the AI Copilot. It needs an OpenRouter key in your `.env`, as the Day 5 instructions show |
-
-Commit your own changes before you switch branches. From Week 2 Day 2 on, run `npm run seed` after you switch, then `npm run dev`. `npm run seed` brings your local database up to date and puts the sample data back, and it asks first: type `yes`.
-
-Your `main` holds your own build for the whole course, and each change gets a branch of its own that you merge into `main` (Week 1 Day 3 explains this). If you've been building your own version and want to carry on from mine instead, keep yours on a branch with a name you haven't used yet, then move your `main` onto my branch for the day you want. For example, for my Day 2 setup:
+Requires Node 24 or later, Python 3.12 with [uv](https://docs.astral.sh/uv/), and Chrome for the end-to-end tests.
 
 ```bash
-git branch my-day2
-git checkout --no-track -B main origin/week1day2-end
+npm install
+npm run dev
 ```
 
-Each day's instructions give these commands with a branch name for that day.
+That starts the backend (http://127.0.0.1:8000) and the frontend (http://localhost:5173) together against a local SQLite database filled with sample data. Pick a made-up teammate on the sign-in screen and use it — no Supabase project and no `.env` needed.
 
-## Share your work
+| Command            | What it does                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `npm run dev`      | The local copy: backend + frontend, sample data, made-up teammates                                |
+| `npm test`         | Everything: backend, frontend, scripts and end-to-end tests                                      |
+| `npm run seed`     | Rebuild the sample data, naming the database it will wipe before asking                          |
+| `npm run check`    | Every gate: formatting, lint, type checks, secrets and tests with coverage                        |
+| `npm run check:quick` | The same without the end-to-end tests                                                        |
+| `npm start`        | The shared copy, the way Render runs it: needs `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` in `.env` |
 
-I'd love to see what you build! Please share it with a pull request to `community_contributions`. A pull request needs your own fork of the repo. We make one at the start of Week 1 Day 3, and at the end of that day you share the documents you wrote. The steps, and how to pull my latest changes, are in [course/for_agents/AGENT_GIT_GUIDE.md](course/for_agents/AGENT_GIT_GUIDE.md), and your coding agent can take you through them.
+Stop a running `npm run dev` before `npm test` — the end-to-end run starts the app itself on fixed ports.
 
-## The journey
+## Deploying
 
-### Week 1: Ready for industry today
+The app is set up for Render's free plan as one web service (`render.yaml`): the build compiles the frontend, the backend serves it and runs the migrations on start, and the API answers 401 until you sign in.
 
-**Day 1: The AI SDLC.** No code yet: the course, the job market and the lifecycle we follow.
+1. Create a Supabase project and add your team's users under Authentication → Users, then turn sign-ups off — there is no sign-up page.
+2. Put `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Render's environment for the service (they are named `sync: false` in `render.yaml`, so their values never live in the file).
+3. Deploy; `npm run seed` against the same settings fills an empty Supabase database with sample data.
 
-**Day 2: Coding agents crash course.** Install the tools and your coding agent ([course/SETUP.md](course/SETUP.md)), set it up one piece at a time (instructions, settings, permissions, an MCP server, a skill, a plugin), then check your repo and commit it. The steps for your agent are in [course/coding_agents/](course/coding_agents/). My setup: `git checkout week1day2-end`.
+See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
-**Day 3: Anthropic AI-SDLC.** Build the MVP of Accountable, a sales CRM for one person, and take it through each stage of Anthropic's AI-native SDLC on a branch: Plan, Design, Build, Test, Deploy and Maintain. Fork the repo at the start of the day and share the documents you wrote in a pull request at the end. Every prompt is in [course/instructions/week1day3.md](course/instructions/week1day3.md). My build: `git checkout week1day3-end`, then `npm run dev`.
+## Project layout
 
-**Day 4: Harness engineering.** Add a harness to Accountable: your coding standards, `npm run check`, hooks for git and your coding agent, and CI on GitHub. Then add dark mode through the six stages, with the harness in place. Every prompt is in [course/instructions/week1day4.md](course/instructions/week1day4.md). My build: install gitleaks as the instructions show, then `git checkout week1day4-end` and `npm run dev`.
+- `backend/` — the FastAPI app, migrations and pytest suite.
+- `frontend/` — the React app, its styles and the Vitest suite.
+- `e2e/` — the Playwright suite; `playwright.config.ts` starts the app itself.
+- `scripts/` — `seed`, `start` and the `.env` splitting they share.
+- `docs/` — the spec and its area files, standards, status, and one folder per change.
+- `plugins/hooks/` — the OpenCode hooks: the turn-end check and `.env` protection.
+- `course/` — material from the course this repo started from; see the credit below.
 
-**Day 5: Subagents and Agent Teams.** Add two subagents, a code reviewer and a UI checker. Then take one change through the six stages: sign-in and a shared database on Supabase, search, and a user menu, ending with the app live on Render. I build it with an agent team on camera, as a demo. Every prompt is in [course/instructions/week1day5.md](course/instructions/week1day5.md). My build: `git checkout week1day5-end` and `npm run dev`, which runs it on your computer with sample data and no Supabase. To run it against Supabase or deploy it, first set up your own Supabase project and write your `.env`, as the Day 5 instructions show.
+## Documentation
 
-### Week 2: Positioned for the industry of the future
+- [docs/spec.md](docs/spec.md) — what the product is, problem statement and the index of area specs (start here).
+- [docs/STATUS.md](docs/STATUS.md) — what is built, reviewed and left to do.
+- [docs/STANDARDS.md](docs/STANDARDS.md) — how the code is written here.
+- [docs/TECH_STACK.md](docs/TECH_STACK.md) — the stack in more detail.
 
-**Day 1: AI SDLC in Industry.** No code today: how the AI SDLC lifecycles work for teams, with AWS's AI-DLC v2 in the most detail. At the end I demo git worktrees, and the steps are in [course/instructions/week2day1.md](course/instructions/week2day1.md) if you'd like to follow along.
+## Where it stands
 
-**Day 2: Deliver as a Team.** A team builds two features at the same time: products and company settings. The lead prepares `main` first, then two developers each build one feature with their own coding agent in their own worktree, and the person who merges brings both together. Follow along with my checkpoints in [course/instructions/week2day2.md](course/instructions/week2day2.md). My build: `git checkout week2day2-end`, then `npm run seed` and `npm run dev`.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
 
-**Day 3: Large Codebases, Security, Testing.** A bigger team builds quotes, invoices and bills at the same time, and the integration lead merges them, tracking down a bug along the way. Then the lead makes one Money section while four developers work on the merged code: a review, a refactor, the sample data and a cash flow chart. Follow along with my checkpoints in [course/instructions/week2day3.md](course/instructions/week2day3.md). My build: `git checkout week2day3-end`, then `npm run seed` and `npm run dev`.
+Next: the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
-**Day 4: Cloud Agents, Software Factory.** A software factory builds the accounting side of Accountable. Each issue starts a coding agent on GitHub's own computers, which takes it through the six stages and opens a pull request. A second agent reviews each one, and the lead merges. The books come first, then profit and loss, a balance sheet, the journal, aged balances, and an invoice made from an accepted quote. Follow along with my checkpoints in [course/instructions/week2day4.md](course/instructions/week2day4.md). My build: `git checkout week2day4-end`, then `npm run seed` and `npm run dev`.
+## Acknowledgements
 
-**Day 5: Capstone.** Build an AI Copilot into your own version of Accountable: a panel where you ask about your CRM and books in plain English and have it make changes for you. You take it through the six stages from one intent, then deploy it to Render. Its model comes from OpenRouter, which offers free models. Every prompt is in [course/instructions/week2day5.md](course/instructions/week2day5.md). Then your assignment: an import from Salesforce, Pipedrive or another CRM of your choice. My build: `git checkout week2day5-end`, then `npm run seed` and `npm run dev`.
+Forked from [ed-donner/accountable](https://github.com/ed-donner/accountable), the project for Ed Donner's course *The AI-Native Software Engineer in the Agentic Era*. This repository is my own build of Accountable; the course material still lives here under `course/`, and the full course guide is at the upstream repo.
