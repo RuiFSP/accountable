@@ -249,7 +249,7 @@ The reviewer's report against `main` (merge base `a8442a6`), style excluded; eve
   - Day 4's standards — `STANDARDS.md` and `IMPROVE.md`: https://github.com/ed-donner/accountable/pull/13
   - Day 5's subagents — `reviewer.md` and `ui-check.md`: https://github.com/ed-donner/accountable/pull/14
 - The two earlier PRs holding the same material, #4 (`rui-mvp-docs`) and #8 (`day4-standards`), were closed by hand: the title and the flat structure are replaced by this set.
-- `course/for_agents/AGENT_GIT_GUIDE.md` step 2 gained a sentence on keeping one folder per week, and per day, inside the student's folder — a local edit in this fork for now.
+- `course/for_agents/AGENT_GIT_GUIDE.md` brought in line with what was done, and kept in this fork rather than offered as a PR: the week-and-day folders as the shape of a share, one branch and one pull request per day with the titles used, the day documents' real paths (`.opencode/agents/` for the subagents), and this repo's remotes throughout — `upstream` is Ed's repo, `origin` is the fork.
 
 ## Not started
 
