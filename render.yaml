@@ -7,9 +7,9 @@ services:
     name: accountable
     runtime: python
     plan: free
-    # The Supabase project is in eu-west-1 (Ireland); London is Render's
+    # The Supabase project is in eu-west-1 (Ireland); Frankfurt is Render's
     # nearest region to it.
-    region: london
+    region: frankfurt
     # Vite only builds VITE_-prefixed settings into the page, so the two
     # public ones are mapped across the way npm start does it; the database
     # never reaches the build.
