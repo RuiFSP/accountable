@@ -4,7 +4,8 @@ The local copy signs HS256 tokens for the made-up teammates with a key made
 at start-up and kept in memory, and only answers callers on this machine. The
 shared copy accepts only Supabase's ES256 and RS256 tokens, checked against
 the project's public keys — fetched once, and once more only when a token
-names a key id we don't have yet.
+names a key id we don't have yet, at most once a minute so an unknown key id
+can't cost an outbound fetch per request.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import json
 import secrets
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 from typing import Any
 from urllib.request import urlopen
 
@@ -43,6 +45,11 @@ LOCAL_LIFETIME = timedelta(hours=12)
 
 SHARED_ALGORITHMS = ["RS256", "ES256"]
 SHARED_AUDIENCE = "authenticated"
+
+# How long a fetch attempt is remembered before another may happen: a key id
+# we've never seen arrives in an unauthenticated request, so without this any
+# caller could ask for one outbound fetch per request.
+REFETCH_COOLDOWN = 60.0
 
 # Beyond the signature, both copies check the same two things: an expiry and
 # an email. `iat` is deliberately not one of them — a clock that steps (and
@@ -151,15 +158,32 @@ class KeyStore:
         self.supabase_url = supabase_url.rstrip("/")
         self.issuer = _auth_base(supabase_url)
         self._keys: dict[str, Any] | None = None
+        self._attempted_at: float | None = None
 
     def public_key(self, kid: str) -> Any | None:
-        """The key with this id, refetching the set when the id is new to us."""
-        keys = self._keys if self._keys is not None else self._fetch()
-        if kid not in keys:
-            keys = self._fetch()
+        """The key with this id, refetching the set when the id is new to us.
+
+        At most one fetch every REFETCH_COOLDOWN seconds: inside the cooldown
+        a cached set answers a new key id with a no, and keys we've never
+        had get the 503 without another attempt."""
+        keys = self._keys
+        if keys is not None and kid in keys:
+            return keys[kid]
+        if not self._refetch_due():
+            if keys is None:
+                raise KeysUnavailable()
+            return None
+        keys = self._fetch()
         return keys.get(kid)
 
+    def _refetch_due(self) -> bool:
+        return (
+            self._attempted_at is None
+            or monotonic() - self._attempted_at >= REFETCH_COOLDOWN
+        )
+
     def _fetch(self) -> dict[str, Any]:
+        self._attempted_at = monotonic()
         try:
             payload = fetch_jwks(self.supabase_url)
             keys = {entry["kid"]: _verify_key(entry) for entry in payload["keys"]}

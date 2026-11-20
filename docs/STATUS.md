@@ -229,11 +229,24 @@ The live project's security advisors, run against the database as it stands: 46 
 - **RLS Enabled No Policy (INFO, the five `public` tables) — left alone on purpose.** RLS on with no policy means nothing is allowed through, so Supabase's Data API returns no rows to the publishable key; that is the whole defence, as `docs/specs/design.md` now spells out. Writing a policy would open the Data API rather than close a hole, and the advisor will keep reporting it either way — it is the expected result, not a defect. Recorded in the spec so the next run isn't "fixed" into a vulnerability.
 - **Leaked Password Protection Disabled (WARN) — accepted, it is a paid feature.** Supabase Auth isn't checking a password being set against HaveIBeenPwned, so a password from a breach would be accepted when it is created. Supabase's feature table lists it as "Not included" on Free and "Included" from Pro up, and there is no API or SQL behind it — it is only ever a dashboard toggle — so on this plan the advisor keeps reporting it and that is the accepted state, not an oversight. The exposure is narrow: there is no sign-up page, so the only passwords ever set are the ones typed when a person is added in the dashboard. What stands in for it: pick a long, unique password for each person and check it first at https://haveibeenpwned.com/passwords — the same check the feature performs — and raise the minimum length and required characters on the same settings page (Authentication → Sign In / Providers → Email) — Supabase's password-security guide attaches the Pro requirement only to the leaked-password check, so those two should still be there; if they are greyed out too, the manual check above is all there is.
 
+## Second review pass — fixes (2026-11-20)
+
+The reviewer's report against `main` (merge base `a8442a6`), style excluded; every finding fixed except the three the plan leaves with the owner (the `.env`-aside check, the `npm start` walk, the first deploy — above, under Phase 4):
+
+- **The Render build never received the two `VITE_` settings** — the critical finding: `render.yaml`'s build command now maps `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` across as `VITE_` values the way `npm start` already did, and `DATABASE_URL` still never reaches the build. Without the fix the deployed page would have built as the local copy — made-up-teammate sign-in and a 404 at the `onrender.com` address — while this file and the plan's Part H row both claimed the mapping existed. `scripts/render.test.mjs` holds it in place.
+- **`create_app(settings)` prepared the environment's database, not the settings'**: the lifespan now runs `db.prepare(db.engine_for(chosen))`, so a copy built with its own settings migrates and seeds those; `test_settings.py` proves it against a second file the environment never gets.
+- **An unknown key id cost one outbound JWKS fetch per unauthenticated request**: `KeyStore` attempts a fetch at most once every `REFETCH_COOLDOWN` (60 seconds) — inside the cooldown a cached set answers a new key id with a no (401), and keys never fetched get the 503 without a second attempt; `test_auth.py` gains the cooldown test and counts attempts on the unreachable path.
+- **A failed search kept the previous matches on screen**, which Enter could then open under newer text: `SearchBox` clears its results when the current question fails, covered in `SearchBox.test.tsx`.
+- **The spec promised a session lasting "until you sign out"**: `docs/specs/sign-in.md` now carries the local copy's twelve-hour working session and a backend restart ending it early.
+- **The `.env`-split test exercised commands nothing calls**: `env.test.mjs` now pins the construction itself — only `start.mjs` and `seed.mjs` import the reader, and no other npm script can reach them.
+- Nits: "Not started" no longer calls sign-in and multiple users "being built", and the plan's Part E row names the root `package-lock.json` (npm workspaces has no `frontend/package-lock.json`). The plan's Part B, E, G and H rows, risk 1 and the proof lists follow the code.
+- `npm run check` green after the fixes: 127 backend, 257 frontend, 14 script, 50 end-to-end.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.
 - **The MVP is accepted**: the user verified it in a real browser and signed off on 2026-11-14 ("i'm happy with mvp"), which is the criterion-8 bar set by `docs/changes/mvp/intent.md`.
-- Out of MVP scope: sign-in and multiple users (being built under `docs/changes/multi-user/`), deployment, and the other exclusions listed in `docs/changes/mvp/intent.md`.
+- Out of MVP scope: sign-in and multiple users (built under `docs/changes/multi-user/`), deployment, and the other exclusions listed in `docs/changes/mvp/intent.md`.
 
 ## Parked
 

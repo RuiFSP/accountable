@@ -1,5 +1,7 @@
+/* global URL */
+
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -107,5 +109,39 @@ describe("environmentFor", () => {
 
     absent(environment);
     assert.equal(environment.PATH, "/usr/bin");
+  });
+});
+
+describe("what can reach .env", () => {
+  it("is only npm start and npm run seed", () => {
+    // The split's real guarantee, pinned: dev, test and check run no script
+    // that reads .env, so the settings can never be handed to them (the
+    // environmentFor cases above only exercise the reader itself).
+    const packageJson = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    assert.equal(packageJson.scripts.start, "node scripts/start.mjs");
+    assert.equal(packageJson.scripts.seed, "node scripts/seed.mjs");
+    for (const [name, command] of Object.entries(packageJson.scripts)) {
+      if (name === "start" || name === "seed") {
+        continue;
+      }
+      assert.equal(command.includes(".env"), false, name);
+      assert.equal(/scripts\/(env|start|seed)\.mjs/.test(command), false, name);
+    }
+
+    const scripts = readdirSync(new URL("../scripts", import.meta.url)).filter(
+      (file) =>
+        file.endsWith(".mjs") &&
+        !file.endsWith(".test.mjs") &&
+        file !== "env.mjs",
+    );
+    const readers = scripts.filter((file) =>
+      readFileSync(
+        new URL(`../scripts/${file}`, import.meta.url),
+        "utf8",
+      ).includes('from "./env.mjs"'),
+    );
+    assert.deepEqual(readers.sort(), ["seed.mjs", "start.mjs"]);
   });
 });

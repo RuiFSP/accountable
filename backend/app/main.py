@@ -23,7 +23,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        db.prepare()
+        # The database these settings name — never the environment's.
+        db.prepare(db.engine_for(chosen))
         yield
 
     app = FastAPI(title="Accountable API", lifespan=lifespan)

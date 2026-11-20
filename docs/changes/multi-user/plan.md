@@ -46,8 +46,8 @@ These are the only surfaces between parts. Each part tests its side against them
 
 | File | Change |
 |---|---|
-| `backend/app/auth.py` | New. The check for both copies and the dependency above. Local: signs HS256 tokens for the teammates with a key generated at start-up and kept in memory, accepts them only from loopback, and serves the two `/local` routes. Shared: accepts only ES256 and RS256 tokens from the project's key set, with the project's issuer, the `authenticated` audience, an expiry and an email claim; the keys are fetched once and kept until an unknown key id turns up |
-| `backend/app/main.py` | Builds the app for the copy the settings name, so tests can build the shared copy on their own SQLite database with stand-in keys. Every `/api` router gets the dependency; the `/local` routes only in the local copy. The shared copy serves `frontend/dist`, with the page for any other address outside `/api` and a JSON 404 inside it. The lifespan runs `prepare()`. In Phase 2, one line: include the search router |
+| `backend/app/auth.py` | New. The check for both copies and the dependency above. Local: signs HS256 tokens for the teammates with a key generated at start-up and kept in memory, accepts them only from loopback, and serves the two `/local` routes. Shared: accepts only ES256 and RS256 tokens from the project's key set, with the project's issuer, the `authenticated` audience, an expiry and an email claim; the keys are fetched once and kept until an unknown key id turns up — refetched at most once a minute (`REFETCH_COOLDOWN`), so an unauthenticated key id can't cost an outbound fetch per request |
+| `backend/app/main.py` | Builds the app for the copy the settings name, so tests can build the shared copy on their own SQLite database with stand-in keys. Every `/api` router gets the dependency; the `/local` routes only in the local copy. The shared copy serves `frontend/dist`, with the page for any other address outside `/api` and a JSON 404 inside it. The lifespan runs `prepare()` against the engine these settings name, never the environment's. In Phase 2, one line: include the search router |
 | `backend/tests/conftest.py` | The `client` fixture signs in as a made-up teammate, so the existing suite keeps running; helpers to sign in as someone else and to build the shared copy with stand-in keys |
 | `backend/tests/test_auth.py`, `backend/tests/test_every_route.py` | New. See [Proof](#proof) |
 
@@ -73,7 +73,7 @@ These are the only surfaces between parts. Each part tests its side against them
 
 | File | Change |
 |---|---|
-| `frontend/package.json`, `frontend/package-lock.json` | `@supabase/supabase-js` |
+| `frontend/package.json`, `package-lock.json` | `@supabase/supabase-js` |
 | `frontend/src/lib/session.ts` | New, as agreed above: which copy from whether the Supabase settings were built in; local token in `localStorage`; shared app through Supabase's client, with its errors mapped to plain copy |
 | `frontend/src/lib/session.test.ts` | New |
 | `frontend/src/components/SignIn.tsx` | New. `SignedIn`, and both sign-in screens: the shared app's email and password fields, the local copy's teammate buttons. Keeps the address the app was opened at |
@@ -95,7 +95,7 @@ These are the only surfaces between parts. Each part tests its side against them
 |---|---|
 | `frontend/src/routes.tsx` | Wraps the router in `SignedIn` (Phase 1); the search box in the top bar between the nav and the actions (Phase 2); the menu in place of the theme toggle (Phase 3). "New deal" stays where it is |
 | `frontend/src/routes.test.tsx`, `routes.extra.test.tsx` | Signed out, any address shows the sign-in screen; the top bar holds the search box and the menu and no dark-mode switch; the `api` mock gains whatever the new calls need |
-| `frontend/src/components/SearchBox.tsx` | New, with `SearchBox.test.tsx`: asks as you type after a short pause, ignores a reply that arrives late, lists matches grouped by kind with the kind shown, opens one on click or Enter, Escape closes, an empty box clears |
+| `frontend/src/components/SearchBox.tsx` | New, with `SearchBox.test.tsx`: asks as you type after a short pause, ignores a reply that arrives late, a question that fails clears the last answer, lists matches grouped by kind with the kind shown, opens one on click or Enter, Escape closes, an empty box clears |
 | `frontend/src/components/UserMenu.tsx` | New, with `UserMenu.test.tsx`: the initials button with an accessible name, then the menu — the email, Light / Dark / System with the current one marked, and Sign out |
 | `frontend/src/lib/theme.ts`, `frontend/src/lib/theme.test.ts` | `system` joins `light` and `dark` under the same key; while System is chosen the mode follows the device as it changes; an unknown value or denied storage still gives Light |
 | `frontend/index.html` | The early script handles System too, asking `prefers-color-scheme`, so a System reload never flashes the wrong mode |
@@ -108,7 +108,7 @@ These are the only surfaces between parts. Each part tests its side against them
 | `scripts/env.mjs` | New. Reads `.env` with `parseEnv` and splits what each command may see: only `start` and `seed` pass the three settings on, and `ACCOUNTABLE_DB` always wins and means local |
 | `scripts/start.mjs` | New. `npm start`: name any missing setting and stop; build the frontend with only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` — never `DATABASE_URL`; run the backend the way Render does, at `http://localhost:8000` |
 | `scripts/seed.mjs` | New. `npm run seed`: the same target rules, spawning today's seed command; the confirmation names which database it will wipe — the local file or Supabase |
-| `scripts/env.test.mjs`, `scripts/start.test.mjs` | New, through `node --test`: the split of environments, and the build never seeing `DATABASE_URL` |
+| `scripts/env.test.mjs`, `scripts/start.test.mjs`, `scripts/render.test.mjs` | New, through `node --test`: the split of environments, that only `start` and `seed` can reach `.env`, the build never seeing `DATABASE_URL`, and Render's build command carrying the two `VITE_` settings |
 | `package.json` | `start`, and `test:scripts` added to `npm test` and to `test:unit` so both checks run the script tests |
 | `render.yaml` | New, in Phase 4. One free web service: build with `uv sync`, `npm ci` and the Vite build carrying the two `VITE_` settings; start the backend on `$PORT` with one worker; `healthCheckPath: /` because `/api` answers 401; `PYTHON_VERSION` 3.12; `TZ` for the team's time zone, since Render runs UTC and dates are computed on the server; the region nearest the Supabase project; the three settings named with `sync: false`, values entered in Render and never written in the file |
 
@@ -180,7 +180,7 @@ The first deploy to Render happens once `main` has this change: the owner sets u
 
 Most damaging first.
 
-1. **A test or a local command reaches the team's data.** `.env` sits one mistake away from `npm test`, `npm run dev` and e2e. Three guards: only `start` and `seed` read `.env` and `env.test.mjs` proves the split; `ACCOUNTABLE_DB` always means local; every end-to-end test fails on a request that leaves the machine. Phase 4 runs `npm run check` with `.env` in place to prove it.
+1. **A test or a local command reaches the team's data.** `.env` sits one mistake away from `npm test`, `npm run dev` and e2e. Three guards: only `start` and `seed` read `.env` and `env.test.mjs` proves the split and pins that no other script can reach the reader; `ACCOUNTABLE_DB` always means local; every end-to-end test fails on a request that leaves the machine. Phase 4 runs `npm run check` with `.env` in place to prove it.
 2. **`npm run seed` wipes Supabase.** It must be able to (intent), so the confirmation names the target out loud — the local file or the Supabase host — before anything is dropped. Phase 1.
 3. **`npm start` changes the real database.** Its migrations run on whatever `DATABASE_URL` names and there is no undo. The agent never runs it without the owner saying so, and the first run is against the project as it stands. Phase 1.
 4. **The token check lets in something it shouldn't.** The usual mistakes: accepting HS256 in the shared copy (which would let a public key act as a secret), another project's tokens, anonymous users, or failing open when the keys can't be fetched. `test_auth.py` has a token for each, and unreachable keys give the 503, never a pass. Phase 1.
@@ -208,9 +208,9 @@ The intent's success criteria:
 
 ### Unit tests: backend (pytest)
 
-- `test_settings.py` — none of the three settings gives the local copy, all three the shared app; some but not all stops the backend naming the missing ones; `ACCOUNTABLE_DB` still means the local file.
+- `test_settings.py` — none of the three settings gives the local copy, all three the shared app; some but not all stops the backend naming the missing ones; `ACCOUNTABLE_DB` still means the local file; the lifespan migrates and seeds the settings' database, not the environment's.
 - `test_migrations.py` — both migrations build exactly the schema the tables define; a database built before this change upgrades and keeps every row; on Postgres's SQL, written out offline, `0002` adds the two columns and turns on row-level security for every table.
-- `test_auth.py` — local: the teammates route lists the four, sign-in gives a token that opens the API, an unknown id is refused, a local token is refused from any other host. Shared, with stand-in keys: a good token works and its email becomes the user; an unknown key id fetches the keys once more; keys that can't be fetched give the 503; the `/local` routes aren't there. Refused in both: no token, an expired one, one for another issuer or audience, an anonymous one, and in the shared copy one signed HS256 with the public key.
+- `test_auth.py` — local: the teammates route lists the four, sign-in gives a token that opens the API, an unknown id is refused, a local token is refused from any other host. Shared, with stand-in keys: a good token works and its email becomes the user; an unknown key id fetches the keys once more once the cooldown has passed and costs no fetch inside it; keys that can't be fetched give the 503 and aren't retried inside the cooldown; the `/local` routes aren't there. Refused in both: no token, an expired one, one for another issuer or audience, an anonymous one, and in the shared copy one signed HS256 with the public key.
 - `test_every_route.py` — every route the app has, taken from the app, in both copies: 401 with the message without a token and with each bad token above.
 - `test_who.py` — an add sets both; a save that changes a value sets the last-changed one and a save that changes nothing doesn't; a stage move, a board move, a follow-up tick and a won deal's contact each count; renumbering the other cards and blanking a link after a delete don't; a body naming a person changes nothing; replies carry the emails and old records give `null`.
 - `test_search.py` — part of a name, any case, an accented name, `%` and `_` matching only themselves, blank `q` refused, the three kinds in name order.
@@ -225,7 +225,7 @@ The intent's success criteria:
 - `components/SignIn.test.tsx` — shared: labeled fields, the error shown, Enter signs in, the button works once however fast it's pressed; local: the four teammates with initials and emails, clicking one signs in; `SignedIn` shows the screen until there's a session, keeps the address, and ending a session empties the query cache.
 - `lib/theme.test.ts` — Light, Dark and System saved and read back; an old saved Light or Dark carries over; no choice, an unknown one and storage that throws give Light; System follows the device and switches when it changes; the early script in `index.html`, run with the device stood in, agrees with `theme.ts` for each case.
 - `components/UserMenu.test.tsx` — the button shows the initials and names its person; the menu shows the email, the three themes with the current one marked, and Sign out; choosing applies and closes; Escape returns focus to the button.
-- `components/SearchBox.test.tsx` — nothing asked before the pause, a late reply never replaces a newer one, matches grouped with their kind, click and Enter open one, Escape closes, an empty box clears.
+- `components/SearchBox.test.tsx` — nothing asked before the pause, a late reply never replaces a newer one, a question that fails clears the last answer, matches grouped with their kind, click and Enter open one, Escape closes, an empty box clears.
 - `routes.test.tsx`, `routes.extra.test.tsx` — signed out, any address shows the sign-in screen with no top bar; signed in, the bar holds the nav, the search box and the menu and no dark-mode switch, on all eight routes; "New deal" still opens its dialog.
 - The page and timeline tests in Part F — "Added by" and "Last changed by" with an email, the second line gone when there is none, and an entry showing who added it.
 

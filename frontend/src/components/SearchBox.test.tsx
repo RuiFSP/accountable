@@ -165,4 +165,22 @@ describe("SearchBox", () => {
     press("Enter");
     expect(screen.getByTestId("at").textContent).toBe("/");
   });
+
+  it("a question that fails leaves nothing stale behind", async () => {
+    vi.mocked(api.search.find)
+      .mockResolvedValueOnce([deal])
+      .mockRejectedValueOnce(new Error("the network gave up"));
+    renderBox();
+
+    type("roll");
+    await screen.findByText("Store rollout");
+    type("north");
+    await waitFor(() => expect(api.search.find).toHaveBeenCalledTimes(2));
+
+    // The first answer belonged to the other text: it must not survive the
+    // failure, and Enter must not be able to open it.
+    await waitFor(() => expect(screen.queryByText("Store rollout")).toBeNull());
+    press("Enter");
+    expect(screen.getByTestId("at").textContent).toBe("/");
+  });
 });

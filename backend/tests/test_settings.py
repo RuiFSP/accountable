@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-from app import db
-from app.settings import DEFAULT_DB_PATH, SettingsError, load_settings
+from app import db, seed
+from app.settings import DEFAULT_DB_PATH, Settings, SettingsError, load_settings
 
 THREE = {
     "DATABASE_URL": "postgresql://user:pass@db.example/accountable",
@@ -64,3 +64,25 @@ def test_the_engine_follows_the_settings():
     assert shared.url.drivername == "postgresql+psycopg"
     assert local.url.drivername == "sqlite"
     assert str(local.url.database) == "/tmp/accountable.db"
+
+
+def test_the_lifespan_prepares_the_database_the_settings_name(monkeypatch, tmp_path):
+    # A copy built with its own settings must migrate and seed those, not
+    # whatever the environment holds — which get_engine() would resolve to.
+    from app.main import create_app
+    from fastapi.testclient import TestClient
+
+    environment_db = tmp_path / "environment.db"
+    monkeypatch.setattr(
+        db,
+        "get_engine",
+        lambda: db.engine_for(Settings(mode="local", database_path=environment_db)),
+    )
+    chosen_db = tmp_path / "chosen.db"
+    chosen = Settings(mode="local", database_path=chosen_db)
+
+    with TestClient(create_app(chosen)):
+        pass
+
+    assert seed.is_seeded(db.engine_for(chosen))
+    assert not environment_db.exists()

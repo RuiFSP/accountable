@@ -31,6 +31,19 @@ def _credentials(token: str) -> HTTPAuthorizationCredentials:
     return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
 
+class _Clock:
+    """monotonic() the test moves: the cooldown passes when it says so."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def pass_seconds(self, seconds: float) -> None:
+        self.now += seconds
+
+
 def test_the_teammates_route_lists_the_four(client):
     response = client.get("/api/local/teammates")
 
@@ -91,8 +104,11 @@ def test_a_good_shared_token_works_and_its_email_is_the_user(
 
 
 def test_an_unknown_key_id_fetches_the_keys_once_more(
-    shared_client, key_fetch, stand_in_keys
+    shared_client, key_fetch, stand_in_keys, monkeypatch
 ):
+    clock = _Clock()
+    monkeypatch.setattr(auth, "monotonic", clock)
+
     good = stand_in_keys.token()
     response = shared_client.get(
         "/api/organizations", headers={"Authorization": f"Bearer {good}"}
@@ -102,12 +118,46 @@ def test_an_unknown_key_id_fetches_the_keys_once_more(
     assert key_fetch.calls == 1
     assert key_fetch.urls == [f"{stand_in_keys.issuer}/.well-known/jwks.json"]
 
+    clock.pass_seconds(auth.REFETCH_COOLDOWN)
     rotated = stand_in_keys.token(kid="a-key-we-dont-have")
     response = shared_client.get(
         "/api/organizations", headers={"Authorization": f"Bearer {rotated}"}
     )
 
     assert response.status_code == 401
+    assert key_fetch.calls == 2
+
+
+def test_a_new_key_id_costs_no_fetch_inside_the_cooldown(
+    shared_client, key_fetch, stand_in_keys, monkeypatch
+):
+    # The key id arrives in an unauthenticated request, so the refetch is
+    # rate-limited: inside the cooldown the cached set answers it with a no.
+    clock = _Clock()
+    monkeypatch.setattr(auth, "monotonic", clock)
+
+    good = stand_in_keys.token()
+    response = shared_client.get(
+        "/api/organizations", headers={"Authorization": f"Bearer {good}"}
+    )
+
+    assert response.status_code == 200
+    assert key_fetch.calls == 1
+
+    rotated = stand_in_keys.token(kid="a-key-we-dont-have")
+    for _ in range(3):
+        response = shared_client.get(
+            "/api/organizations", headers={"Authorization": f"Bearer {rotated}"}
+        )
+
+        assert response.status_code == 401
+    assert key_fetch.calls == 1
+
+    clock.pass_seconds(auth.REFETCH_COOLDOWN)
+    shared_client.get(
+        "/api/organizations", headers={"Authorization": f"Bearer {rotated}"}
+    )
+
     assert key_fetch.calls == 2
 
 
@@ -123,6 +173,13 @@ def test_keys_that_cannot_be_fetched_give_the_503(
 
     assert response.status_code == 503
     assert response.json() == {"detail": auth.KEYS_UNREACHABLE}
+    # Inside the cooldown the failure is remembered: no second attempt.
+    response = shared_client.get(
+        "/api/organizations", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 503
+    assert key_fetch.calls == 1
     # With the keys out of reach nothing gets in, not even with no token.
     shared_client.headers.pop("Authorization", None)
     assert shared_client.get("/api/organizations").status_code == 401

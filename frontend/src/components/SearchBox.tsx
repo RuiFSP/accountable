@@ -43,7 +43,14 @@ export default function SearchBox() {
             setOpen(true);
           }
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (turn === asked.current) {
+            // A question that failed has no answer: the last one would be
+            // stale under the newer text, and Enter must not open it.
+            setResults([]);
+            setOpen(false);
+          }
+        });
     }, PAUSE_MS);
     return () => {
       if (pause.current) {
