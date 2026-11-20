@@ -242,6 +242,15 @@ The reviewer's report against `main` (merge base `a8442a6`), style excluded; eve
 - Nits: "Not started" no longer calls sign-in and multiple users "being built", and the plan's Part E row names the root `package-lock.json` (npm workspaces has no `frontend/package-lock.json`). The plan's Part B, E, G and H rows, risk 1 and the proof lists follow the code.
 - `npm run check` green after the fixes: 127 backend, 257 frontend, 14 script, 50 end-to-end.
 
+## Shared Week 1 (2026-11-20)
+
+- The end-of-week share, as three PRs against Ed's `main`, one per day, each adding only its own folder under `community_contributions/ruifspinto/week1/`:
+  - Day 3's documents — `intent.md`, `spec.md`, `plan.md`, `REVIEW.md` with a README on how I worked: the course's Anthropic AI-SDLC route run in OpenCode with `mimo-v2.6-flash` — https://github.com/ed-donner/accountable/pull/12
+  - Day 4's standards — `STANDARDS.md` and `IMPROVE.md`: https://github.com/ed-donner/accountable/pull/13
+  - Day 5's subagents — `reviewer.md` and `ui-check.md`: https://github.com/ed-donner/accountable/pull/14
+- The two earlier PRs holding the same material, #4 (`rui-mvp-docs`) and #8 (`day4-standards`), were closed by hand: the title and the flat structure are replaced by this set.
+- `course/for_agents/AGENT_GIT_GUIDE.md` step 2 gained a sentence on keeping one folder per week, and per day, inside the student's folder — a local edit in this fork for now.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.

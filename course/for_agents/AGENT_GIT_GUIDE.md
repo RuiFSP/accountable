@@ -66,7 +66,7 @@ If the student gets stuck:
 
 ### 2. Put the files in a folder of the student's own
 
-The files go in `community_contributions/<folder>/`, where `<folder>` is any name the student likes. Screenshots and code stay in the student's fork, which keeps the course repo small.
+The files go in `community_contributions/<folder>/`, where `<folder>` is any name the student likes. One folder per week inside it works too — `community_contributions/<folder>/week1/`, with a folder per day inside that, such as `day3/`. Screenshots and code stay in the student's fork, which keeps the course repo small.
 
 - **The day's documents:** at the end of Week 1 Day 3, the student shares what they wrote that day: `docs/intent.md`, `docs/spec.md`, `docs/plan.md` and `docs/REVIEW.md`, with a short `README.md` that says what they built and links to their build in their fork. Push their `main` to the fork first, with `git push -u fork main`, so that the link works: `https://github.com/<username>/accountable`.
 - **The day's standards:** at the end of Week 1 Day 4, the student shares `docs/STANDARDS.md` and `docs/IMPROVE.md`, with no README.
