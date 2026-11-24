@@ -1,12 +1,12 @@
 from datetime import date, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app import auth, db, stats
-from app.routes.common import require_exists
+from app.records import read_or_404, require_exists, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
@@ -53,17 +53,6 @@ def _base_stmt():
     )
 
 
-def _read(conn, deal_id: int) -> dict:
-    row = (
-        conn.execute(select(db.deals).where(db.deals.c.id == deal_id))
-        .mappings()
-        .one_or_none()
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    return dict(row)
-
-
 @router.get("")
 def list_deals(
     q: str | None = None,
@@ -108,10 +97,10 @@ def create_deal(payload: DealIn, user: str = Depends(auth.current_user)) -> dict
                 )
             ).scalar_one()
             values["position"] = highest + 1
-        values |= {"created_by": user, "updated_by": user}
+        values = stamp_created(values, user)
         result = connection.execute(db.deals.insert().values(**values))
         deal_id = db.inserted_id(result)
-        return _read(connection, deal_id)
+        return read_or_404(connection, db.deals, deal_id, "Deal")
 
 
 @router.put("/{deal_id}")
@@ -119,7 +108,7 @@ def update_deal(
     deal_id: int, payload: DealIn, user: str = Depends(auth.current_user)
 ) -> dict:
     with db.get_engine().begin() as connection:
-        existing = _read(connection, deal_id)
+        existing = read_or_404(connection, db.deals, deal_id, "Deal")
         values = payload.model_dump()
         require_exists(
             connection, db.organizations, values["organization_id"], "Organization"
@@ -138,9 +127,7 @@ def update_deal(
         elif values["position"] is None:
             values["position"] = existing["position"]
 
-        # Saving the same deal back changes nothing, so nobody did.
-        if any(existing[name] != value for name, value in values.items()):
-            values["updated_by"] = user
+        values = stamp_updated(existing, values, user)
 
         connection.execute(
             db.deals.update().where(db.deals.c.id == deal_id).values(**values)
@@ -155,7 +142,7 @@ def update_deal(
                 connection, deal_id, existing["stage"], values["stage"], user
             )
 
-        return _read(connection, deal_id)
+        return read_or_404(connection, db.deals, deal_id, "Deal")
 
 
 @router.post("/{deal_id}/stage")
@@ -169,7 +156,7 @@ def move_deal_stage(
     renumbered in the affected column(s) so a dropped card keeps its slot.
     """
     with db.get_engine().begin() as connection:
-        deal = _read(connection, deal_id)
+        deal = read_or_404(connection, db.deals, deal_id, "Deal")
         changed = deal["stage"] != payload.stage
 
         values = {"stage": payload.stage}
@@ -193,7 +180,7 @@ def move_deal_stage(
             _write_stage_entry(connection, deal_id, deal["stage"], payload.stage, user)
 
         return {
-            "deal": _read(connection, deal_id),
+            "deal": read_or_404(connection, db.deals, deal_id, "Deal"),
             "totals": {
                 "board": stats.pipeline_totals(connection),
                 "columns": stats.column_totals(connection),
@@ -204,7 +191,7 @@ def move_deal_stage(
 @router.delete("/{deal_id}")
 def delete_deal(deal_id: int) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, deal_id)
+        read_or_404(connection, db.deals, deal_id, "Deal")
         activities = (
             connection.execute(
                 select(db.activities.c.description)
@@ -226,19 +213,19 @@ def _write_stage_entry(
     connection, deal_id: int, from_stage: str, to_stage: str, user: str
 ) -> None:
     """The system timeline entry every stage change leaves behind."""
-    connection.execute(
-        db.activities.insert().values(
-            type="stage_change",
-            contact_id=None,
-            deal_id=deal_id,
-            description=f"Moved from {from_stage} to {to_stage}",
-            happened_at=datetime.now(),
-            follow_up_date=None,
-            done=True,
-            created_by=user,
-            updated_by=user,
-        )
+    values = stamp_created(
+        {
+            "type": "stage_change",
+            "contact_id": None,
+            "deal_id": deal_id,
+            "description": f"Moved from {from_stage} to {to_stage}",
+            "happened_at": datetime.now(),
+            "follow_up_date": None,
+            "done": True,
+        },
+        user,
     )
+    connection.execute(db.activities.insert().values(**values))
 
 
 def _column_ids(connection, stage: str, exclude_id: int | None = None) -> list[int]:

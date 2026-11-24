@@ -257,6 +257,15 @@ The reviewer's report against `main` (merge base `a8442a6`), style excluded; eve
 - Screenshots copied from `docs/changes/dark-mode/` into `assets/`: `dashboard-light.png`, `dashboard-dark.png` and `pipeline.png` (the pipeline board). The originals are untouched.
 - `docs/TECH_STACK.md`'s line describing the README updated to match the new one.
 
+## Shared code moved out of the areas (2026-11-24)
+
+Preparing `main` for products and company settings, the code every area needs moved above the areas:
+
+- **Backend**: new `backend/app/records.py` holds `read_or_404` (one row, or a 404 naming the record), `require_exists`, `stamp_created` and `stamp_updated`; the four record routes use it, and `routes/common.py` is gone. The attribution rule is unchanged: an add sets both emails, a save sets `updated_by` only when a stored value actually changed, a stage move credits the moved card but not the renumbered ones, and deletes or blanked links change nobody.
+- **Frontend**: `ContactForm` and `OrganizationForm` moved from their pages into `components/`, and the "Added by" / "Last changed by" lines became `RecordAttribution`, used by the contact, organization and deal detail pages. `pages/` now holds only each area's own page.
+- **Docs**: `docs/spec.md` and `docs/specs/design.md` name the new shared homes.
+- **Proof**: `npm run check` green — 448 tests (127 backend, 257 frontend, 14 script, 50 end-to-end), backend coverage 98.95%.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.

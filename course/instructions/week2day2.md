@@ -1,49 +1,18 @@
 # Week 2 Day 2 instructions
 
-Today a team builds two features at the same time. The lead prepares `main` first, then two developers each build one feature with their own coding agent, in their own worktree, and the person who merges brings both together. I recommend that rather than running the exact same Coding Agent runs as me, you simply follow along with my checkpoints. At the end I've laid out every interim step if you'd rather build it yourself.
+Today a team builds two features at the same time. The lead prepares `main` first, then two developers each build one feature with their own coding agent, in their own worktree, and the person who merges brings both together. Everything below runs in this repo, from your own `main`, with your own coding agent. Record what each stage does in `docs/STATUS.md` as `AGENTS.md` asks.
 
-## Follow along with my checkpoints
+## How the day runs
 
-My checkpoints are branches, like my versions of the Week 1 days. In the `accountable` folder:
-
-### The two intents
-
-```
-git checkout week2day2-intents
-```
-
-Read the two intents the developers agreed with their agents: `docs/changes/products/intent.md` and `docs/changes/company-settings/intent.md`. To see what the lead prepared before they started, list the lead's Prepare main commits:
-
-```
-git log --oneline --grep "^Prepare:"
-```
-
-`git show --stat` followed by a commit's id shows the files it changed.
-
-### The results
-
-```
-git checkout week2day2-end
-npm run seed
-npm run dev
-```
-
-`npm run seed` installs anything new the app needs, brings your local database up to date and puts the sample data back, with today's sample products and the sample company. It asks first, because it replaces what's in your local copy: type `yes`.
-
-Open the app, then look at Products in the top bar and Company settings in the menu under your initials. Then see how each feature got there, in `docs/changes/products/` and `docs/changes/company-settings/`: the intent, the plan and the independent review. `docs/STATUS.md` tells the story of each stage. Stop the app with Ctrl+C when you're done.
-
-## If you'd rather build it yourself
-
-These are the steps and prompts behind my checkpoints. They take several hours of agent time: my run of these two features took about seven.
+These are the steps and prompts for the whole day. They take several hours of agent time.
 
 ### Start from main
 
-Build on your own `main` from Day 5, or on my Day 5 version. To use mine, this keeps your own work on a branch called `my-day5` and moves your `main` onto my branch:
+Build on your own `main` as it stands after Week 1. Nothing to switch to: check where you are, and commit anything of yours still uncommitted, because the two worktrees below start from `main` and share its history:
 
 ```
 git checkout main
-git branch my-day5
-git checkout --no-track -B main origin/week1day5-end
+git status
 ```
 
 ### Prepare main for two developers
@@ -54,21 +23,27 @@ Two changes that every feature from today on needs, made first, on their own bra
 git checkout -b prepare
 ```
 
-Start a fresh session (`/clear` in Claude Code), then:
+Start a fresh session, then:
 
 ```
-The features from today on add business areas beside the CRM, such as products, settings and invoices. Each needs code that lives in crm/ today, such as who added and last changed a record, the checks on what's sent, and showing a save's errors beside its fields. Move the code that any area would need out of crm/ to the top level of the backend and the frontend, so that a new area never imports crm/. Don't change what the app does. Update the spec and the layout tests to match, and run npm run check. Leave the commits to me.
+Products and company settings come next, and each is a new business area beside today's CRM ones. Before the two developers start, find the code that any area would need but that today sits inside one area's files, and move it to the top level of the backend and the frontend, so a new area never has to import another area's code.
+
+In the backend that is at least: who added a record and who last changed it, including the rule that a save only sets updated_by when a stored value actually changed — it is written out in every record route in backend/app/routes/ — and the "read one row, or answer 404" helper that each of those files defines again for itself.
+
+In the frontend it is anything a new form or table page would need that sits inside a page in frontend/src/pages/ rather than in frontend/src/components/ or frontend/src/lib/. DealForm and ActivityForm are already in components/; ContactForm and OrganizationForm are written inside their pages, and a new area's form would copy those.
+
+Don't change what the app does: the same replies, the same pages, the same messages. Update docs/spec.md and docs/specs/design.md so they describe where the shared code lives now, and update any test that notices the move. Run npm run check. Leave the commits to me.
 ```
 
 ```
 git add .
-git commit -m "Prepare: shared code out of crm"
+git commit -m "Prepare: shared code out of the area files"
 ```
 
 Start a fresh session, then:
 
 ```
-Each agent runs npm run check when it finishes a piece of work, and the end-to-end tests use the same ports in every worktree, so two worktrees running it at the same time fail each other. Change the test setup so that each worktree's tests use ports no other worktree is using, with nothing to set by hand, and two worktrees on this computer can run npm run check at the same time and both pass. They share its cores and memory, so keep the speed tests reliable when that happens. Prove it by running npm run check in two worktrees at once. Leave the commits to me.
+Each agent runs npm run check when it finishes a piece of work, and the end-to-end tests use the same fixed ports in every folder — 5173 for the web app and 8000 for the API — so two runs at the same time fail each other with "Port 5173 is in use" before they say anything useful. Change the test setup so that each run takes ports no other run is using, with nothing to set by hand, and two npm run check runs, in two worktrees on this computer at the same time, both pass. They share the machine's cores and memory, so keep the run reliable when both go at once. Prove it by running npm run check in two worktrees at once. Leave the commits to me.
 ```
 
 ```
@@ -97,11 +72,11 @@ npm install
 uv sync
 ```
 
-Your `.env` stays in `accountable`. The worktrees don't need it, because `npm run dev` and the tests use the local copy.
+Your `.env` stays in `accountable`. The worktrees don't need it: only `npm start` and `npm run seed` read it, and `npm run dev` and the tests always use the local copy.
 
-Start Claude Code in each window (`claude`). Claude Code treats a worktree as part of the same project, so it keeps your choices from Week 1: it doesn't ask again whether you trust the folder, and the Playwright MCP server and the frontend-design plugin are already on.
+Start your coding agent in each window, in a fresh session. It reads the repo's own configuration from the worktree — `opencode.jsonc`, `AGENTS.md`, the hooks plugin — so it keeps your choices from Week 1 instead of asking again whether you trust the folder.
 
-**Both agents can run the tests at the same time,** after the change above. `npm run dev` still uses fixed ports, so in a second folder it stops with "Port 5173 is in use"; `ACCOUNTABLE_WEB_PORT` and `ACCOUNTABLE_API_PORT` move it.
+**Both agents can run the tests at the same time,** after the change above. `npm run dev` still uses fixed ports, so in a second folder it stops with "Port 5173 is in use": have the app running in one worktree at a time, and leave the ports to the tests.
 
 ### Products
 
@@ -145,7 +120,7 @@ A Products section lists what the business sells. Each product has a name, a des
 2. A product can be added, edited, found with the search box, archived and restored.
 3. Prices show in dollars and cents everywhere they appear.
 4. Two products can't share a name, whatever the case, through the page or the API.
-5. The sample data has products, and npm run empty clears them.
+5. The sample data has products, and `npm run seed` brings them back.
 ````
 
 ```
@@ -177,7 +152,7 @@ git add .
 git commit -m "Build: plan.md"
 ```
 
-Start a fresh session (`/clear` in Claude Code), then:
+Start a fresh session, then:
 
 ```
 Implement the plan.md for this branch, in docs/changes/, following its order of work. Write the tests in its Proof section and run them as you go. Leave the commits to me.
@@ -336,7 +311,7 @@ Company settings was built before products was merged, so bring it up to date fi
 git merge main
 ```
 
-Git stops and lists the files where both branches changed the same lines. Start a fresh session (`/clear`), then have your agent resolve them:
+Git stops and lists the files where both branches changed the same lines. Start a fresh session, then have your agent resolve them:
 
 ```
 Merging main into this branch stopped with conflicts. Resolve each one so that both changes keep working, keeping what each side added. Leave the commits to me.
@@ -349,7 +324,7 @@ git add .
 git commit --no-edit
 ```
 
-Git found every conflict in the text. Now check that the merged code works:
+Git found every conflict in the text. Two problems it can't show are worth knowing before you check: each feature is likely to add its own migration numbered `0003`, which git merges as two files with no conflict but leaves alembic with two revisions with the same number; and each feature registers itself in the same places — the routers in `backend/app/main.py`, the sections in `frontend/src/routes.tsx`, the menu under your initials and the sample data — where both lines usually stay. Now check that the merged code works:
 
 ```
 npm run check:quick

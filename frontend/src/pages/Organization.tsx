@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
+import RecordAttribution from "../components/RecordAttribution";
 import { formatUsd } from "../lib/money";
 import { capitalize } from "../lib/text";
 
@@ -64,18 +65,10 @@ export default function Organization() {
           <dd>{organization.industry ?? "—"}</dd>
           <dt>Notes</dt>
           <dd>{organization.notes ?? "—"}</dd>
-          {organization.created_by ? (
-            <>
-              <dt>Added by</dt>
-              <dd>{organization.created_by}</dd>
-            </>
-          ) : null}
-          {organization.updated_by ? (
-            <>
-              <dt>Last changed by</dt>
-              <dd>{organization.updated_by}</dd>
-            </>
-          ) : null}
+          <RecordAttribution
+            createdBy={organization.created_by}
+            updatedBy={organization.updated_by}
+          />
         </dl>
       </section>
 

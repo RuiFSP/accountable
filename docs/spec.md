@@ -17,6 +17,10 @@ Accountable is a business management system: a sales CRM that will grow into a f
 
 Not part of this version: roles and permissions — everyone can do everything; signing up in the app itself, or with Google, magic links or a password reset — people are added in Supabase's dashboard; a layout for phones; AI features; email, calendar or phone integrations; currencies other than US dollars; reports beyond the dashboard; tags or custom fields; changing the pipeline stages; importing or exporting data.
 
+## Shared code
+
+Each area keeps its own routes and pages. What every area needs lives above them, so no area imports another area's code: on the backend, `backend/app/records.py` holds the shared record helpers; on the frontend, shared UI sits in `frontend/src/components/` and shared logic in `frontend/src/lib/`, leaving `frontend/src/pages/` with only each area's own pages.
+
 ## Areas
 
 One file per product area holds the detail behind this summary — the five sections, the four kinds of record, sign-in, the shared behaviour and the design — with each design decision filed under the area it applies to:

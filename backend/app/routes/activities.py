@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app import auth, db
-from app.routes.common import require_exists
+from app.records import read_or_404, require_exists, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/activities", tags=["activities"])
 
@@ -37,17 +37,6 @@ def _validate_links(connection, payload: ActivityIn) -> None:
         require_exists(connection, db.deals, payload.deal_id, "Deal")
 
 
-def _read(conn, activity_id: int) -> dict:
-    row = (
-        conn.execute(select(db.activities).where(db.activities.c.id == activity_id))
-        .mappings()
-        .one_or_none()
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Activity not found")
-    return dict(row)
-
-
 @router.get("")
 def list_activities(
     q: str | None = None,
@@ -73,12 +62,10 @@ def create_activity(
     with db.get_engine().begin() as connection:
         _validate_links(connection, payload)
         result = connection.execute(
-            db.activities.insert().values(
-                **payload.model_dump(), created_by=user, updated_by=user
-            )
+            db.activities.insert().values(**stamp_created(payload.model_dump(), user))
         )
         activity_id = db.inserted_id(result)
-        return _read(connection, activity_id)
+        return read_or_404(connection, db.activities, activity_id, "Activity")
 
 
 @router.put("/{activity_id}")
@@ -86,28 +73,25 @@ def update_activity(
     activity_id: int, payload: ActivityIn, user: str = Depends(auth.current_user)
 ) -> dict:
     with db.get_engine().begin() as connection:
-        existing = _read(connection, activity_id)
+        existing = read_or_404(connection, db.activities, activity_id, "Activity")
         if existing["type"] == "stage_change":
             raise HTTPException(
                 status_code=400, detail="Stage-change entries are read-only."
             )
         _validate_links(connection, payload)
-        values = payload.model_dump()
-        # Saving the same values back changes nothing, so nobody did.
-        if any(existing[name] != value for name, value in values.items()):
-            values["updated_by"] = user
+        values = stamp_updated(existing, payload.model_dump(), user)
         connection.execute(
             db.activities.update()
             .where(db.activities.c.id == activity_id)
             .values(**values)
         )
-        return _read(connection, activity_id)
+        return read_or_404(connection, db.activities, activity_id, "Activity")
 
 
 @router.delete("/{activity_id}")
 def delete_activity(activity_id: int) -> dict:
     with db.get_engine().begin() as connection:
-        existing = _read(connection, activity_id)
+        existing = read_or_404(connection, db.activities, activity_id, "Activity")
         if existing["type"] == "stage_change":
             raise HTTPException(
                 status_code=400, detail="Stage-change entries are read-only."

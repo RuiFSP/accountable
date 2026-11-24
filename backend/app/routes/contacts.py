@@ -1,11 +1,11 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
 from app import auth, db
-from app.routes.common import require_exists
+from app.records import read_or_404, require_exists, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
@@ -29,17 +29,6 @@ def _base_stmt():
         db.contacts.c.organization_id == db.organizations.c.id,
         isouter=True,
     )
-
-
-def _read(conn, contact_id: int) -> dict:
-    row = (
-        conn.execute(select(db.contacts).where(db.contacts.c.id == contact_id))
-        .mappings()
-        .one_or_none()
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    return dict(row)
 
 
 @router.get("")
@@ -77,12 +66,10 @@ def create_contact(payload: ContactIn, user: str = Depends(auth.current_user)) -
                 connection, db.organizations, payload.organization_id, "Organization"
             )
         result = connection.execute(
-            db.contacts.insert().values(
-                **payload.model_dump(), created_by=user, updated_by=user
-            )
+            db.contacts.insert().values(**stamp_created(payload.model_dump(), user))
         )
         contact_id = db.inserted_id(result)
-        return _read(connection, contact_id)
+        return read_or_404(connection, db.contacts, contact_id, "Contact")
 
 
 @router.put("/{contact_id}")
@@ -90,25 +77,22 @@ def update_contact(
     contact_id: int, payload: ContactIn, user: str = Depends(auth.current_user)
 ) -> dict:
     with db.get_engine().begin() as connection:
-        existing = _read(connection, contact_id)
+        existing = read_or_404(connection, db.contacts, contact_id, "Contact")
         if payload.organization_id is not None:
             require_exists(
                 connection, db.organizations, payload.organization_id, "Organization"
             )
-        values = payload.model_dump()
-        # Saving the same values back changes nothing, so nobody did.
-        if any(existing[name] != value for name, value in values.items()):
-            values["updated_by"] = user
+        values = stamp_updated(existing, payload.model_dump(), user)
         connection.execute(
             db.contacts.update().where(db.contacts.c.id == contact_id).values(**values)
         )
-        return _read(connection, contact_id)
+        return read_or_404(connection, db.contacts, contact_id, "Contact")
 
 
 @router.delete("/{contact_id}")
 def delete_contact(contact_id: int) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, contact_id)
+        read_or_404(connection, db.contacts, contact_id, "Contact")
         activities = (
             connection.execute(
                 select(db.activities.c.description)

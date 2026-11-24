@@ -1,10 +1,11 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
 from app import auth, db
+from app.records import read_or_404, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/organizations", tags=["organizations"])
 
@@ -17,19 +18,6 @@ class OrganizationIn(BaseModel):
     website: str | None = None
     industry: str | None = None
     notes: str | None = None
-
-
-def _read(conn, organization_id: int) -> dict:
-    row = (
-        conn.execute(
-            select(db.organizations).where(db.organizations.c.id == organization_id)
-        )
-        .mappings()
-        .one_or_none()
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    return dict(row)
 
 
 @router.get("")
@@ -63,11 +51,13 @@ def create_organization(
     with db.get_engine().begin() as connection:
         result = connection.execute(
             db.organizations.insert().values(
-                **payload.model_dump(), created_by=user, updated_by=user
+                **stamp_created(payload.model_dump(), user)
             )
         )
         organization_id = db.inserted_id(result)
-        return _read(connection, organization_id)
+        return read_or_404(
+            connection, db.organizations, organization_id, "Organization"
+        )
 
 
 @router.put("/{organization_id}")
@@ -77,23 +67,24 @@ def update_organization(
     user: str = Depends(auth.current_user),
 ) -> dict:
     with db.get_engine().begin() as connection:
-        existing = _read(connection, organization_id)
-        values = payload.model_dump()
-        # Saving the same values back changes nothing, so nobody did.
-        if any(existing[name] != value for name, value in values.items()):
-            values["updated_by"] = user
+        existing = read_or_404(
+            connection, db.organizations, organization_id, "Organization"
+        )
+        values = stamp_updated(existing, payload.model_dump(), user)
         connection.execute(
             db.organizations.update()
             .where(db.organizations.c.id == organization_id)
             .values(**values)
         )
-        return _read(connection, organization_id)
+        return read_or_404(
+            connection, db.organizations, organization_id, "Organization"
+        )
 
 
 @router.delete("/{organization_id}")
 def delete_organization(organization_id: int) -> dict:
     with db.get_engine().begin() as connection:
-        _read(connection, organization_id)
+        read_or_404(connection, db.organizations, organization_id, "Organization")
         contact_ids = select(db.contacts.c.id).where(
             db.contacts.c.organization_id == organization_id
         )

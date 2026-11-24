@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
+import RecordAttribution from "../components/RecordAttribution";
 import Timeline from "../components/Timeline";
 import { formatDate } from "../lib/dates";
 import { formatUsd } from "../lib/money";
@@ -82,18 +83,10 @@ export default function Deal() {
               "—"
             )}
           </dd>
-          {deal.created_by ? (
-            <>
-              <dt>Added by</dt>
-              <dd>{deal.created_by}</dd>
-            </>
-          ) : null}
-          {deal.updated_by ? (
-            <>
-              <dt>Last changed by</dt>
-              <dd>{deal.updated_by}</dd>
-            </>
-          ) : null}
+          <RecordAttribution
+            createdBy={deal.created_by}
+            updatedBy={deal.updated_by}
+          />
         </dl>
       </section>
 
