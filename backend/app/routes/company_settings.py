@@ -108,7 +108,7 @@ def save_settings(
         existing = _read(connection)
         if any(existing[name] != value for name, value in values.items()):
             values["updated_by"] = user
-            values["updated_at"] = datetime.now(UTC)
+            values["updated_at"] = datetime.now(UTC).replace(tzinfo=None)
             connection.execute(
                 db.company_settings.update()
                 .where(db.company_settings.c.id == SETTINGS_ID)

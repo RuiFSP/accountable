@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from app import auth, db, seed
@@ -130,8 +130,9 @@ def test_fresh_database_starts_as_brightloop(engine):
     assert settings["quote_prefix"] == "QT-"
     assert settings["invoice_prefix"] == "INV-"
     assert settings["updated_by"] == "priya@brightloop.example"
-    # Two days before the seed ran, as the spec says.
-    assert settings["updated_at"].date() == date.today() - timedelta(days=2)
+    # Two days before the seed ran, as the spec says, on the clock the seed
+    # made it from: UTC, never the machine's local date.
+    assert settings["updated_at"].date() == datetime.now(UTC).date() - timedelta(days=2)
 
 
 def test_a_database_with_records_but_no_settings_row_gets_one(engine):

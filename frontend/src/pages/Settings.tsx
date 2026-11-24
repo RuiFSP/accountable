@@ -80,6 +80,9 @@ function SettingsForm({ settings, saved, onSaved, onEdit }: SettingsFormProps) {
     try {
       const reply = await api.settings.save(result.input);
       queryClient.setQueryData(["settings"], reply);
+      // The reply is what the server stored, also when it stored nothing:
+      // show that, not what was typed.
+      setForm(initialSettingsForm(reply));
       onSaved();
     } catch (err) {
       setError(

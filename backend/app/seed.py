@@ -38,7 +38,7 @@ def _settings_row() -> dict:
         "quote_prefix": "QT-",
         "invoice_prefix": "INV-",
         "updated_by": _teammate_email("priya"),
-        "updated_at": datetime.now(UTC) - timedelta(days=2),
+        "updated_at": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=2),
     }
 
 

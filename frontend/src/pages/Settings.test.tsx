@@ -175,6 +175,36 @@ describe("Settings page", () => {
     );
   });
 
+  it("shows the stored values after a save that changes nothing", async () => {
+    const stored: CompanySettings = {
+      ...brightloop,
+      tax_rate_thousandths: 0,
+      payment_terms_days: 0,
+      quote_prefix: null,
+    };
+    vi.mocked(api.settings.get).mockResolvedValue(stored);
+    vi.mocked(api.settings.save).mockResolvedValue(stored);
+    renderPage();
+    await screen.findByLabelText("Company name");
+
+    change("Tax rate", "   ");
+    change("Payment terms (days)", "");
+    change("Quote prefix", " ");
+    fireEvent.click(saveButton());
+
+    expect((await screen.findByRole("status")).textContent).toBe("Saved.");
+    expect(field("Tax rate").value).toBe("0");
+    expect(field("Payment terms (days)").value).toBe("0");
+    expect(field("Quote prefix").value).toBe("");
+    expect(meta().textContent).toContain("priya@brightloop.example");
+    expect(api.settings.save).toHaveBeenCalledWith({
+      ...input,
+      tax_rate_thousandths: 0,
+      payment_terms_days: 0,
+      quote_prefix: null,
+    });
+  });
+
   it("saves a blank rate and blank terms as 0 and blank text as null", async () => {
     renderPage();
     await screen.findByLabelText("Company name");

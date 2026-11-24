@@ -301,13 +301,13 @@ Implementing `docs/changes/company-settings/plan.md`, phase by phase. No spec co
 
 ## Company settings review and harness (2026-11-24)
 
-The reviewer went over the branch against `main`, style excluded, and found no blocking finding. Three low findings stay open as small follow-ups:
+An earlier pass over the branch found the three issues below and judged them non-blocking. The independent review in `docs/changes/company-settings/independent-review.md` judged all three Important; they are fixed in the section after this one.
 
 - `company_settings.updated_at` writes an aware UTC value into a naive `DateTime`; on Postgres a session timezone other than UTC moves the stored moment, and the SQLite-only tests don't cover it.
 - `test_seed.py` compares the seeded UTC date with local `date.today()`, so it flips whenever the machine's local date differs from the UTC date.
 - A save the server treats as a no-op doesn't normalise the form, so the page can show typed text next to "Saved." where the spec says a blank tax rate shows as 0.
 
-What the checks missed: all three. The gates were green because SQLite dropped the offset without complaint, the seed test ran when the local and UTC dates happened to agree, and no test saved an unchanged value. ui-check had already caught the one visual defect, the invisible initials button on hover in dark mode. The code is unchanged since the 515-test run above, so that run still stands; the reviewer could not run the checks itself.
+What the checks missed: all three. The gates were green because SQLite dropped the offset without complaint, the seed test ran when the local and UTC dates happened to agree, and no test saved an unchanged value. ui-check had already caught the one visual defect, the invisible initials button on hover in dark mode. That pass could not run the checks itself; the independent review ran `npm run check:quick` and the end-to-end suite on the branch and recorded what it could not run.
 
 The review also exposed a harness gap: the first reviewer run reported shell denied and rebuilt the changed-file list from `plan.md`, so it could not see the diff or run the checks. A later diagnostic run executed git on the same permissions, so the denial is not reproducible. `docs/REVIEW.md` now requires the real diff and a note of what could not be run.
 
@@ -317,6 +317,18 @@ Harness changes:
 - `docs/REVIEW.md` gains the real-diff evidence rule and the unchanged-path check for every write.
 - `README.md` gains company settings and loses the stale "stop `npm run dev` before `npm test`" line; test runs take their own ports and database.
 - `docs/IMPROVE.md` now asks for the review evidence first, for README drift to be checked, and for the harness change to be recorded here.
+
+## Company settings review fixes (2026-11-24)
+
+Fixed the three Important findings of `docs/changes/company-settings/independent-review.md`:
+
+- `updated_at` is now written as `datetime.now(UTC).replace(tzinfo=None)` in `routes/company_settings.py` and `seed.py`, the naive column's convention per `AGENTS.md`. The stored moment no longer depends on the database session's timezone: psycopg2 sends an aware value as `::timestamptz`, which Postgres casts against that timezone, and `_as_reply` then labels it UTC.
+- `test_seed.py` compares the seeded date with `datetime.now(UTC).date()` — the clock the value was made from — so it no longer flips when the machine's local date differs from the UTC date.
+- `Settings.tsx` repopulates the form from the saved reply on every save, not only when `updated_at` moves, so a save that changes nothing shows the server's stored values (a blank rate shows as 0) instead of the typed text. `Settings.test.tsx` gains "shows the stored values after a save that changes nothing", which fails without the fix (proved by taking the fix out and running the suite).
+
+The review's three nits stay open as small follow-ups: wrong-shaped API bodies answer a 422 with a list `detail` rather than the plan's plain 400 string, `plan.md`'s file lists predate the ui-check fix (the `.user-menu-button:hover` rule and its menu spec test), and `README.md`'s "Done and reviewed" line ran ahead of the review.
+
+- **Check:** `npm run check` exits 0 — 516 tests (155 backend, 287 frontend, 18 script, 56 end-to-end), backend coverage 98.94%, frontend 96.26% statements / 92.55% branches / 97.17% functions / 96.13% lines, gitleaks clean.
 
 ## Not started
 
