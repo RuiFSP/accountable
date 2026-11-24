@@ -20,7 +20,7 @@
 ## Implemented
 
 - Phase 1 — Foundation (2026-11-14): root npm scripts (`dev`, `test`, `seed` with confirmation, `lint`, `format`), FastAPI JSON API under `/api` with the four tables in SQLAlchemy Core on SQLite, sample-data seed (fills a new database at startup, `npm run seed` rebuilds it after confirmation), React/Vite shell with routes for the five sections, brand CSS tokens, brand fonts bundled in `frontend/public/fonts/` for offline use, typed API client. Backend tests: schema + seed coverage + seed/reset confirmation (12). Frontend tests: shell smoke test + API client (5). `npm run lint` and `npm test` green.
-- Test wiring (2026-11-14): `npm test` runs backend (pytest), frontend (Vitest) and e2e (Playwright) together, all three always run, exit is non-zero if any fails. `playwright.config.ts` starts the app itself (`npm run dev`) on its own database (`accountable-e2e.db`, gitignored); `e2e/startup.spec.ts` covers what exists so far — dashboard landing, no console errors, five sections reachable, sample data through the API. The rest of the e2e suite (`crud`, `contacts`, `pipeline`, `activities`, `dashboard`) is Phase 4's work. Stop `npm run dev` before `npm test` (fixed ports, `reuseExistingServer: false`).
+- Test wiring (2026-11-14): `npm test` runs backend (pytest), frontend (Vitest) and e2e (Playwright) together, all three always run, exit is non-zero if any fails. `playwright.config.ts` starts the app itself (`npm run dev`) on its own database (`accountable-e2e.db`, gitignored); `e2e/startup.spec.ts` covers what exists so far — dashboard landing, no console errors, five sections reachable, sample data through the API. The rest of the e2e suite (`crud`, `contacts`, `pipeline`, `activities`, `dashboard`) is Phase 4's work. At the time it used fixed ports and `reuseExistingServer: false`; the 2026-11-24 port slots replaced that.
 - Phase 2 — Records (2026-11-14): full CRUD on the API — list with `q` search, sort (per table, incl. joined organization/contact names), status/stage filters; create/update; delete returns the exact cascade lists (org → contacts + deals + their activities; contact/deal → activities) — covered by `test_crud.py` (17) and `test_cascade.py` (4). Frontend: shared `DataTable` on TanStack Table (pinned v8) with search, sortable headings, status/stage filter, add/edit modals; `ConfirmDialog` showing the cascaded list before anything is deleted (`src/lib/cascade.ts` computes it from loaded records); detail pages for organization (contacts + deals lists), contact and deal (details + newest-first timeline) with activity log/edit/delete and follow-up due labels; `Modal`, `Field`, `Timeline` components; `src/lib/money.ts`, `dates.ts`, `pipeline.ts`, `text.ts`. Frontend tests: DataTable behavior (5), cascade/confirm (4), money (5), dates (6), client (4), routes (3). Verified end to end in a browser (18-step walkthrough, clean console); 63 tests green in `npm test`.
   - Small deviations from the plan's file list: `Timeline.tsx` and `text.ts` added (the timeline is shared by two detail pages), `cascade.ts` holds the confirmation preview, `Field` labels associate via `htmlFor` + `aria-describedby` so hint/option text never leaks into accessible names.
 - Phase 3 — Pipeline and dashboard (2026-11-14): `POST /api/deals/{id}/stage` moves a card between or within columns — stage, default probability, renumbered positions, a system `stage_change` timeline entry (read-only: activity PUT/DELETE return400), and it returns fresh board/column totals; `stats.py` computes every dashboard figure in one module (12-month won buckets, open pipeline, expected revenue floored per deal, funnel + won/lost chips, recent activity, overdue/upcoming follow-ups) served by `GET /api/dashboard`, covered by `test_stage_move.py` (7) and `test_dashboard.py` (7). Frontend: `PipelineBoard.tsx` (dnd-kit) with drag between/within columns, optimistic updates, add-deal-per-column via the extracted `DealForm`, board/column totals, late cards tinted with a Late pill; dashboard page with KPI cards, Recharts area/bar charts, funnel bars, recent activity with type dots, follow-up groups with mark-done checkboxes; `lib/pipeline.ts` (totals, late flag, applyMove, renumber), `lib/charts.ts`, `lib/activity.ts`. Frontend tests: pipeline (9), charts (4), plus earlier suites —93 tests green in `npm test`. Verified in a real browser:12-step walkthrough for criteria4-6 (drags with asserted server round-trips, slot persistence after refresh, read-only stage entries, figures matched against independently computed API data, mark-done, mark-won deltas, clean console).
@@ -66,7 +66,7 @@ A second review of the branch against `main` following `docs/REVIEW.md` — sepa
 2. `docs/STATUS.md`'s "How to run" said `npm test` runs backend then frontend, leaving out the e2e run described further down. Fixed.
 3. The plan's file list said only two files were edited; the build also added the `AGENTS.md` Testing section and reformatted `opencode.jsonc`. Fixed: the plan's Edited list now matches.
 
-Also resolved from this document's Parked list: the 7 moderate `npm audit` advisories (`minimatch` under `typescript-eslint`) are gone without downgrading `typescript-eslint` — a root `overrides` pin to `minimatch@^11.0.8`, the patched line eslint already used; `npm audit` reports 0 vulnerabilities.
+Also resolved: the 7 moderate `npm audit` advisories (`minimatch` under `typescript-eslint`) are gone without downgrading `typescript-eslint` — a root `overrides` pin to `minimatch@^11.0.8`, the patched line eslint already used; `npm audit` reports 0 vulnerabilities.
 
 After the fixes: `npm test` green — 123 tests (53 backend, 43 frontend, 27 e2e; two new regression tests plus a late-deal assertion in the pipeline spec cover the findings) — and `npm run lint` clean.
 
@@ -299,12 +299,26 @@ Implementing `docs/changes/company-settings/plan.md`, phase by phase. No spec co
 - Regression test: `e2e/menu.spec.ts` hovers the trigger in dark mode and asserts the Sea Green Ink fill and Midnight initials. It fails before the rule (the background came back `rgb(4, 35, 46)`) and passes after.
 - **Check:** `npm run check` exits 0 — 515 tests (155 backend, 286 frontend, 18 script, 56 end-to-end), backend coverage 98.94%, frontend 96.26% statements / 92.55% branches / 97.17% functions / 96.13% lines, gitleaks clean.
 
+## Company settings review and harness (2026-11-24)
+
+The reviewer went over the branch against `main`, style excluded, and found no blocking finding. Three low findings stay open as small follow-ups:
+
+- `company_settings.updated_at` writes an aware UTC value into a naive `DateTime`; on Postgres a session timezone other than UTC moves the stored moment, and the SQLite-only tests don't cover it.
+- `test_seed.py` compares the seeded UTC date with local `date.today()`, so it flips whenever the machine's local date differs from the UTC date.
+- A save the server treats as a no-op doesn't normalise the form, so the page can show typed text next to "Saved." where the spec says a blank tax rate shows as 0.
+
+What the checks missed: all three. The gates were green because SQLite dropped the offset without complaint, the seed test ran when the local and UTC dates happened to agree, and no test saved an unchanged value. ui-check had already caught the one visual defect, the invisible initials button on hover in dark mode. The code is unchanged since the 515-test run above, so that run still stands; the reviewer could not run the checks itself.
+
+The review also exposed a harness gap: the first reviewer run reported shell denied and rebuilt the changed-file list from `plan.md`, so it could not see the diff or run the checks. A later diagnostic run executed git on the same permissions, so the denial is not reproducible. `docs/REVIEW.md` now requires the real diff and a note of what could not be run.
+
+Harness changes:
+
+- `AGENTS.md` gains Dates and times from the two UTC/local mistakes, and the Testing section now asks for the unchanged path of every write.
+- `docs/REVIEW.md` gains the real-diff evidence rule and the unchanged-path check for every write.
+- `README.md` gains company settings and loses the stale "stop `npm run dev` before `npm test`" line; test runs take their own ports and database.
+- `docs/IMPROVE.md` now asks for the review evidence first, for README drift to be checked, and for the harness change to be recorded here.
+
 ## Not started
 
-- All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.
-- **The MVP is accepted**: the user verified it in a real browser and signed off on 2026-11-14 ("i'm happy with mvp"), which is the criterion-8 bar set by `docs/changes/mvp/intent.md`.
-- Out of MVP scope: sign-in and multiple users (built under `docs/changes/multi-user/`), deployment, and the other exclusions listed in `docs/changes/mvp/intent.md`.
-
-## Parked
-
-- Anything outside the intent's "not in the MVP" list (sign-in, mobile, AI, integrations, non-USD, tags, custom stages, import/export).
+- Quotes and invoices, so the company settings reach the documents.
+- The rest of `docs/spec.md`'s Out of scope list: roles and permissions, a phone layout, AI features, integrations, currencies other than US dollars, reports beyond the dashboard, tags and custom fields, changing the pipeline stages, import/export, more than one tax rate and a logo.

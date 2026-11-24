@@ -18,6 +18,11 @@ Update `docs/STATUS.md` when you finish a piece of work
 
 A count or coverage figure written into `docs/` — test totals, coverage percentages, how many literals a file has — comes from the run output or from counting the code, never from memory. The dark-mode change wrote both wrong and review caught them: `docs/changes/dark-mode/plan.md` said seven hex literals in `Dashboard.tsx` where there were eight, and `docs/STATUS.md` labelled 96.85% "statements" when it was functions.
 
+## Dates and times
+
+- Give every time column one convention and say which it is: `happened_at` holds local wall-clock time, `company_settings.updated_at` holds UTC. A UTC moment goes into a `DateTime(timezone=True)` column, or into a naive column as `datetime.now(UTC).replace(tzinfo=None)`; an aware value written to a naive column is converted against the database session's timezone on Postgres and silently loses its offset on SQLite.
+- A test that checks a date uses the clock the value was made from: compare a UTC moment with `datetime.now(UTC).date()`, never `date.today()`, or the test flips whenever the machine's local date differs from the UTC date.
+
 ## Checks
 
 - `npm run check` runs every gate and fails if any of them fails: Prettier and ESLint (recommended TypeScript, React Hooks and accessibility rules), ruff format and ruff check for the backend, cyclomatic complexity of at most 15 per function (ESLint `complexity`, ruff `C901`), type checks (`tsc` for the frontend, `ty` for the backend), gitleaks across the repo (the git-ignored `.env` is allowed), and `npm test` with unit-test coverage of at least 80%.
@@ -31,4 +36,5 @@ A count or coverage figure written into `docs/` — test totals, coverage percen
 
 - `npm test` runs everything — backend unit tests (pytest), frontend unit tests (Vitest) and end-to-end tests (Playwright) — and exits non-zero if any of them fails.
 - The e2e run starts its own API and Vite servers, on ports no other test run is using, and a temporary database of its own (`scripts/e2e.mjs` and `playwright.config.ts`), so a running `npm run dev` is not in its way. Never edit data by hand to make a test pass.
+- For every write, test the path where nothing changes as well as the path where a value changes: a no-op save still leaves the screen showing what the server stored.
 - Test runs in separate worktrees can go at once, with nothing to set: each takes a port slot and database of its own.

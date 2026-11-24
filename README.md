@@ -1,6 +1,6 @@
 # Accountable
 
-A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, a pipeline board, activities and follow-ups, with a dashboard that shows how sales are going at a glance.
+A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, a pipeline board, activities and follow-ups, the team's own company settings, and a dashboard that shows how sales are going at a glance.
 
 **Live: [accountable-qie9.onrender.com](https://accountable-qie9.onrender.com/)** — sign in with your email and password (people are added in Supabase's dashboard; there is no sign-up page).
 
@@ -13,6 +13,7 @@ A sales CRM for a small team, on the web — the everyday CRM essentials done we
 - **Pipeline** — the open deals as cards on a board, one column per stage, drag between or within columns, with column totals and late deals called out.
 - **Activities and follow-ups** — log calls, emails and tasks on a record, with overdue and upcoming follow-ups on the dashboard and a mark-done checkbox.
 - **Team sign-in** — Supabase Auth with email and password; every record shows who added it and who last changed it.
+- **Company settings** — the team's own details in one page: name, address, email and phone, tax label and rate, payment terms, and quote and invoice prefixes, with who last changed them.
 - **Search** — one search box in the top bar across organizations, contacts and deals, plus the search box on each table.
 - **Light, dark and system** — the theme follows the device or your choice, remembered across visits, WCAG AA contrast in both modes.
 - **Safe deletes** — a confirmation lists exactly what a delete will cascade to, with counts and names, before anything is removed.
@@ -58,7 +59,7 @@ That starts the backend (http://127.0.0.1:8000) and the frontend (http://localho
 | `npm run check:quick` | The same without the end-to-end tests                                                        |
 | `npm start`        | The shared copy, the way Render runs it: needs `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` in `.env` |
 
-Stop a running `npm run dev` before `npm test` — the end-to-end run starts the app itself on fixed ports.
+The end-to-end run starts its own servers and temporary database, so a running `npm run dev` is not in its way.
 
 ## Deploying
 
@@ -75,7 +76,7 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 - `backend/` — the FastAPI app, migrations and pytest suite.
 - `frontend/` — the React app, its styles and the Vitest suite.
 - `e2e/` — the Playwright suite; `playwright.config.ts` starts the app itself.
-- `scripts/` — `seed`, `start` and the `.env` splitting they share.
+- `scripts/` — `seed`, `start`, the `.env` splitting, and the test runner and its port slots.
 - `docs/` — the spec and its area files, standards, status, and one folder per change.
 - `plugins/hooks/` — the OpenCode hooks: the turn-end check and `.env` protection.
 - `course/` — material from the course this repo started from; see the credit below.
@@ -89,9 +90,9 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 ## Where it stands
 
-Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
 
-Next: the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
+Next: quotes and invoices, so the company settings reach the documents; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
 ## Acknowledgements
 
