@@ -1374,6 +1374,13 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+/* The generic .btn:hover would put page ink on page color, hiding the
+   initials in dark mode; keep the primary pairing and darken the fill. */
+.user-menu-button:hover {
+  background: var(--color-sea-green-ink);
+  color: var(--color-on-primary);
+}
+
 .user-menu-panel {
   position: absolute;
   top: calc(100% + 6px);
