@@ -1,15 +1,16 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 import { api, type Product, type ProductInput } from "../api/client";
 import DataTable from "../components/DataTable";
 import ProductForm from "../components/ProductForm";
-import { formatUsd } from "../lib/money";
+import { formatUsdWithCents } from "../lib/money";
 
 export default function Products() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -38,7 +39,9 @@ export default function Products() {
       accessorKey: "price_cents",
       header: "Unit price",
       cell: (info) => (
-        <span className="num">{formatUsd(info.getValue() as number)}</span>
+        <span className="num">
+          {formatUsdWithCents(info.getValue() as number)}
+        </span>
       ),
     },
     {
@@ -121,6 +124,7 @@ export default function Products() {
               searchPlaceholder="Search products"
               addLabel="Add product"
               initialQuery={initialQuery}
+              initialQueryKey={location.key}
               toolbar={
                 <label className="toolbar-label">
                   <input

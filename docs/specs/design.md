@@ -23,7 +23,7 @@
 - Exactly one of `contact_id` / `deal_id` is set; `stage_change` rows are system-generated (read-only), written automatically when a deal's stage changes, e.g. "Moved from Proposal to Negotiation".
 - Stage probabilities: New 10%, Qualified 25%, Proposal 50%, Negotiation 75%, Won 100%, Lost 0%. A manual probability persists until the stage changes, then resets to the new stage's default.
 - Expected revenue = value × probability, over deals not in Won/Lost.
-- Money stored in whole cents (integers) and displayed in US dollars, never as bare cents, such as `$49.50`. Product prices are a whole number of cents, zero or more.
+- Money stored in whole cents (integers) and displayed in US dollars, never as bare cents, such as `$49.50`. Product prices are a whole number of cents, zero or more, shown with two decimals.
 - A product's `active` flag is its archive state: new products start active, archiving sets it false and restoring sets it true. A product's name is unique ignoring case across active and archived products; the API enforces that on create and update.
 
 ## API (JSON, under `/api`)

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 
 import { type Product, type ProductInput } from "../api/client";
-import { formatUsd, parseUsdToCents } from "../lib/money";
+import { formatUsdWithCents, parseUsdToCents } from "../lib/money";
 import Field from "./Field";
 import Modal from "./Modal";
 
@@ -19,7 +19,7 @@ export default function ProductForm({
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [priceText, setPriceText] = useState(
-    product ? formatUsd(product.price_cents) : "",
+    product ? formatUsdWithCents(product.price_cents) : "",
   );
   const [error, setError] = useState<string | null>(null);
 

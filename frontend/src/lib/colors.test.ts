@@ -139,6 +139,11 @@ function contrast(a: Rgba, b: Rgba): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/** The custom property a declaration points at, e.g. the color token. */
+function declaredToken(block: string, property: string): string | undefined {
+  return block.match(new RegExp(`${property}:\\s*var\\((--[\\w-]+)\\)`))?.[1];
+}
+
 /** Today's light values — the light mode must not drift (plan risk 3). */
 const LIGHT: Record<string, string> = {
   "--color-page": "#f0f4f5",
@@ -218,6 +223,20 @@ describe("the light palette", () => {
     expect(Object.keys(colorTokens(dark)).sort()).toEqual(
       Object.keys(LIGHT).sort(),
     );
+  });
+
+  it("keeps the Archived badge readable on its fill", () => {
+    const { css, light } = parseBrandCss();
+    const block = css.match(/\.badge-archived\s*\{([^}]*)\}/)?.[1] ?? "";
+    const foreground = declaredToken(block, "color") ?? "--color-ink";
+    const background = declaredToken(block, "background");
+    if (!background) {
+      throw new Error("The Archived badge needs a background token.");
+    }
+    expect(
+      contrast(parseColor(light[foreground]), parseColor(light[background])),
+      `${foreground} on ${background}`,
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
 

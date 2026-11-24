@@ -177,7 +177,7 @@ describe("Products page", () => {
     }
 
     const starter = rowFor("Starter license");
-    expect(within(starter).getByText("$49")).toBeTruthy();
+    expect(within(starter).getByText("$49.00")).toBeTruthy();
     expect(within(starter).getByText("Active")).toBeTruthy();
     expect(
       within(starter).getAllByText("alex@brightloop.example"),
@@ -188,7 +188,7 @@ describe("Products page", () => {
     expect(within(support).getByText("priya@brightloop.example")).toBeTruthy();
 
     expect(
-      within(rowFor("Onsite training day")).getByText("$1,200"),
+      within(rowFor("Onsite training day")).getByText("$1,200.00"),
     ).toBeTruthy();
     expect(within(rowFor("Onsite training day")).getByText("—")).toBeTruthy();
   });
@@ -305,6 +305,10 @@ describe("Products page", () => {
 
     fireEvent.click(within(archived).getByRole("button", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit product" });
+    expect(
+      (within(dialog).getByLabelText("Unit price (USD)") as HTMLInputElement)
+        .value,
+    ).toBe("$39.00");
     fireEvent.change(within(dialog).getByLabelText("Unit price (USD)"), {
       target: { value: "45" },
     });
@@ -503,5 +507,31 @@ describe("Products page", () => {
       { target: { value: "" } },
     );
     expect(visibleNames()).toContain("Legacy add-on");
+  });
+
+  it("re-applies the same search when its link is followed again", async () => {
+    renderWithLink("/products?q=priority");
+    await screen.findByText("Priority support");
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search products" }),
+      { target: { value: "training" } },
+    );
+    expect(visibleNames()).toEqual(["Onsite training day"]);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "go to /products?q=priority" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("searchbox", {
+            name: "Search products",
+          }) as HTMLInputElement
+        ).value,
+      ).toBe("priority"),
+    );
+    expect(visibleNames()).toEqual(["Priority support"]);
   });
 });

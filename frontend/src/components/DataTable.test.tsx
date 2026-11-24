@@ -32,16 +32,20 @@ const columns: ColumnDef<Row>[] = [
 
 afterEach(cleanup);
 
-function setup(
-  options: {
-    onEdit?: (row: Row) => void;
-    onDelete?: (row: Row) => void;
-    initialQuery?: string;
-    toolbar?: ReactNode;
-    rowAction?: (row: Row) => ReactNode;
-  } = {},
+interface SetupOptions {
+  onEdit?: (row: Row) => void;
+  onDelete?: (row: Row) => void;
+  initialQuery?: string;
+  initialQueryKey?: string;
+  toolbar?: ReactNode;
+  rowAction?: (row: Row) => ReactNode;
+}
+
+function table(
+  options: SetupOptions = {},
+  initialQueryKey = options.initialQueryKey,
 ) {
-  render(
+  return (
     <DataTable
       rows={rows}
       columns={columns}
@@ -59,10 +63,15 @@ function setup(
       onEdit={options.onEdit}
       onDelete={options.onDelete}
       initialQuery={options.initialQuery}
+      initialQueryKey={initialQueryKey}
       toolbar={options.toolbar}
       rowAction={options.rowAction}
-    />,
+    />
   );
+}
+
+function setup(options: SetupOptions = {}) {
+  return render(table(options));
 }
 
 function visibleNames(): string[] {
@@ -191,5 +200,21 @@ describe("DataTable", () => {
       (screen.getByRole("searchbox", { name: "Search" }) as HTMLInputElement)
         .value,
     ).toBe("bet");
+  });
+
+  it("re-applies the same initial query when its key changes", () => {
+    const view = render(table({ initialQuery: "bet" }, "first"));
+    const search = screen.getByRole("searchbox", {
+      name: "Search",
+    }) as HTMLInputElement;
+    expect(search.value).toBe("bet");
+
+    fireEvent.change(search, { target: { value: "" } });
+    expect(search.value).toBe("");
+    expect(visibleNames()).toEqual(["Zulu", "Alpha", "Beta"]);
+
+    view.rerender(table({ initialQuery: "bet" }, "second"));
+    expect(search.value).toBe("bet");
+    expect(visibleNames()).toEqual(["Beta"]);
   });
 });

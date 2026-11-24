@@ -54,10 +54,11 @@ def list_products(
         stmt = stmt.where(db.products.c.active.is_(True))
     if q:
         pattern = f"%{q}%"
+        # ilike, not like: SQLite's LIKE ignores case but Postgres's does not.
         stmt = stmt.where(
             or_(
-                db.products.c.name.like(pattern),
-                db.products.c.description.like(pattern),
+                db.products.c.name.ilike(pattern),
+                db.products.c.description.ilike(pattern),
             )
         )
     column = db.products.c[sort]

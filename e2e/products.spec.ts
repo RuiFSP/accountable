@@ -30,15 +30,18 @@ test("the sample price list has ten active products and two archived", async ({
 
   await expect(page.locator("tbody tr")).toHaveCount(10);
   await expect(page.locator(".badge-active")).toHaveCount(10);
+  await expect(row(page, "Starter license")).toContainText("$49.00");
   await expect(row(page, "Priority support")).toContainText("$149.50");
-  await expect(row(page, "Onsite training day")).toContainText("$1,200");
-  // Sample rows carry both attribution lines; this one's differ.
-  await expect(row(page, "Onsite training day")).toContainText(
-    "joel@brightloop.example",
-  );
-  await expect(row(page, "Onsite training day")).toContainText(
-    "sam@brightloop.example",
-  );
+  await expect(row(page, "Onsite training day")).toContainText("$1,200.00");
+  // Sample rows carry both attribution lines; this one's differ. Which
+  // teammates they are follows the seed's row order, so only the shape and
+  // the difference are pinned.
+  const onsite = row(page, "Onsite training day");
+  const addedBy = onsite.locator("td").nth(4);
+  const changedBy = onsite.locator("td").nth(5);
+  await expect(addedBy).toHaveText(/^[^@\s]+@brightloop\.example$/);
+  await expect(changedBy).toHaveText(/^[^@\s]+@brightloop\.example$/);
+  expect(await changedBy.textContent()).not.toBe(await addedBy.textContent());
   await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "View" })).toHaveCount(0);
 
@@ -63,7 +66,7 @@ test("the sample price list has ten active products and two archived", async ({
   await expect(row(page, "Pilot license")).toBeVisible();
 
   // Six sections must still leave the search and the action room on a small
-  // laptop, rather than squeezing the search to a sliver.
+  // laptop, and longer prices must not scroll the page sideways.
   await page.setViewportSize({ width: 1024, height: 900 });
   const search = await page
     .getByRole("textbox", { name: "Search" })
@@ -102,7 +105,7 @@ test("a product can be added, edited, searched, archived, restored and survives 
   await editModal.getByLabel("Description").fill("A hands-on workshop.");
   await editModal.getByLabel("Unit price (USD)").fill("1,350");
   await editModal.getByRole("button", { name: "Save" }).click();
-  await expect(row(page, "Workshop day plus")).toContainText("$1,350");
+  await expect(row(page, "Workshop day plus")).toContainText("$1,350.00");
   await expect(row(page, "Workshop day plus")).toContainText(
     "A hands-on workshop.",
   );
@@ -144,7 +147,7 @@ test("a product can be added, edited, searched, archived, restored and survives 
   await page.reload();
   await page.getByRole("searchbox").fill("workshop");
   await expect(page.locator("tbody tr")).toHaveCount(1);
-  await expect(row(page, "Workshop day plus")).toContainText("$1,350");
+  await expect(row(page, "Workshop day plus")).toContainText("$1,350.00");
   await expect(row(page, "Workshop day plus")).toContainText(
     "Edited while archived.",
   );

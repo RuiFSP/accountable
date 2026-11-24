@@ -30,6 +30,8 @@ interface DataTableProps<T extends { id: number }> {
   emptyMessage?: string;
   /** A search text to apply when it arrives, as the top-bar product link does. */
   initialQuery?: string;
+  /** Changes when a link is followed again, so the same search re-applies. */
+  initialQueryKey?: string;
   /** Controls beside the search box, such as Show archived. */
   toolbar?: ReactNode;
   /** A row action beyond edit and delete, such as Archive or Restore. */
@@ -70,6 +72,7 @@ export default function DataTable<T extends { id: number }>({
   onOpen,
   emptyMessage = "No records yet.",
   initialQuery = "",
+  initialQueryKey,
   toolbar,
   rowAction,
 }: DataTableProps<T>) {
@@ -77,10 +80,11 @@ export default function DataTable<T extends { id: number }>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filterValue, setFilterValue] = useState("");
 
-  // A link can bring a new search while the table is already on screen.
+  // A link can bring a new search while the table is already on screen; the
+  // key makes the same search apply again when its link is followed twice.
   useEffect(() => {
     setQuery(initialQuery);
-  }, [initialQuery]);
+  }, [initialQuery, initialQueryKey]);
 
   const tableColumns = useMemo<ColumnDef<T>[]>(() => {
     const base = columns.map((column) =>

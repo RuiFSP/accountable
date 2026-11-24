@@ -499,6 +499,16 @@ textarea:focus-visible {
   padding: 14px 12px;
 }
 
+/* The Products table has seven columns: tighter cells keep a 1024px laptop
+   from scrolling the page sideways. */
+@media (max-width: 1180px) {
+  .data-table th,
+  .data-table td {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
 /* Badges */
 
 .badge {
@@ -538,8 +548,9 @@ textarea:focus-visible {
 }
 
 .badge-archived {
+  /* Ink, not ink-muted: muted on the page is 4.1:1 in light mode. */
   background: var(--color-page);
-  color: var(--color-ink-muted);
+  color: var(--color-ink);
 }
 
 /* Dialogs */
