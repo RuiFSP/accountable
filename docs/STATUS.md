@@ -276,12 +276,12 @@ Preparing `main` for products and company settings, the code every area needs mo
 
 Proved by running `npm run check` in two fresh worktrees at the same time: both exited 0 in 249 seconds, each green — 452 tests (127 backend, 257 frontend, 18 script, 50 end-to-end), backend coverage 98.95%, and the end-to-end suite 50 passed in 4.3 minutes each. One run alone takes 2 minutes 41 seconds. Their API servers ran on 20101 and 20105, so their web servers were on 20100 and 20104; both temporary databases were removed when the runs ended.
 
-## Company settings, spec done (2026-11-24)
+## Company settings, docs and plan done (2026-11-24)
 
 - `docs/changes/company-settings/intent.md` refined in an interview: the address is one free-text block with a checked email and free-text phone, a blank tax rate or payment terms means 0, prefixes are capped at 10 characters, and the seed company is Brightloop — taken from the sample teammates' `@brightloop.example` emails — at 1 Brightloop Plaza, with Sales tax at 8.875%, 30-day terms and QT-/INV- prefixes.
 - New `docs/specs/company-settings.md`: one row for the team, the fields and their rules, last-changed attribution, not used on documents yet, and decisions 14–18 (one row and `/api/settings`, the page in the user menu, the tax rate stored in thousandths, `updated_by`/`updated_at`, and the sample company).
 - `docs/spec.md` summary, out-of-scope list and areas index; `sign-in.md` menu and attribution; `design.md` data model (six public tables under RLS), `/api/settings`, the `/settings` route and top-bar menu; `running.md` sample data and reset; `look-and-feel.md` menu and the Settings page's brand form styling; `tables.md` now says record table, so the settings table isn't mistaken for one.
-- No code yet. Next: the change's `plan.md`, then the build.
+- `docs/changes/company-settings/plan.md` written: files, four phases ending in the build, risks (the version-stamp trap, validation drift, tax precision, timezone, seed overwrite, RLS, test order, coverage) and proof (backend, frontend and end-to-end tests). No code yet. Next: the build.
 
 ## Not started
 
