@@ -266,6 +266,16 @@ Preparing `main` for products and company settings, the code every area needs mo
 - **Docs**: `docs/spec.md` and `docs/specs/design.md` name the new shared homes.
 - **Proof**: `npm run check` green — 448 tests (127 backend, 257 frontend, 14 script, 50 end-to-end), backend coverage 98.95%.
 
+## Test runs side by side (2026-11-24)
+
+`npm run check` in two worktrees used to put both end-to-end runs on 5173 and 8000, so one lost its servers to "Port 5173 is in use". Each run now takes a slot no other run is using, with nothing to set by hand:
+
+- **Ports**: `scripts/test-ports.mjs` holds a run's slot by listening on one of 20001–20016; the slot reserves its web and API ports from 20100. The operating system frees the slot when the run ends, even after a crash, so there is no lock file to clean up. A slot where another program has the slot or server port is passed over, and each run stops with a plain message once all 16 are taken.
+- **Test run**: `scripts/e2e.mjs`, behind `npm run test:e2e`, claims the slot, gives the run its own temporary SQLite database, passes the ports and database to Playwright, and holds the slot until Playwright exits. `playwright.config.ts` starts the API and Vite itself on those ports, with `reuseExistingServer` off; `frontend/vite.config.ts` sends `/api` to that run's API port, and `e2e/helpers.ts` resets that run's database, so two runs can't wipe each other's data.
+- **Fixed commands stay fixed**: `npm run dev` and `npm start` keep 5173 and 8000. `scripts/test-ports.test.mjs` adds four tests for different slots, a slot coming back after its run leaves, skipping a taken port, and every slot's ports staying apart and clear of the app's ports.
+
+Proved by running `npm run check` in two fresh worktrees at the same time: both exited 0 in 249 seconds, each green — 452 tests (127 backend, 257 frontend, 18 script, 50 end-to-end), backend coverage 98.95%, and the end-to-end suite 50 passed in 4.3 minutes each. One run alone takes 2 minutes 41 seconds. Their API servers ran on 20101 and 20105, so their web servers were on 20100 and 20104; both temporary databases were removed when the runs ended.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.

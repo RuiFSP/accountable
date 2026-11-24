@@ -30,4 +30,5 @@ A count or coverage figure written into `docs/` — test totals, coverage percen
 ## Testing
 
 - `npm test` runs everything — backend unit tests (pytest), frontend unit tests (Vitest) and end-to-end tests (Playwright) — and exits non-zero if any of them fails.
-- The e2e run starts the app itself via `playwright.config.ts` (the same `npm run dev`), on its own database (`accountable-e2e.db`), so stop a running `npm run dev` first and never edit data by hand to make a test pass.
+- The e2e run starts its own API and Vite servers, on ports no other test run is using, and a temporary database of its own (`scripts/e2e.mjs` and `playwright.config.ts`), so a running `npm run dev` is not in its way. Never edit data by hand to make a test pass.
+- Test runs in separate worktrees can go at once, with nothing to set: each takes a port slot and database of its own.

@@ -8,9 +8,12 @@ import {
   type Page,
 } from "@playwright/test";
 
-// The same database playwright.config.ts points the webServer at. Computed
+// The database playwright.config.ts points the servers at. scripts/e2e.mjs
+// gives every run its own, so two runs can't reset each other's data. Computed
 // here too, so a spec can never accidentally reset the real data.
-const E2E_DATABASE = path.resolve(process.cwd(), "accountable-e2e.db");
+const E2E_DATABASE = path.resolve(
+  process.env.ACCOUNTABLE_DB ?? "accountable-e2e.db",
+);
 
 /**
  * Reload the sample data, so every spec file starts from a known state.

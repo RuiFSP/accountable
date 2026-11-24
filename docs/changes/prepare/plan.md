@@ -25,3 +25,14 @@
 - Existing backend `test_who.py`, `test_crud.py`, `test_stage_move.py`, `test_cascade.py` and route sweep cover the same behaviour through the new helpers.
 - Existing page tests for contacts, organizations and deals cover the moved forms and attribution lines.
 - `npm run check` green, with the test counts taken from its output.
+
+## Side-by-side test runs
+
+- New `scripts/test-ports.mjs`: a run holds a slot by listening on its slot port (20001–20016), so the operating system releases it even after a crash; the slot reserves its web and API ports (from 20100), and a slot with any port taken is passed over. `scripts/test-ports.test.mjs` covers two runs getting different slots, a slot coming back after its run leaves, skipping a slot with a taken server port, and every slot's ports staying apart and clear of `npm run dev`, `npm start`, older test ports and the system's connection ports.
+- New `scripts/e2e.mjs` behind `npm run test:e2e`: claims the slot, gives the run a temporary SQLite database, passes the ports and database to Playwright, and holds the slot until Playwright exits.
+- `playwright.config.ts`: starts the API and Vite itself on this run's ports instead of `npm run dev` on 8000 and 5173, with `reuseExistingServer` off; `frontend/vite.config.ts` proxies `/api` to the API port it is given. `e2e/helpers.ts` resets that run's database, so two runs can't wipe each other's data.
+- `docs/specs/design.md`, `docs/STATUS.md` and `AGENTS.md` describe the setup and record the proof.
+
+Risks: a second run must never pick the first run's ports or database, and stopping either run must leave nothing holding a slot; the two full checks share the machine's cores and memory, so the run must stay within what this computer can do at once.
+
+Proof: two `npm run check` runs in separate worktrees at the same time, both green, with the counts and times taken from their output.

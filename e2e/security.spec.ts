@@ -13,9 +13,12 @@ test.beforeAll(() => {
 });
 
 test("the guard knows this machine from anywhere else", () => {
-  expect(isLocal("http://localhost:8000/api/organizations")).toBe(true);
-  expect(isLocal("http://127.0.0.1:5173/")).toBe(true);
-  expect(isLocal("/api/deals", "http://localhost:5173")).toBe(true);
+  const apiPort = process.env.ACCOUNTABLE_API_PORT ?? "8000";
+  const webPort = process.env.ACCOUNTABLE_WEB_PORT ?? "5173";
+
+  expect(isLocal(`http://localhost:${apiPort}/api/organizations`)).toBe(true);
+  expect(isLocal(`http://127.0.0.1:${webPort}/`)).toBe(true);
+  expect(isLocal("/api/deals", `http://localhost:${webPort}`)).toBe(true);
   expect(isLocal("https://project.supabase.co/auth/v1/token")).toBe(false);
   expect(isLocal("http://10.0.0.0/")).toBe(false);
 });

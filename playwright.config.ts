@@ -3,7 +3,15 @@ import path from "node:path";
 
 import { defineConfig } from "@playwright/test";
 
-const testDatabase = path.resolve("accountable-e2e.db");
+// scripts/e2e.mjs gives each run its own database and ports. The fallbacks
+// keep a direct `playwright test` on the app's usual addresses.
+const testDatabase = path.resolve(
+  process.env.ACCOUNTABLE_DB ?? "accountable-e2e.db",
+);
+const webPort = Number(process.env.ACCOUNTABLE_WEB_PORT ?? 5173);
+const apiPort = Number(process.env.ACCOUNTABLE_API_PORT ?? 8000);
+const webAddress = `http://127.0.0.1:${webPort}`;
+const apiAddress = `http://127.0.0.1:${apiPort}`;
 
 // Specs need the same database the webServer uses: they call the seed command
 // and the API directly, and must never touch the real data.
@@ -24,16 +32,28 @@ export default defineConfig({
   // report. The html report is what CI uploads when a run fails.
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: webAddress,
     ...(chrome ? { channel: "chrome" as const } : {}),
   },
-  webServer: {
-    command: "npm run dev",
-    // The API refuses without a token now; the local sign-in route is what
-    // says the backend is up (docs/changes/multi-user/plan.md, Part I).
-    url: "http://127.0.0.1:8000/api/local/teammates",
-    reuseExistingServer: false,
-    timeout: 60_000,
-    env: { ACCOUNTABLE_DB: testDatabase },
-  },
+  webServer: [
+    {
+      command: `uv run --directory backend uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`,
+      // The API refuses without a token now; the local sign-in route is what
+      // says the backend is up (docs/changes/multi-user/plan.md, Part I).
+      url: `${apiAddress}/api/local/teammates`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { ACCOUNTABLE_DB: testDatabase },
+    },
+    {
+      command: `npm run dev --workspace frontend -- --host 127.0.0.1 --port ${webPort} --strictPort`,
+      url: `${webAddress}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        ACCOUNTABLE_DB: testDatabase,
+        ACCOUNTABLE_API_PORT: String(apiPort),
+      },
+    },
+  ],
 });
