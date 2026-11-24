@@ -1,0 +1,14 @@
+# Spec: Products
+
+- **Products**: the price list of what the business sells. A table of names, descriptions, unit prices and whether each is active. The table's search box matches names and descriptions. Active products show by default; a Show archived control brings the archived ones back into view. Add and edit happen in a dialog; archive takes a product off the list and restore brings it back. There is no product detail page: the table shows who added each product and who last changed it.
+
+- **Product**: something the business sells. Name (required), description (optional), unit price (required) and an active state. The name is unique ignoring case across active and archived products, so an archived name stays reserved. The price is stored as whole cents, never as a decimal, and shown in US dollars and cents, such as `$49.50`. New products start active; archiving makes one inactive and restoring makes it active again. Every product records who added it and who last changed it, as their email. Products are a price list only for now: they aren't linked to deals, quotes or invoices, and there are no stock levels, categories, units of measure, variants, per-customer prices or discounts.
+
+## Design decisions
+
+Points this spec fixes:
+
+14. **Archive, never delete.** Products have no Delete action and no delete route. Active rows show an Active badge and offer Edit and Archive; archived rows show an Archived badge and offer Edit and Restore. Archived products are hidden by default; a Show archived control in the table toolbar includes them. Archiving and restoring take effect straight away, with no confirmation, because either can be undone. Archived products are left out of the top-bar search.
+15. **Names stay reserved.** A product's name must be unique ignoring case among active and archived products alike, so restoring one can never collide with a newer product. The API checks create and update by comparing casefolded names in Python, so SQLite and Postgres give the same answer, and the form shows the message it returns.
+16. **A product has no detail page.** Products live only in the Products table, which has Name, Description, Unit price, Status, Added by and Last changed by columns. A product match in the top-bar search opens the Products page with its search box filled in with that product's name, so the product is shown.
+17. **Prices follow the brand's money style.** The Unit price column shows US dollars with a dollar sign, such as `$49.50`, in JetBrains Mono like other money in the app; the form accepts `49.50` or `$49.50` and stores whole cents. The page uses the shared panel, table and status badges, with no new colors.
