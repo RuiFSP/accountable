@@ -15,7 +15,7 @@ A sales CRM for a small team, on the web — the everyday CRM essentials done we
 - **Activities and follow-ups** — log calls, emails and tasks on a record, with overdue and upcoming follow-ups on the dashboard and a mark-done checkbox.
 - **Team sign-in** — Supabase Auth with email and password; every record shows who added it and who last changed it.
 - **Search** — one search box in the top bar across organizations, contacts, deals and active products, plus the search box on each table.
-- **Light, dark and system** — the theme follows the device or your choice, remembered across visits, WCAG AA contrast in both modes.
+- **Light, dark and system** — the theme follows the device or your choice, remembered across visits; dark mode meets WCAG AA.
 - **Safe deletes** — a confirmation lists exactly what a delete will cascade to, with counts and names, before anything is removed.
 
 ## Screenshots

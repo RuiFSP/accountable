@@ -1,8 +1,9 @@
 /**
  * The one-place rule for color (docs/changes/dark-mode/plan.md):
  * every color literal under src/ lives in brand.css, the light :root values
- * never drift from the values the app shipped with, and the dark palette
- * holds WCAG AA (docs/spec.md design decision 7).
+ * never drift from the values the app shipped with, the dark palette holds
+ * WCAG AA (docs/spec.md design decision 7), and every badge's text clears
+ * 4.5:1 in both modes.
  */
 
 import fs from "node:fs";
@@ -144,6 +145,19 @@ function declaredToken(block: string, property: string): string | undefined {
   return block.match(new RegExp(`${property}:\\s*var\\((--[\\w-]+)\\)`))?.[1];
 }
 
+/** Every rule that gives a badge a fill, so a new badge can't skip the check. */
+function badgeRules(css: string): { selector: string; body: string }[] {
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map((match) => ({
+      selector: match[1].trim(),
+      body: match[2].replace(/\/\*[\s\S]*?\*\//g, ""),
+    }))
+    .filter(
+      ({ selector, body }) =>
+        selector.includes(".badge") && body.includes("background: var("),
+    );
+}
+
 /** Today's light values — the light mode must not drift (plan risk 3). */
 const LIGHT: Record<string, string> = {
   "--color-page": "#f0f4f5",
@@ -224,19 +238,34 @@ describe("the light palette", () => {
       Object.keys(LIGHT).sort(),
     );
   });
+});
 
-  it("keeps the Archived badge readable on its fill", () => {
-    const { css, light } = parseBrandCss();
-    const block = css.match(/\.badge-archived\s*\{([^}]*)\}/)?.[1] ?? "";
-    const foreground = declaredToken(block, "color") ?? "--color-ink";
-    const background = declaredToken(block, "background");
-    if (!background) {
-      throw new Error("The Archived badge needs a background token.");
+describe("badge contrast (WCAG AA in both modes)", () => {
+  const { css, light, dark } = parseBrandCss();
+  const rules = badgeRules(css);
+
+  it("holds 4.5:1 for badge text on its fill", () => {
+    expect(rules.length).toBeGreaterThan(0);
+    for (const [mode, tokens] of Object.entries({ light, dark })) {
+      const panel = parseColor(
+        tokens["--color-panel"] ?? light["--color-panel"],
+      );
+      for (const { selector, body } of rules) {
+        const foreground = declaredToken(body, "color") ?? "--color-ink";
+        const background = declaredToken(body, "background");
+        if (!background) {
+          throw new Error(`${selector} needs a background token.`);
+        }
+        const fill = over(
+          parseColor(tokens[background] ?? light[background]),
+          panel,
+        );
+        expect(
+          contrast(parseColor(tokens[foreground] ?? light[foreground]), fill),
+          `${mode} ${selector}: ${foreground} on ${background}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
     }
-    expect(
-      contrast(parseColor(light[foreground]), parseColor(light[background])),
-      `${foreground} on ${background}`,
-    ).toBeGreaterThanOrEqual(4.5);
   });
 });
 

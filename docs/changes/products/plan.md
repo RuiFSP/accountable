@@ -42,7 +42,7 @@ Working rule: one `active` flag is the archive state; the API owns the name rule
 - `frontend/src/components/SearchBox.test.tsx` — product group, product click and Enter, and the location probe now includes the query string.
 - `frontend/src/routes.test.tsx` — the six section links include Products; `/products` is in the top-bar pages.
 - `frontend/src/routes.extra.test.tsx` — the mocked API gains products; the Products route renders its heading.
-- `frontend/src/styles/brand.css` — `.badge-active` from `--tint-sea-green` and `.badge-archived` from `--color-page` with `--color-ink`; a small toolbar label for the checkbox; tighter table cell padding below 1180px so the wider prices still fit a 1024px laptop. No new color tokens, so `colors.test.ts` gains only the light-mode badge check.
+- `frontend/src/styles/brand.css` — `.badge-active` from `--tint-sea-green` and `.badge-archived` from `--color-page` with `--color-ink`; a small toolbar label for the checkbox; tighter table cell padding below 1180px so the wider prices still fit a 1024px laptop. No new color tokens, and `colors.test.ts` gains a check for every badge in both modes.
 
 **New — end-to-end**
 
@@ -130,7 +130,7 @@ Done when: `npm run check` exits 0, the local sample database shows ten active a
 - `components/SearchBox.test.tsx` — the Products group appears; clicking or pressing Enter on a product goes to `/products?q=<encoded name>` and clears the box; the existing organization, contact and deal paths are unchanged.
 - `api/client.extra.test.ts` — `list()` calls `/api/products`, `list(true)` adds `include_archived=true`, and create, update, archive and restore use the right methods and paths; a product is a valid search result.
 - `routes.test.tsx`, `routes.extra.test.tsx` — six section links including Products; `/products` renders the Products heading; the top bar is present on the new page.
-- `lib/colors.test.ts` — the Archived badge's ink-on-page pair holds 4.5:1 in light mode, and the one-place rule still holds.
+- `lib/colors.test.ts` — every badge's text holds 4.5:1 on its fill in both modes, and the one-place rule still holds.
 
 ### End-to-end (Playwright, `e2e/`)
 
@@ -154,7 +154,7 @@ The review of this branch found six findings; all are fixed here.
 
 - **Prices show cents.** The Products table and the edit form use `formatUsdWithCents`, so whole-dollar prices read `$49.00` and `$1,200.00`; `Products.test.tsx`, `money.test.ts` and `products.spec.ts` assert it. Below 1180px the table cells tighten, so the wider prices still fit a 1024px laptop without scrolling the page sideways.
 - **The same product twice re-applies its search.** `DataTable` takes an `initialQueryKey` and the Products page passes the router's `location.key`, so a second click on the same top-bar match fills the table's box again.
-- **The Archived badge meets AA in light mode.** It uses `--color-ink` on `--color-page`, and `colors.test.ts` resolves the rule and checks the 4.5:1 ratio.
+- **The Archived badge meets AA in light mode.** It uses `--color-ink` on `--color-page`, and `colors.test.ts` resolves every badge rule and checks the 4.5:1 ratio in both modes.
 - **The list `q` ignores case on both databases.** `products.py` uses `ilike`, not `like`, which is case-sensitive on Postgres.
 - **The sample attribution test is no longer pinned to row order.** It checks that the two cells hold different teammate emails instead of naming the teammates.
 - **The 1180px top-bar rule has a home.** `look-and-feel.md` decision 18 records it.
