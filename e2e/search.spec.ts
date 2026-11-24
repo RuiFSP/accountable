@@ -63,6 +63,40 @@ test("the box clears on Escape", async ({ page }) => {
   await expect(search).toHaveValue("");
 });
 
+test("a product match opens the Products table with its search filled", async ({
+  page,
+}) => {
+  const search = searchBox(page);
+  const results = page.locator(".search-results");
+
+  await search.fill("priority");
+  await expect(results.getByText("Products")).toBeVisible();
+  await results.getByRole("button", { name: "Priority support" }).click();
+
+  await expect(page).toHaveURL(/\/products\?q=Priority%20support/);
+  await expect(
+    page.getByRole("heading", { name: "Products", level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(page.locator("tbody tr").first()).toContainText(
+    "Priority support",
+  );
+  await expect(page.getByRole("searchbox")).toHaveValue("Priority support");
+});
+
+test("an archived product has no match in the top bar", async ({ page }) => {
+  const search = searchBox(page);
+  const answered = page.waitForResponse((response) =>
+    response.url().includes("/api/search?q=legacy"),
+  );
+
+  await search.fill("legacy");
+  await answered;
+
+  await expect(page.locator(".search-results")).toHaveCount(0);
+  expect(new URL(page.url()).pathname).toBe("/");
+});
+
 test("the per-table search still works", async ({ page }) => {
   await page.goto("/organizations");
 

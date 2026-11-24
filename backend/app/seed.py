@@ -538,6 +538,93 @@ def _activities(contact_ids: dict[str, int], deal_ids: dict[str, int]) -> list[d
     return activity_rows
 
 
+def _products() -> list[dict]:
+    # name, description, price in cents, active
+    rows = [
+        (
+            "Starter license",
+            "A single-team plan with the core CRM features.",
+            4_900,
+            True,
+        ),
+        (
+            "Team license",
+            "Per-seat licence for a growing sales team.",
+            19_900,
+            True,
+        ),
+        (
+            "Priority support",
+            "Same-day replies and a dedicated support channel.",
+            14_950,
+            True,
+        ),
+        (
+            "Annual support plan",
+            "A year of support with quarterly check-ins.",
+            240_000,
+            True,
+        ),
+        (
+            "Onsite training day",
+            "On-site training for up to twelve people.",
+            120_000,
+            True,
+        ),
+        (
+            "Remote training day",
+            "A full day of remote training for the team.",
+            75_000,
+            True,
+        ),
+        (
+            "Implementation package",
+            "Guided setup, data import and a launch review.",
+            250_000,
+            True,
+        ),
+        (
+            "Data migration",
+            "Move records from a legacy CRM into Accountable.",
+            180_000,
+            True,
+        ),
+        (
+            "Custom report",
+            "A report built to your specification.",
+            65_000,
+            True,
+        ),
+        (
+            "API access",
+            "Programmatic access to your Accountable data.",
+            9_900,
+            True,
+        ),
+        (
+            "Legacy add-on",
+            "An older add-on kept for existing contracts.",
+            3_900,
+            False,
+        ),
+        (
+            "Pilot license",
+            "A short pilot for one team, before a full licence.",
+            0,
+            False,
+        ),
+    ]
+    return [
+        {
+            "name": name,
+            "description": description,
+            "price_cents": price_cents,
+            "active": active,
+        }
+        for name, description, price_cents, active in rows
+    ]
+
+
 def _clear(engine: Engine) -> None:
     with engine.begin() as conn:
         for table in reversed(db.metadata.sorted_tables):
@@ -567,6 +654,8 @@ def seed(engine: Engine) -> None:
         }
         for row in _activities(contact_ids, deal_ids):
             insert_sample(db.activities, row)
+        for row in _products():
+            insert_sample(db.products, row)
 
 
 def create_tables(engine: Engine) -> None:

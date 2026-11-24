@@ -60,6 +60,14 @@ def _deal(client, name: str, organization_id: int, contact_id: int) -> dict:
     )
 
 
+def _product(client, name: str) -> dict:
+    return _post(
+        client,
+        "/api/products",
+        {"name": name, "description": None, "price_cents": 4_900},
+    )
+
+
 def _search(client, q: str | None) -> list[dict]:
     response = client.get("/api/search", params={} if q is None else {"q": q})
     return response.json()
@@ -70,9 +78,10 @@ def _zzyzx(client) -> None:
     organization = _organization(client, "Zzyzx Works")
     contact = _contact(client, "Zzyzx Person", organization["id"])
     _deal(client, "Zzyzx Deal", organization["id"], contact["id"])
+    _product(client, "Zzyzx Product")
 
 
-def test_finds_part_of_a_name_and_returns_the_three_kinds_in_name_order(client):
+def test_finds_part_of_a_name_and_returns_the_four_kinds_in_name_order(client):
     _zzyzx(client)
 
     response = client.get("/api/search", params={"q": "zzy"})
@@ -81,6 +90,7 @@ def test_finds_part_of_a_name_and_returns_the_three_kinds_in_name_order(client):
     assert [(item["kind"], item["name"]) for item in response.json()] == [
         ("deal", "Zzyzx Deal"),
         ("contact", "Zzyzx Person"),
+        ("product", "Zzyzx Product"),
         ("organization", "Zzyzx Works"),
     ]
 
@@ -92,8 +102,24 @@ def test_matches_in_any_case(client):
         assert [item["name"] for item in _search(client, q)] == [
             "Zzyzx Deal",
             "Zzyzx Person",
+            "Zzyzx Product",
             "Zzyzx Works",
         ], q
+
+
+def test_finds_an_active_product_and_leaves_an_archived_one_out(client):
+    _product(client, "Zzyzx Product")
+    archived = _product(client, "Zzyzx Retired Product")
+    assert client.post(f"/api/products/{archived['id']}/archive").status_code == 200
+
+    assert [
+        (item["kind"], item["name"])
+        for item in _search(client, "zzyzx product")
+        if item["kind"] == "product"
+    ] == [("product", "Zzyzx Product")]
+    assert [
+        item for item in _search(client, "retired") if item["kind"] == "product"
+    ] == []
 
 
 def test_finds_an_accented_name(client):

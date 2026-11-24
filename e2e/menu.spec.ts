@@ -18,7 +18,14 @@ const LIGHT_PAGE = "rgb(240, 244, 245)";
 const DARK_PAGE = "rgb(4, 35, 46)";
 const DARK_PANEL = "rgb(0, 0, 0)";
 
-const sections = ["/", "/organizations", "/contacts", "/deals", "/pipeline"];
+const sections = [
+  "/",
+  "/organizations",
+  "/contacts",
+  "/deals",
+  "/products",
+  "/pipeline",
+];
 
 test.beforeAll(() => {
   resetSampleData();

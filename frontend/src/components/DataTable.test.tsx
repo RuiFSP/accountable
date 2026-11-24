@@ -6,6 +6,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import { type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DataTable from "./DataTable";
@@ -32,7 +33,13 @@ const columns: ColumnDef<Row>[] = [
 afterEach(cleanup);
 
 function setup(
-  options: { onEdit?: (row: Row) => void; onDelete?: (row: Row) => void } = {},
+  options: {
+    onEdit?: (row: Row) => void;
+    onDelete?: (row: Row) => void;
+    initialQuery?: string;
+    toolbar?: ReactNode;
+    rowAction?: (row: Row) => ReactNode;
+  } = {},
 ) {
   render(
     <DataTable
@@ -51,6 +58,9 @@ function setup(
       onAdd={vi.fn()}
       onEdit={options.onEdit}
       onDelete={options.onDelete}
+      initialQuery={options.initialQuery}
+      toolbar={options.toolbar}
+      rowAction={options.rowAction}
     />,
   );
 }
@@ -138,5 +148,48 @@ describe("DataTable", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
     expect(onDelete).toHaveBeenCalledWith(rows[0]);
+  });
+
+  it("renders an optional row action with the right row", () => {
+    const onRowAction = vi.fn();
+    setup({
+      rowAction: (row) => (
+        <button type="button" onClick={() => onRowAction(row)}>
+          {row.name === "Beta" ? "Restore" : "Archive"}
+        </button>
+      ),
+    });
+
+    expect(screen.getAllByRole("button", { name: "Archive" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(onRowAction).toHaveBeenCalledWith(rows[2]);
+  });
+
+  it("renders an optional toolbar and leaves it out by default", () => {
+    setup({
+      toolbar: (
+        <label>
+          <input type="checkbox" aria-label="Show archived" />
+          Show archived
+        </label>
+      ),
+    });
+    expect(
+      screen.getByRole("checkbox", { name: "Show archived" }),
+    ).toBeTruthy();
+
+    cleanup();
+    setup();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("applies an initial query on first paint", () => {
+    setup({ initialQuery: "bet" });
+
+    expect(visibleNames()).toEqual(["Beta"]);
+    expect(
+      (screen.getByRole("searchbox", { name: "Search" }) as HTMLInputElement)
+        .value,
+    ).toBe("bet");
   });
 });

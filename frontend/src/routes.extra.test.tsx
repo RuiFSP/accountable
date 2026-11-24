@@ -41,6 +41,13 @@ vi.mock("./api/client", () => ({
       update: vi.fn(),
       remove: vi.fn(),
     },
+    products: {
+      list: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      archive: vi.fn(),
+      restore: vi.fn(),
+    },
     dashboard: { get: vi.fn() },
   },
 }));
@@ -85,6 +92,7 @@ beforeEach(async () => {
   vi.mocked(api.organizations.list).mockResolvedValue([]);
   vi.mocked(api.contacts.list).mockResolvedValue([]);
   vi.mocked(api.activities.list).mockResolvedValue([]);
+  vi.mocked(api.products.list).mockResolvedValue([]);
   await signInForTests();
 });
 
@@ -122,5 +130,17 @@ describe("top bar action", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(api.deals.create).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "Deals" })).toBeTruthy();
+  });
+});
+
+describe("products route", () => {
+  it("renders the Products heading with the top bar", async () => {
+    renderAt("/products");
+
+    expect(
+      await screen.findByRole("heading", { name: "Products" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("banner")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Products" })).toBeTruthy();
   });
 });

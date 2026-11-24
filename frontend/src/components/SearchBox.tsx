@@ -6,16 +6,20 @@ import { api, type SearchKind, type SearchResult } from "../api/client";
 /** How long the box waits after the last keystroke before asking. */
 const PAUSE_MS = 250;
 
-const KIND_ORDER: SearchKind[] = ["organization", "contact", "deal"];
+const KIND_ORDER: SearchKind[] = ["organization", "contact", "deal", "product"];
 
 const KIND_LABELS: Record<SearchKind, string> = {
   organization: "Organizations",
   contact: "Contacts",
   deal: "Deals",
+  product: "Products",
 };
 
-/** Where a match lives: every kind's section is its plural. */
+/** Where a match lives: a product has no detail page, so it opens the table's search. */
 function pathFor(result: SearchResult): string {
+  if (result.kind === "product") {
+    return `/products?q=${encodeURIComponent(result.name)}`;
+  }
   return `/${result.kind}s/${result.id}`;
 }
 

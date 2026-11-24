@@ -100,6 +100,20 @@ export interface ActivityInput {
   done: boolean;
 }
 
+export interface Product extends Attribution {
+  id: number;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  active: boolean;
+}
+
+export interface ProductInput {
+  name: string;
+  description: string | null;
+  price_cents: number;
+}
+
 /** What a delete endpoint reports: the records removed alongside the target. */
 export interface CascadeResult {
   contacts?: string[];
@@ -109,8 +123,8 @@ export interface CascadeResult {
   counts?: Record<string, number>;
 }
 
-/** What a search can match: the three kinds of record, as the API names them. */
-export type SearchKind = "organization" | "contact" | "deal";
+/** What a search can match: the four kinds of record, as the API names them. */
+export type SearchKind = "organization" | "contact" | "deal" | "product";
 
 /** One match from the top-bar search: its kind, id and name. */
 export interface SearchResult {
@@ -202,8 +216,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-function post<T>(path: string, payload: unknown): Promise<T> {
-  return request<T>(path, { method: "POST", body: JSON.stringify(payload) });
+function post<T>(path: string, payload?: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+  });
 }
 
 function put<T>(path: string, payload: unknown): Promise<T> {
@@ -253,5 +270,18 @@ export const api = {
     update: (id: number, payload: ActivityInput) =>
       put<Activity>(`/api/activities/${id}`, payload),
     remove: (id: number) => del<CascadeResult>(`/api/activities/${id}`),
+  },
+  products: {
+    list: (includeArchived = false) =>
+      request<Product[]>(
+        includeArchived
+          ? "/api/products?include_archived=true"
+          : "/api/products",
+      ),
+    create: (payload: ProductInput) => post<Product>("/api/products", payload),
+    update: (id: number, payload: ProductInput) =>
+      put<Product>(`/api/products/${id}`, payload),
+    archive: (id: number) => post<Product>(`/api/products/${id}/archive`),
+    restore: (id: number) => post<Product>(`/api/products/${id}/restore`),
   },
 };

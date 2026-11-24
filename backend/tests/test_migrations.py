@@ -3,7 +3,9 @@ from alembic.config import Config
 from app import db
 from sqlalchemy import create_engine, inspect, text
 
-RECORD_TABLES = ("organizations", "contacts", "deals", "activities")
+RECORD_TABLES = ("organizations", "contacts", "deals", "activities", "products")
+# The four that already existed when 0002 added their attribution columns.
+ATTRIBUTED_TABLES = ("organizations", "contacts", "deals", "activities")
 
 
 def alembic_config(connection=None, url=None) -> Config:
@@ -76,20 +78,31 @@ def test_database_from_before_the_change_upgrades_and_keeps_its_rows():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0002"
+            == "0003"
         )
         assert (
             connection.execute(text("SELECT created_by FROM organizations")).scalar()
             is None
         )
-        for table in RECORD_TABLES:
+        for table in ATTRIBUTED_TABLES:
             assert (
                 connection.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 1
             )
-    for table in RECORD_TABLES:
+        assert connection.execute(text("SELECT COUNT(*) FROM products")).scalar() == 0
+    for table in ATTRIBUTED_TABLES:
         names = [column["name"] for column in inspect(engine).get_columns(table)]
         assert "created_by" in names
         assert "updated_by" in names
+    products = [column["name"] for column in inspect(engine).get_columns("products")]
+    assert products == [
+        "id",
+        "name",
+        "description",
+        "price_cents",
+        "active",
+        "created_by",
+        "updated_by",
+    ]
 
 
 def test_postgres_offline_sql_adds_the_columns_and_row_level_security(capsys):
@@ -97,8 +110,11 @@ def test_postgres_offline_sql_adds_the_columns_and_row_level_security(capsys):
     command.upgrade(config, "head", sql=True)
 
     sql = capsys.readouterr().out
-    for table in RECORD_TABLES:
+    for table in ATTRIBUTED_TABLES:
         assert f"ALTER TABLE {table} ADD COLUMN created_by" in sql
         assert f"ALTER TABLE {table} ADD COLUMN updated_by" in sql
     for table in (*RECORD_TABLES, "alembic_version"):
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
+    assert "CREATE TABLE products" in sql
+    for column in ("name", "description", "price_cents", "active"):
+        assert f"{column} " in sql.split("CREATE TABLE products")[1]

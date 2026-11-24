@@ -7,6 +7,7 @@ const sections = [
   { path: "/organizations", label: "Organizations" },
   { path: "/contacts", label: "Contacts" },
   { path: "/deals", label: "Deals" },
+  { path: "/products", label: "Products" },
   { path: "/pipeline", label: "Pipeline" },
 ];
 
@@ -52,6 +53,10 @@ test("every section shows the sample data", async ({ page }) => {
   await expect(page.locator("tbody tr")).toHaveCount(14);
   await expect(page.locator(".badge-Won").first()).toBeVisible();
 
+  await page.goto("/products");
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+  await expect(page.locator(".badge-active").first()).toBeVisible();
+
   await page.goto("/pipeline");
   for (const stage of [
     "New",
@@ -80,4 +85,13 @@ test("the API serves the sample data through the frontend", async ({
   const deals = await request.get("/api/deals");
   expect(deals.ok()).toBe(true);
   expect(((await deals.json()) as unknown[]).length).toBeGreaterThan(0);
+
+  const products = await request.get("/api/products");
+  expect(products.ok()).toBe(true);
+  const productRecords = (await products.json()) as { name: string }[];
+  expect(productRecords).toHaveLength(10);
+
+  const archived = await request.get("/api/products?include_archived=true");
+  expect(archived.ok()).toBe(true);
+  expect(((await archived.json()) as unknown[]).length).toBe(12);
 });

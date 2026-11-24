@@ -321,3 +321,90 @@ def test_old_records_give_null(client):
 
     assert listed["created_by"] is None
     assert listed["updated_by"] is None
+
+
+def _product(client, name: str) -> dict:
+    """A product of its own, because the shared sample data now seeds products."""
+    return _post(
+        client,
+        "/api/products",
+        {"name": name, "description": None, "price_cents": 10_000},
+    )
+
+
+def test_a_product_add_sets_both_the_emails(client):
+    product = _product(client, "Who Product Add")
+
+    assert product["created_by"] == ALEX
+    assert product["updated_by"] == ALEX
+
+
+def test_a_product_save_that_changes_a_value_sets_the_last_changed_one(
+    client, sign_in_as
+):
+    product = _product(client, "Who Product Edit")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/products/{product['id']}",
+        {**product, "price_cents": 12_500},
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == PRIYA
+
+
+def test_a_product_save_that_changes_nothing_does_not(client, sign_in_as):
+    product = _product(client, "Who Product No-op")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(client, f"/api/products/{product['id']}", product)
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == ALEX
+
+
+def test_archiving_and_restoring_a_product_moves_the_last_changed_one(
+    client, sign_in_as
+):
+    product = _product(client, "Who Product Archive")
+    _as(client, sign_in_as, PRIYA)
+
+    archived = client.post(f"/api/products/{product['id']}/archive")
+    assert archived.status_code == 200, archived.text
+    assert archived.json()["active"] is False
+    assert archived.json()["created_by"] == ALEX
+    assert archived.json()["updated_by"] == PRIYA
+
+    # Archiving an archived product changes nothing, so the line stays.
+    _as(client, sign_in_as, ALEX)
+    again = client.post(f"/api/products/{product['id']}/archive")
+    assert again.json()["updated_by"] == PRIYA
+
+    restored = client.post(f"/api/products/{product['id']}/restore")
+    assert restored.json()["active"] is True
+    assert restored.json()["created_by"] == ALEX
+    assert restored.json()["updated_by"] == ALEX
+
+
+def test_a_product_reply_carries_both_emails(client, sign_in_as):
+    product = _product(client, "Who Product Reply")
+    _as(client, sign_in_as, PRIYA)
+    saved = _put(
+        client,
+        f"/api/products/{product['id']}",
+        {**product, "description": "Now with a description."},
+    )
+    listed = next(
+        item
+        for item in client.get("/api/products").json()
+        if item["id"] == product["id"]
+    )
+
+    assert product["created_by"] == ALEX
+    assert product["updated_by"] == ALEX
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == PRIYA
+    assert listed["created_by"] == ALEX
+    assert listed["updated_by"] == PRIYA

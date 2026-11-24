@@ -6,6 +6,8 @@ import {
   type ContactInput,
   type DealInput,
   type OrganizationInput,
+  type ProductInput,
+  type SearchResult,
 } from "./client";
 
 afterEach(() => {
@@ -56,6 +58,12 @@ const activity: ActivityInput = {
   happened_at: "2026-11-10T09:00:00",
   follow_up_date: null,
   done: true,
+};
+
+const product: ProductInput = {
+  name: "Priority support",
+  description: null,
+  price_cents: 14_950,
 };
 
 const jsonHeaders = {
@@ -227,6 +235,74 @@ describe("api client writes", () => {
     });
   });
 
+  it("lists active products by default", async () => {
+    const fetchMock = stubFetch([{ id: 3, ...product, active: true }]);
+
+    await api.products.list();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/products", {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("asks for archived products when told to", async () => {
+    const fetchMock = stubFetch([]);
+
+    await api.products.list(true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/products?include_archived=true",
+      { headers: { Accept: "application/json" } },
+    );
+  });
+
+  it("creates a product with POST", async () => {
+    const fetchMock = stubFetch({ id: 3, ...product, active: true });
+
+    const created = await api.products.create(product);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/products", {
+      method: "POST",
+      body: JSON.stringify(product),
+      headers: jsonHeaders,
+    });
+    expect(created.id).toBe(3);
+  });
+
+  it("updates a product with PUT", async () => {
+    const fetchMock = stubFetch({ id: 3, ...product, active: true });
+
+    await api.products.update(3, product);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/products/3", {
+      method: "PUT",
+      body: JSON.stringify(product),
+      headers: jsonHeaders,
+    });
+  });
+
+  it("archives a product with POST and no body", async () => {
+    const fetchMock = stubFetch({ id: 3, ...product, active: false });
+
+    await api.products.archive(3);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/products/3/archive", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("restores a product with POST and no body", async () => {
+    const fetchMock = stubFetch({ id: 3, ...product, active: true });
+
+    await api.products.restore(3);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/products/3/restore", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+  });
+
   it("falls back to the status when the detail is not a string", async () => {
     vi.stubGlobal(
       "fetch",
@@ -280,5 +356,15 @@ describe("api client search", () => {
       headers: { Accept: "application/json" },
     });
     expect(found).toEqual([{ kind: "deal", id: 9, name: "100% Fun Club" }]);
+  });
+
+  it("takes a product as a search result", async () => {
+    stubFetch([{ kind: "product", id: 12, name: "Priority support" }]);
+
+    const found: SearchResult[] = await api.search.find("priority");
+
+    expect(found).toEqual([
+      { kind: "product", id: 12, name: "Priority support" },
+    ]);
   });
 });

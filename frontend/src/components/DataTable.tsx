@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   type ColumnDef,
   type FilterFn,
@@ -28,6 +28,12 @@ interface DataTableProps<T extends { id: number }> {
   onDelete?: (row: T) => void;
   onOpen?: (row: T) => void;
   emptyMessage?: string;
+  /** A search text to apply when it arrives, as the top-bar product link does. */
+  initialQuery?: string;
+  /** Controls beside the search box, such as Show archived. */
+  toolbar?: ReactNode;
+  /** A row action beyond edit and delete, such as Archive or Restore. */
+  rowAction?: (row: T) => ReactNode;
 }
 
 function makeSearchFilter<T extends { id: number }>(
@@ -63,10 +69,18 @@ export default function DataTable<T extends { id: number }>({
   onDelete,
   onOpen,
   emptyMessage = "No records yet.",
+  initialQuery = "",
+  toolbar,
+  rowAction,
 }: DataTableProps<T>) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filterValue, setFilterValue] = useState("");
+
+  // A link can bring a new search while the table is already on screen.
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   const tableColumns = useMemo<ColumnDef<T>[]>(() => {
     const base = columns.map((column) =>
@@ -74,7 +88,7 @@ export default function DataTable<T extends { id: number }>({
         ? { ...column, filterFn: "equals" as const }
         : column,
     );
-    if (!onEdit && !onDelete && !onOpen) {
+    if (!onEdit && !onDelete && !onOpen && !rowAction) {
       return base;
     }
     const actions: ColumnDef<T> = {
@@ -102,6 +116,7 @@ export default function DataTable<T extends { id: number }>({
               Edit
             </button>
           ) : null}
+          {rowAction ? rowAction(row.original) : null}
           {onDelete ? (
             <button
               type="button"
@@ -115,7 +130,7 @@ export default function DataTable<T extends { id: number }>({
       ),
     };
     return [...base, actions];
-  }, [columns, filter, onEdit, onDelete, onOpen]);
+  }, [columns, filter, onEdit, onDelete, onOpen, rowAction]);
 
   const columnFilters = useMemo(
     () =>
@@ -166,6 +181,7 @@ export default function DataTable<T extends { id: number }>({
             ))}
           </select>
         ) : null}
+        {toolbar}
         <span className="toolbar-spacer" />
         {onAdd ? (
           <button type="button" className="btn btn-primary" onClick={onAdd}>

@@ -276,6 +276,16 @@ Preparing `main` for products and company settings, the code every area needs mo
 
 Proved by running `npm run check` in two fresh worktrees at the same time: both exited 0 in 249 seconds, each green — 452 tests (127 backend, 257 frontend, 18 script, 50 end-to-end), backend coverage 98.95%, and the end-to-end suite 50 passed in 4.3 minutes each. One run alone takes 2 minutes 41 seconds. Their API servers ran on 20101 and 20105, so their web servers were on 20100 and 20104; both temporary databases were removed when the runs ended.
 
+## Products (2026-11-24)
+
+Implemented `docs/changes/products/plan.md` phase by phase. The price list joins the CRM:
+
+- **Backend** — `products` (name, description, price in whole cents, active, attribution) with migration `0003` and row-level security on Postgres, and `/api/products`: active-only by default and `include_archived=true` for both, `q` over name and description, sort and order, create, update, and archive/restore. No delete route. Names are trimmed and compared `casefold()` in Python against every product, archived included, so `PRIORITY SUPPORT` is refused after `Priority support`; an edit keeps a product's archive state; archive and restore credit the last-changed email only when the state changes. Search gained a fourth kind, active products only.
+- **Sample data** — twelve products, ten active and two archived: licenses, support plans, training days, implementation and migration, a custom report and API access, plus archived Legacy add-on and Pilot license. `Priority support` is $149.50 and `Onsite training day` is $1,200, and every row goes through `insert_sample` so it carries attribution.
+- **Frontend** — Products is the sixth section: a table with Name, Description, Unit price, Status, Added by and Last changed by; Show archived; Active and Archived badges from existing tokens; no View and no Delete. Add and edit use `ProductForm` with `parseUsdToCents`, archive and restore act straight away, and a failure shows an inline message. `DataTable` gained optional `initialQuery`, `toolbar` and `rowAction` props that default to today's behaviour, and a product match in the top bar opens `/products?q=<name>` with the table's search filled — including when already on the page, without losing Show archived.
+- **Tests** — `test_products.py` (13), product cases in `test_who.py` and `test_search.py`, updated seed/reset/migration expectations; `Products.test.tsx` (16) plus the new DataTable, SearchBox, client and route cases; `e2e/products.spec.ts` (5) and updated startup, search, menu and security specs.
+- **Proof** — `npm run check` exits 0: 512 tests (152 backend, 285 frontend, 18 script, 57 end-to-end), backend coverage 99.05%, frontend 95.87% statements / 92.37% branches / 96.68% functions / 95.74% lines, gitleaks clean. Every unit test stays under the intent's second (backend slowest 0.26s, frontend slowest 0.60s). The local sample database was reseeded: version `0003`, 12 products, 10 active and 2 archived. The first concurrent check run had four Vitest workers miss their start handshake under load; the retry was green with no code change.
+
 ## Not started
 
 - All four phases of `docs/changes/mvp/plan.md` are implemented, `npm test` is green (123 tests) and `npm run lint` is clean.
