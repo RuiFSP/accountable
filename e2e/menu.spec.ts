@@ -18,7 +18,14 @@ const LIGHT_PAGE = "rgb(240, 244, 245)";
 const DARK_PAGE = "rgb(4, 35, 46)";
 const DARK_PANEL = "rgb(0, 0, 0)";
 
-const sections = ["/", "/organizations", "/contacts", "/deals", "/pipeline"];
+const sections = [
+  "/",
+  "/organizations",
+  "/contacts",
+  "/deals",
+  "/pipeline",
+  "/settings",
+];
 
 test.beforeAll(() => {
   resetSampleData();
@@ -69,6 +76,7 @@ test("the menu is on every route and a record's page, and names its person", asy
 
   await menuButton(page).click();
   await expect(page.getByText(SIGNED_IN_AS)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
 

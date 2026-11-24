@@ -17,7 +17,13 @@ def _counts(engine) -> dict[str, int]:
             table.name: conn.execute(
                 select(func.count()).select_from(table)
             ).scalar_one()
-            for table in (db.organizations, db.contacts, db.deals, db.activities)
+            for table in (
+                db.organizations,
+                db.contacts,
+                db.deals,
+                db.activities,
+                db.company_settings,
+            )
         }
 
 
@@ -34,6 +40,11 @@ def _dirty(engine) -> dict[str, int]:
     with engine.begin() as conn:
         conn.execute(db.organizations.delete())
         conn.execute(db.contacts.delete())
+        conn.execute(
+            db.company_settings.update()
+            .where(db.company_settings.c.id == 1)
+            .values(name="Not Brightloop")
+        )
     return _counts(engine)
 
 
@@ -55,6 +66,9 @@ def test_reset_restores_the_sample_data_after_confirmation(engine, monkeypatch):
     seed.main()
 
     assert _counts(engine) == _sample_counts()
+    with engine.connect() as connection:
+        name = connection.execute(select(db.company_settings.c.name)).scalar_one()
+    assert name == "Brightloop"
 
 
 def test_reset_leaves_the_version_table_and_the_schema_agreeing(engine):
@@ -64,7 +78,7 @@ def test_reset_leaves_the_version_table_and_the_schema_agreeing(engine):
         version = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert version == "0002"
+    assert version == "0003"
     for table in db.metadata.sorted_tables:
         names = [column["name"] for column in inspect(engine).get_columns(table.name)]
         assert names == [column.name for column in table.columns]

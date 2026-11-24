@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { signOut, useSessionState } from "../lib/session";
 import {
@@ -78,6 +78,13 @@ export default function UserMenu() {
       {open ? (
         <div className="user-menu-panel">
           <p className="user-menu-email">{session.email}</p>
+          <Link
+            to="/settings"
+            className="link-button user-menu-settings"
+            onClick={() => setOpen(false)}
+          >
+            Settings
+          </Link>
           <div className="user-menu-choices" role="group" aria-label="Theme">
             {CHOICES.map(({ choice: value, label }) => (
               <button

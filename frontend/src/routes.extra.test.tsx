@@ -42,6 +42,10 @@ vi.mock("./api/client", () => ({
       remove: vi.fn(),
     },
     dashboard: { get: vi.fn() },
+    settings: {
+      get: vi.fn(),
+      save: vi.fn(),
+    },
   },
 }));
 
@@ -85,6 +89,20 @@ beforeEach(async () => {
   vi.mocked(api.organizations.list).mockResolvedValue([]);
   vi.mocked(api.contacts.list).mockResolvedValue([]);
   vi.mocked(api.activities.list).mockResolvedValue([]);
+  vi.mocked(api.settings.get).mockResolvedValue({
+    id: 1,
+    name: "Brightloop",
+    address: null,
+    email: null,
+    phone: null,
+    tax_label: null,
+    tax_rate_thousandths: 0,
+    payment_terms_days: 0,
+    quote_prefix: null,
+    invoice_prefix: null,
+    updated_by: null,
+    updated_at: "2026-11-22T09:30:00+00:00",
+  });
   await signInForTests();
 });
 

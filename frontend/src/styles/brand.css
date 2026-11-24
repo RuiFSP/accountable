@@ -229,6 +229,16 @@ a {
   box-shadow: var(--shadow-soft);
 }
 
+.settings-panel {
+  max-width: 760px;
+}
+
+.settings-meta {
+  margin: 0 0 18px;
+  color: var(--color-ink-muted);
+  font-size: 13.5px;
+}
+
 .muted {
   margin: 0;
   color: var(--color-ink-muted);
@@ -1381,6 +1391,13 @@ textarea:focus-visible {
   color: var(--color-ink-muted);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+
+.user-menu-settings {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  text-decoration: none;
 }
 
 .user-menu-choices {

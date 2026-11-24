@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 from app import auth, db, seed
@@ -18,17 +18,24 @@ def _counts(engine) -> dict[str, int]:
             table.name: conn.execute(
                 select(func.count()).select_from(table)
             ).scalar_one()
-            for table in (db.organizations, db.contacts, db.deals, db.activities)
+            for table in (
+                db.organizations,
+                db.contacts,
+                db.deals,
+                db.activities,
+                db.company_settings,
+            )
         }
 
 
-def test_schema_has_the_four_tables(engine):
+def test_schema_has_the_five_tables(engine):
     seed.ensure_seeded(engine)
     assert set(inspect(engine).get_table_names()) == {
         "organizations",
         "contacts",
         "deals",
         "activities",
+        "company_settings",
     }
 
 
@@ -80,12 +87,80 @@ def test_schema_fields_match_the_data_model(engine):
         "created_by",
         "updated_by",
     ]
+    assert [column["name"] for column in columns("company_settings")] == [
+        "id",
+        "name",
+        "address",
+        "email",
+        "phone",
+        "tax_label",
+        "tax_rate_thousandths",
+        "payment_terms_days",
+        "quote_prefix",
+        "invoice_prefix",
+        "updated_by",
+        "updated_at",
+    ]
 
 
 def test_fresh_database_is_seeded(engine):
     seed.ensure_seeded(engine)
     counts = _counts(engine)
     assert all(count > 0 for count in counts.values()), counts
+
+
+def _settings(engine) -> dict:
+    with engine.connect() as connection:
+        return dict(connection.execute(select(db.company_settings)).mappings().one())
+
+
+def test_fresh_database_starts_as_brightloop(engine):
+    seed.ensure_seeded(engine)
+
+    settings = _settings(engine)
+
+    assert settings["id"] == 1
+    assert settings["name"] == "Brightloop"
+    assert settings["address"] == ("1 Brightloop Plaza, Floor 12, New York, NY 10004")
+    assert settings["email"] == "hello@brightloop.example"
+    assert settings["phone"] == "+1 555 0100"
+    assert settings["tax_label"] == "Sales tax"
+    assert settings["tax_rate_thousandths"] == 8875
+    assert settings["payment_terms_days"] == 30
+    assert settings["quote_prefix"] == "QT-"
+    assert settings["invoice_prefix"] == "INV-"
+    assert settings["updated_by"] == "priya@brightloop.example"
+    # Two days before the seed ran, as the spec says.
+    assert settings["updated_at"].date() == date.today() - timedelta(days=2)
+
+
+def test_a_database_with_records_but_no_settings_row_gets_one(engine):
+    seed.ensure_seeded(engine)
+    with engine.begin() as connection:
+        connection.execute(db.company_settings.delete())
+
+    db.prepare(engine)
+
+    settings = _settings(engine)
+    assert settings["name"] == "Brightloop"
+    assert settings["updated_by"] == "priya@brightloop.example"
+
+
+def test_an_existing_settings_row_is_not_replaced(engine):
+    seed.ensure_seeded(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            db.company_settings.update()
+            .where(db.company_settings.c.id == 1)
+            .values(name="Brightloop Studio", tax_rate_thousandths=7000)
+        )
+
+    db.prepare(engine)
+    seed.ensure_settings(engine)
+
+    settings = _settings(engine)
+    assert settings["name"] == "Brightloop Studio"
+    assert settings["tax_rate_thousandths"] == 7000
 
 
 def test_sample_data_covers_every_stage(engine):
@@ -209,6 +284,7 @@ def test_reseeding_is_idempotent(engine):
     assert _counts(engine) == before
     seed.seed(engine)
     assert _counts(engine) == before
+    assert before["company_settings"] == 1
 
 
 def test_startup_repairs_links_that_point_at_missing_records(engine):
@@ -260,6 +336,7 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
         contacts = client.get("/api/contacts").json()
         deals = client.get("/api/deals").json()
         activities = client.get("/api/activities").json()
+        settings = client.get("/api/settings").json()
 
     assert organizations and {"id", "name", "website", "industry", "notes"} <= set(
         organizations[0]
@@ -275,6 +352,9 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
     assert activities and {"type", "description", "happened_at", "done"} <= set(
         activities[0]
     )
+    assert settings["name"] == "Brightloop"
+    assert settings["tax_rate_thousandths"] == 8875
+    assert settings["updated_by"] == "priya@brightloop.example"
 
     assert isinstance(activities[0]["happened_at"], str)
     assert isinstance(deals[0]["close_date"], str)

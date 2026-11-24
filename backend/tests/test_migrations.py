@@ -4,6 +4,8 @@ from app import db
 from sqlalchemy import create_engine, inspect, text
 
 RECORD_TABLES = ("organizations", "contacts", "deals", "activities")
+SETTINGS_TABLE = "company_settings"
+TABLES = (*RECORD_TABLES, SETTINGS_TABLE)
 
 
 def alembic_config(connection=None, url=None) -> Config:
@@ -33,6 +35,34 @@ def foreign_keys(engine, table) -> list[tuple]:
     )
 
 
+def insert_one_of_each(connection) -> None:
+    connection.execute(text("INSERT INTO organizations (name) VALUES ('Keep Me')"))
+    connection.execute(
+        text("INSERT INTO contacts (name, status) VALUES ('Keep Person', 'lead')")
+    )
+    connection.execute(
+        text(
+            "INSERT INTO deals (name, stage, value_cents, probability, position) "
+            "VALUES ('Keep Deal', 'New', 100, 10, 0)"
+        )
+    )
+    connection.execute(
+        text(
+            "INSERT INTO activities (type, description, happened_at, done) "
+            "VALUES ('note', 'Keep Note', '2026-01-01 09:00:00', 0)"
+        )
+    )
+
+
+def assert_kept_its_rows_and_gained_settings(connection) -> None:
+    for table in RECORD_TABLES:
+        assert connection.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 1
+    settings = connection.execute(
+        text("SELECT name, updated_by FROM company_settings WHERE id = 1")
+    ).one()
+    assert settings == ("Brightloop", "priya@brightloop.example")
+
+
 def test_migrations_build_exactly_the_schema_the_tables_define():
     # In-memory engines: a disk commit costs ~180ms on this filesystem, and
     # the intent caps every unit test at a second.
@@ -41,7 +71,7 @@ def test_migrations_build_exactly_the_schema_the_tables_define():
     defined = create_engine("sqlite:///:memory:")
     db.metadata.create_all(defined)
 
-    for table in RECORD_TABLES:
+    for table in TABLES:
         assert columns(migrated, table) == columns(defined, table)
         assert foreign_keys(migrated, table) == foreign_keys(defined, table)
 
@@ -54,51 +84,91 @@ def test_database_from_before_the_change_upgrades_and_keeps_its_rows():
         command.upgrade(alembic_config(connection=connection), "0001")
     with engine.begin() as connection:
         connection.execute(text("DROP TABLE alembic_version"))
-        connection.execute(text("INSERT INTO organizations (name) VALUES ('Keep Me')"))
-        connection.execute(
-            text("INSERT INTO contacts (name, status) VALUES ('Keep Person', 'lead')")
-        )
-        connection.execute(
-            text(
-                "INSERT INTO deals (name, stage, value_cents, probability, position) "
-                "VALUES ('Keep Deal', 'New', 100, 10, 0)"
-            )
-        )
-        connection.execute(
-            text(
-                "INSERT INTO activities (type, description, happened_at, done) "
-                "VALUES ('note', 'Keep Note', '2026-01-01 09:00:00', 0)"
-            )
-        )
+        insert_one_of_each(connection)
 
     db.prepare(engine)
 
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0002"
+            == "0003"
         )
         assert (
             connection.execute(text("SELECT created_by FROM organizations")).scalar()
             is None
         )
-        for table in RECORD_TABLES:
-            assert (
-                connection.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 1
-            )
+        assert_kept_its_rows_and_gained_settings(connection)
     for table in RECORD_TABLES:
         names = [column["name"] for column in inspect(engine).get_columns(table)]
         assert "created_by" in names
         assert "updated_by" in names
 
 
-def test_postgres_offline_sql_adds_the_columns_and_row_level_security(capsys):
+def test_0002_schema_without_a_version_table_reaches_0003_and_keeps_its_rows():
+    engine = create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        command.upgrade(alembic_config(connection=connection), "0002")
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE alembic_version"))
+        insert_one_of_each(connection)
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == "0003"
+        )
+        assert_kept_its_rows_and_gained_settings(connection)
+    assert SETTINGS_TABLE in inspect(engine).get_table_names()
+
+
+def test_current_schema_without_a_version_table_is_stamped_at_0003():
+    engine = create_engine("sqlite:///:memory:")
+    db.metadata.create_all(engine)
+    assert "alembic_version" not in inspect(engine).get_table_names()
+    with engine.begin() as connection:
+        insert_one_of_each(connection)
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == "0003"
+        )
+        assert_kept_its_rows_and_gained_settings(connection)
+
+
+def test_postgres_offline_sql_adds_the_table_the_columns_and_row_level_security(
+    capsys,
+):
     config = alembic_config(url="postgresql://user:pass@localhost:5432/accountable")
     command.upgrade(config, "head", sql=True)
 
     sql = capsys.readouterr().out
+    assert "CREATE TABLE company_settings" in sql
+    created = sql[
+        sql.index("CREATE TABLE company_settings") : sql.index(
+            "ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY"
+        )
+    ]
+    for column in (
+        "name",
+        "address",
+        "email",
+        "phone",
+        "tax_label",
+        "tax_rate_thousandths",
+        "payment_terms_days",
+        "quote_prefix",
+        "invoice_prefix",
+        "updated_by",
+        "updated_at",
+    ):
+        assert f"\n    {column} " in created
     for table in RECORD_TABLES:
         assert f"ALTER TABLE {table} ADD COLUMN created_by" in sql
         assert f"ALTER TABLE {table} ADD COLUMN updated_by" in sql
-    for table in (*RECORD_TABLES, "alembic_version"):
+    for table in (*TABLES, "alembic_version"):
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql

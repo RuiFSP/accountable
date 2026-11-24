@@ -63,6 +63,24 @@ export interface Activity extends Attribution {
   done: boolean;
 }
 
+/** The team's company settings: one row for everyone. */
+export interface CompanySettings {
+  id: number;
+  name: string;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+  tax_label: string | null;
+  /** The rate in thousandths of a percent: 8.875% is 8875. */
+  tax_rate_thousandths: number;
+  payment_terms_days: number;
+  quote_prefix: string | null;
+  invoice_prefix: string | null;
+  updated_by: string | null;
+  /** An ISO timestamp with an offset. */
+  updated_at: string;
+}
+
 export interface OrganizationInput {
   name: string;
   website: string | null;
@@ -98,6 +116,18 @@ export interface ActivityInput {
   happened_at: string;
   follow_up_date: string | null;
   done: boolean;
+}
+
+export interface CompanySettingsInput {
+  name: string;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+  tax_label: string | null;
+  tax_rate_thousandths: number;
+  payment_terms_days: number;
+  quote_prefix: string | null;
+  invoice_prefix: string | null;
 }
 
 /** What a delete endpoint reports: the records removed alongside the target. */
@@ -241,6 +271,11 @@ export const api = {
   },
   dashboard: {
     get: () => request<DashboardPayload>("/api/dashboard"),
+  },
+  settings: {
+    get: () => request<CompanySettings>("/api/settings"),
+    save: (payload: CompanySettingsInput) =>
+      put<CompanySettings>("/api/settings", payload),
   },
   search: {
     find: (q: string) =>
