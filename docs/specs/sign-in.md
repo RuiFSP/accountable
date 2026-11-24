@@ -3,9 +3,9 @@
 Everyone signs in before they see anything, and the way the app runs decides how: the way Render runs, an email and a password through Supabase Auth; on this computer, no password at all — the sign-in screen lists the made-up teammates that come with the sample data, and clicking one signs you in. Once signed in, a refresh keeps you signed in until you sign out — though on this computer a working session lasts twelve hours and a restart of its backend ends it early, so you pick a teammate again. Signed out, every page shows the sign-in screen and every API route refuses. Signed in, everything works as it did before. There is no sign-up page — people are added in Supabase's dashboard.
 
 - **The user**: on every request the backend checks the sign-in and takes the user from what it checked, never from the request. In Supabase mode the browser holds only the publishable key and the token rides on every API request. The local sign-in's routes exist only on this computer; the app the way Render runs has no such route, whatever the request.
-- **Who added it, who changed it**: every organization, contact, deal and activity records who added it and who last changed it. Both show on the record's detail page as the user's email.
-- **The menu under your initials**: the theme — light, dark or system — and signing out.
-- **Everyone can do everything.** There are no roles or permissions; the team shares one set of records.
+- **Who added it, who changed it**: every organization, contact, deal and activity records who added it and who last changed it. Both show on the record's detail page as the user's email. The company settings record who last changed them and when.
+- **The menu under your initials**: Settings, the theme — light, dark or system — and signing out.
+- **Everyone can do everything.** There are no roles or permissions; the team shares one set of records and one set of company settings.
 
 ## Design decisions
 
