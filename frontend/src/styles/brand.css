@@ -173,6 +173,7 @@ a {
 .topbar-brand {
   display: inline-flex;
   align-items: center;
+  flex: none;
   gap: 8px;
   font-size: 20px;
   font-weight: 700;
@@ -187,6 +188,7 @@ a {
 
 .topbar-nav {
   display: flex;
+  flex: none;
   gap: 4px;
 }
 
@@ -209,8 +211,34 @@ a {
 .topbar-actions {
   margin-left: auto;
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
+}
+
+/* Six sections, the search and the action still fit a 1024px laptop: the
+   bar tightens before the search box is squeezed out. */
+@media (max-width: 1180px) {
+  .topbar {
+    gap: 10px;
+  }
+
+  .topbar-nav {
+    gap: 0;
+  }
+
+  .topbar-nav a {
+    padding: 7px 9px;
+  }
+
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .topbar-actions .btn-primary {
+    padding: 8px 14px;
+    white-space: nowrap;
+  }
 }
 
 .app-main {

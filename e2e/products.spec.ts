@@ -62,6 +62,21 @@ test("the sample price list has ten active products and two archived", async ({
   await expect(row(page, "Legacy add-on")).toBeVisible();
   await expect(row(page, "Pilot license")).toBeVisible();
 
+  // Six sections must still leave the search and the action room on a small
+  // laptop, rather than squeezing the search to a sliver.
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const search = await page
+    .getByRole("textbox", { name: "Search" })
+    .boundingBox();
+  expect(search?.width ?? 0).toBeGreaterThan(100);
+  const newDeal = await page
+    .getByRole("button", { name: "New deal" })
+    .boundingBox();
+  expect(newDeal?.height ?? 0).toBeLessThan(50);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(1024);
+
   expect(consoleErrors()).toEqual([]);
 });
 

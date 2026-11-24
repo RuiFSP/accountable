@@ -61,7 +61,7 @@ export default function ProductForm({
             onChange={(event) => setDescription(event.target.value)}
           />
         </Field>
-        <Field label="Unit price (USD)" hint="Stored as whole cents.">
+        <Field label="Unit price (USD)">
           <input
             required
             inputMode="decimal"
