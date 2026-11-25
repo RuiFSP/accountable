@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getSessionState, signInLocal } from "../lib/session";
@@ -9,6 +9,18 @@ function renderMenu() {
   render(
     <MemoryRouter>
       <UserMenu />
+    </MemoryRouter>,
+  );
+}
+
+function renderWithSettingsPage() {
+  render(
+    <MemoryRouter initialEntries={["/"]}>
+      <UserMenu />
+      <Routes>
+        <Route path="/" element={<p>Home page</p>} />
+        <Route path="/settings" element={<p>Settings page</p>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -53,11 +65,12 @@ describe("UserMenu", () => {
     expect(button.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("shows the email, the three themes with the current one marked, and Sign out", () => {
+  it("shows the email, Settings, the three themes with the current one marked, and Sign out", () => {
     renderMenu();
     open();
 
     expect(screen.getByText("alex@brightloop.example")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
     for (const label of ["Light", "Dark", "System"]) {
       expect(screen.getByRole("button", { name: label })).toBeTruthy();
@@ -91,6 +104,29 @@ describe("UserMenu", () => {
     expect(
       screen.getByRole("button", { name: "Dark" }).getAttribute("aria-pressed"),
     ).toBe("true");
+  });
+
+  it("opens Settings after the email and closes the menu", () => {
+    renderWithSettingsPage();
+    open();
+
+    const email = screen.getByText("alex@brightloop.example");
+    const settings = screen.getByRole("link", { name: "Settings" });
+    const themes = screen.getByRole("group", { name: "Theme" });
+    expect(settings.getAttribute("href")).toBe("/settings");
+    expect(
+      email.compareDocumentPosition(settings) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
+    expect(
+      settings.compareDocumentPosition(themes) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(settings);
+
+    expect(screen.getByText("Settings page")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
   });
 
   it("Escape closes the menu and returns focus to the button", () => {

@@ -2,11 +2,11 @@
 
 - One documented command starts it, working on Mac, Linux and Windows; it runs in the latest Chrome or Edge. There are two ways to run it: `npm run dev` runs it on this computer with the sample data, signing in as one of the made-up teammates, and never touches Supabase; `npm start` builds the frontend and runs it the way Render does, against Supabase, which needs an internet connection. The tests run on this computer, without one.
 - Every change is kept: it's still there after a browser refresh, and every time the app starts it shows every change made before.
-- One documented command resets the data to the sample data, to start again from scratch; it asks for confirmation before wiping anything.
+- One documented command resets the data to the sample data, including the company settings, to start again from scratch; it asks for confirmation before wiping anything.
 
 ## Sample data
 
-Accountable comes with realistic sample data, so every screen looks alive the first time it starts: organizations across several industries, contacts at every status, deals at every stage (including deals won and lost over the past months, deals expected to close in the months ahead and a few running late), activities with some follow-ups due soon and some overdue, and a dozen products with realistic prices that fit the sample deals, such as licenses, support plans and training days (ten active, two archived). Every sample record shows which made-up teammate added it, and some show a different teammate as who last changed them.
+Accountable comes with realistic sample data, so every screen looks alive the first time it starts: organizations across several industries, contacts at every status, deals at every stage (including deals won and lost over the past months, deals expected to close in the months ahead and a few running late), activities with some follow-ups due soon and some overdue, and a dozen products with realistic prices that fit the sample deals, such as licenses, support plans and training days (ten active, two archived). Every sample record shows which made-up teammate added it, and some show a different teammate as who last changed them. The company settings start filled in for Brightloop, the business the sample team works for, with a made-up teammate as the last person to change them; a database with no settings row gets them on its next start.
 
 When Supabase is empty, the app seeds it with this sample data the way it seeds a new database, and `npm run seed` drops and reloads it there. The contents of an old local SQLite file are never migrated.
 

@@ -1,4 +1,4 @@
-"""Engine, connection, schema and migrations for the five tables (SQLAlchemy Core)."""
+"""Engine, connection, schema and migrations for the tables (SQLAlchemy Core)."""
 
 from __future__ import annotations
 
@@ -97,6 +97,23 @@ activities = Table(
     Column("updated_by", String),
 )
 
+company_settings = Table(
+    "company_settings",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("address", Text),
+    Column("email", String),
+    Column("phone", String),
+    Column("tax_label", String),
+    Column("tax_rate_thousandths", Integer, nullable=False),
+    Column("payment_terms_days", Integer, nullable=False),
+    Column("quote_prefix", String),
+    Column("invoice_prefix", String),
+    Column("updated_by", String),
+    Column("updated_at", DateTime, nullable=False),
+)
+
 products = Table(
     "products",
     metadata,
@@ -136,7 +153,7 @@ def prepare(engine: Engine | None = None) -> None:
     """Bring the database to the latest schema, repair links, seed if new.
 
     A database built before this change has its tables but no
-    ``alembic_version``, so it is stamped at the baseline first and
+    ``alembic_version``, so it is stamped at the revision it matches first and
     upgraded from there — its data survives.
     """
     target = get_engine() if engine is None else engine
@@ -146,6 +163,7 @@ def prepare(engine: Engine | None = None) -> None:
     seed.repair_links(target)
     if not seed.is_seeded(target):
         seed.seed(target)
+    seed.ensure_settings(target)
 
 
 def _upgrade_schema(engine: Engine) -> None:
@@ -161,13 +179,19 @@ def _upgrade_schema(engine: Engine) -> None:
 def _unversioned_revision(engine: Engine) -> str | None:
     """Revision to stamp a database that has tables but no version table.
 
-    Pre-change databases get the baseline, so only the second migration runs
-    and their rows survive; databases already carrying the current schema get
-    head, so the second migration is not run against columns it would add.
+    The exact revision its tables and columns match: a pre-change database
+    gets the baseline, one with the attribution columns but no products table
+    gets 0002, one with products but not the settings table gets 0003, and one
+    carrying the settings table gets 0004. Stamping head would let a database
+    skip a migration it still needs.
     """
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     if not tables or "alembic_version" in tables or "organizations" not in tables:
         return None
+    if "company_settings" in tables:
+        return "0004"
+    if "products" in tables:
+        return "0003"
     columns = {column["name"] for column in inspector.get_columns("organizations")}
-    return "head" if "created_by" in columns else BASELINE_REVISION
+    return "0002" if "created_by" in columns else BASELINE_REVISION

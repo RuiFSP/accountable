@@ -25,6 +25,7 @@ const sections = [
   "/deals",
   "/products",
   "/pipeline",
+  "/settings",
 ];
 
 test.beforeAll(() => {
@@ -76,6 +77,7 @@ test("the menu is on every route and a record's page, and names its person", asy
 
   await menuButton(page).click();
   await expect(page.getByText(SIGNED_IN_AS)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
 
@@ -101,6 +103,20 @@ test("Light, Dark and System each apply at once and survive a reload", async ({
       mode,
     );
   }
+});
+
+test("the menu trigger keeps its initials legible on hover in dark mode", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await chooseTheme(page, "Dark");
+
+  const trigger = menuButton(page);
+  await trigger.hover();
+
+  // Sea Green Ink fill with Midnight initials, as the primary button hover.
+  await expect(trigger).toHaveCSS("background-color", "rgb(28, 199, 155)");
+  await expect(trigger).toHaveCSS("color", "rgb(4, 35, 46)");
 });
 
 test("System follows the device while the page is open", async ({ page }) => {

@@ -49,7 +49,7 @@ function renderAt(path: string) {
 
 describe("signed out", () => {
   it("shows the sign-in screen with no top bar at any address", async () => {
-    for (const path of ["/", "/contacts/5", "/nowhere"]) {
+    for (const path of ["/", "/contacts/5", "/settings", "/nowhere"]) {
       signOut();
       renderAt(path);
 
@@ -124,6 +124,7 @@ describe("user menu", () => {
     "/deals",
     "/products",
     "/pipeline",
+    "/settings",
     "/organizations/1",
     "/contacts/1",
     "/deals/1",
@@ -152,8 +153,24 @@ describe("user menu", () => {
         screen.queryByRole("switch", { name: "Dark mode" }),
         path,
       ).toBeNull();
+      expect(
+        within(topbar).queryByRole("link", { name: "Settings" }),
+        path,
+      ).toBeNull();
       cleanup();
     }
+  });
+
+  it("opens the Settings page from the menu", () => {
+    renderAt("/");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "alex@brightloop.example" }),
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Settings" }));
+
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
   });
 
   it("applies the theme chosen from the menu, then closes", () => {

@@ -9,7 +9,7 @@ test.beforeAll(() => {
 test("the dashboard, a deep link and an unknown address each show the sign-in screen", async ({
   page,
 }) => {
-  for (const path of ["/", "/contacts/1", "/nowhere"]) {
+  for (const path of ["/", "/contacts/1", "/settings", "/nowhere"]) {
     await page.goto(path);
 
     await expect(

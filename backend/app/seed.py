@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import itertools
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
@@ -16,6 +16,30 @@ STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
 CONFIRMATION_PROMPT = (
     "This deletes all data and reloads the sample data. Continue? [y/N] "
 )
+
+
+def _teammate_email(teammate_id: str) -> str:
+    return next(
+        teammate["email"] for teammate in TEAMMATES if teammate["id"] == teammate_id
+    )
+
+
+def _settings_row() -> dict:
+    """Brightloop's details, last changed by Priya two days before the seed runs."""
+    return {
+        "id": 1,
+        "name": "Brightloop",
+        "address": "1 Brightloop Plaza, Floor 12, New York, NY 10004",
+        "email": "hello@brightloop.example",
+        "phone": "+1 555 0100",
+        "tax_label": "Sales tax",
+        "tax_rate_thousandths": 8875,
+        "payment_terms_days": 30,
+        "quote_prefix": "QT-",
+        "invoice_prefix": "INV-",
+        "updated_by": _teammate_email("priya"),
+        "updated_at": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=2),
+    }
 
 
 def _attribution(offset: int) -> dict[str, str]:
@@ -654,6 +678,7 @@ def seed(engine: Engine) -> None:
         }
         for row in _activities(contact_ids, deal_ids):
             insert_sample(db.activities, row)
+        conn.execute(db.company_settings.insert().values(**_settings_row()))
         for row in _products():
             insert_sample(db.products, row)
 
@@ -670,12 +695,23 @@ def is_seeded(engine: Engine) -> bool:
     return count > 0
 
 
+def ensure_settings(engine: Engine) -> None:
+    """Give a database with no settings row the sample one, and leave a real one alone."""
+    with engine.begin() as connection:
+        found = connection.execute(
+            select(db.company_settings.c.id).where(db.company_settings.c.id == 1)
+        ).first()
+        if found is None:
+            connection.execute(db.company_settings.insert().values(**_settings_row()))
+
+
 def ensure_seeded(engine: Engine) -> None:
     """Create the tables and load the sample data into an empty database."""
     create_tables(engine)
     repair_links(engine)
     if not is_seeded(engine):
         seed(engine)
+    ensure_settings(engine)
 
 
 def repair_links(engine: Engine) -> None:

@@ -18,6 +18,7 @@ import Organization from "./pages/Organization";
 import Organizations from "./pages/Organizations";
 import Pipeline from "./pages/Pipeline";
 import Products from "./pages/Products";
+import Settings from "./pages/Settings";
 
 const sections = [
   { path: "/", label: "Dashboard" },
@@ -69,6 +70,7 @@ export function AppRoutes() {
             <Route path="/deals/:id" element={<Deal />} />
             <Route path="/products" element={<Products />} />
             <Route path="/pipeline" element={<Pipeline />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

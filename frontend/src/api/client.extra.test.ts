@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   api,
   type ActivityInput,
+  type CompanySettingsInput,
   type ContactInput,
   type DealInput,
   type OrganizationInput,
@@ -58,6 +59,18 @@ const activity: ActivityInput = {
   happened_at: "2026-11-10T09:00:00",
   follow_up_date: null,
   done: true,
+};
+
+const settings: CompanySettingsInput = {
+  name: "Brightloop",
+  address: "1 Brightloop Plaza, Floor 12, New York, NY 10004",
+  email: "hello@brightloop.example",
+  phone: "+1 555 0100",
+  tax_label: "Sales tax",
+  tax_rate_thousandths: 8875,
+  payment_terms_days: 30,
+  quote_prefix: "QT-",
+  invoice_prefix: "INV-",
 };
 
 const product: ProductInput = {
@@ -198,6 +211,42 @@ describe("api client writes", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", {
       headers: { Accept: "application/json" },
     });
+  });
+
+  it("fetches the company settings with a plain GET", async () => {
+    const fetchMock = stubFetch({
+      id: 1,
+      ...settings,
+      updated_by: "priya@brightloop.example",
+      updated_at: "2026-11-22T09:30:00+00:00",
+    });
+
+    const reply = await api.settings.get();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
+      headers: { Accept: "application/json" },
+    });
+    expect(reply.id).toBe(1);
+    expect(reply.tax_rate_thousandths).toBe(8875);
+    expect(reply.updated_by).toBe("priya@brightloop.example");
+  });
+
+  it("saves the company settings with PUT and the JSON body", async () => {
+    const fetchMock = stubFetch({
+      id: 1,
+      ...settings,
+      updated_by: "alex@brightloop.example",
+      updated_at: "2026-11-23T12:00:00+00:00",
+    });
+
+    const reply = await api.settings.save(settings);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+      headers: jsonHeaders,
+    });
+    expect(reply.updated_at).toBe("2026-11-23T12:00:00+00:00");
   });
 
   it("creates an activity with POST", async () => {

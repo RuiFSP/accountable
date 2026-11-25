@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from app import auth, db
 from app.routes import (
     activities,
+    company_settings,
     contacts,
     dashboard,
     deals,
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(dashboard.router, dependencies=guard)
     app.include_router(products.router, dependencies=guard)
     app.include_router(search.router, dependencies=guard)
+    app.include_router(company_settings.router, dependencies=guard)
 
     if chosen.mode == "shared":
         # The shared copy is only built with its settings, so the URL is there.
