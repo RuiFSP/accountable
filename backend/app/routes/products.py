@@ -16,9 +16,13 @@ SortOrder = Literal["asc", "desc"]
 
 
 class ProductIn(BaseModel):
-    name: str = Field(min_length=1)
+    # The blank-name rule lives in _unique_name, not here, so every blank
+    # refuses the same way and the form shows the message it returns.
+    name: str
     description: str | None = None
-    price_cents: int = Field(ge=0)
+    # The Integer column's own range: every price accepted here stores on both
+    # SQLite and Postgres, so the two cannot disagree.
+    price_cents: int = Field(ge=0, le=2_147_483_647)
 
 
 def _unique_name(connection, name: str, exclude_id: int | None = None) -> str:

@@ -347,6 +347,26 @@ describe("Products page", () => {
     expect(screen.getByRole("dialog", { name: "Add product" })).toBeTruthy();
   });
 
+  it("keeps the form open with a message when the price is larger than the column holds", async () => {
+    renderProducts();
+    await screen.findByText("Starter license");
+
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add product" });
+    fireEvent.change(within(dialog).getByLabelText("Name"), {
+      target: { value: "Big ticket" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Unit price (USD)"), {
+      target: { value: "21,474,836.48" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    const alert = within(dialog).getByRole("alert");
+    expect(alert.textContent).toBe("Enter a price of $21,474,836.47 or less.");
+    expect(api.products.create).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Add product" })).toBeTruthy();
+  });
+
   it("shows the API's duplicate message in the form", async () => {
     vi.mocked(api.products.create).mockRejectedValue(
       new Error('A product named "Priority support" already exists.'),

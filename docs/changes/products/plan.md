@@ -8,7 +8,7 @@ Working rule: one `active` flag is the archive state; the API owns the name rule
 
 **New — backend**
 
-- `backend/app/routes/products.py` — `ProductIn` (name, description, `price_cents`), list (`q` over name and description, sort, order, `include_archived`), create, update, archive and restore; no delete route. Names are trimmed, blank names and negative prices are rejected, and uniqueness is compared casefolded in Python across active and archived products. Uses `read_or_404`, `stamp_created` and `stamp_updated`.
+- `backend/app/routes/products.py` — `ProductIn` (name, description, `price_cents`), list (`q` over name and description, sort, order, `include_archived`), create, update, archive and restore; no delete route. Names are trimmed and blank names rejected; prices are whole cents from zero up to what the integer column stores; uniqueness is compared casefolded in Python across active and archived products. Uses `read_or_404`, `stamp_created` and `stamp_updated`.
 - `backend/migrations/versions/0003_products.py` — creates `products` (`id`, `name`, `description`, `price_cents`, `active`, `created_by`, `updated_by`) and enables row-level security on Postgres. Down revision `0002`.
 - `backend/tests/test_products.py` — create, list, update, archive and restore; default active-only list and `include_archived`; `q` and sort; price validation; blank name; case and whitespace duplicates; archived names; updating an archived product keeps it archived; no delete route.
 
@@ -57,19 +57,20 @@ Working rule: one `active` flag is the archive state; the API owns the name rule
 
 **Edited — docs**
 
+- `docs/spec.md` and the area files in `docs/specs/` — the spec describes the change first: `products.md` is new, and `spec.md`, `design.md`, `tables.md`, `sign-in.md` and `running.md` gain products, with `look-and-feel.md` decision 18 added after the review.
 - `docs/STATUS.md` — after the build, with the exact counts and coverage from the run output, not from memory.
 - `README.md` — Products in the feature list and products in the top-bar search line; keep it short.
 - `docs/changes/products/plan.md` — this file, if the plan changes.
 
 **Untouched**
 
-`docs/spec.md` and the area files in `docs/specs/` already describe the change. `package.json` and `frontend/package.json` stay as they are: no new dependencies. `backend/app/records.py`, `backend/migrations/env.py`, `scripts/e2e.mjs`, `playwright.config.ts`, `render.yaml` and `e2e/screenshots.spec.ts` need no edits. `docs/IMPROVE.md` comes after this plan.
+`package.json` and `frontend/package.json` stay as they are: no new dependencies. `backend/app/records.py`, `backend/migrations/env.py`, `scripts/e2e.mjs`, `playwright.config.ts`, `render.yaml` and `e2e/screenshots.spec.ts` need no edits. `docs/IMPROVE.md` comes after this plan.
 
 ## Order of work
 
 ### Phase 1 — Backend record and API
 
-Add the `products` table to `db.py`, migration `0003` and `app/routes/products.py`, and include the router. The list is active-only by default; `include_archived=true` returns both. Create starts a product active. Update keeps its active state. Archive and restore set it through `stamp_updated`, so the last-changed email moves only when the state actually changes. The name rule runs on create and update: trim, reject blank, compare `casefold()` against every product, archived included. The price is whole cents, zero or more. No delete route.
+Add the `products` table to `db.py`, migration `0003` and `app/routes/products.py`, and include the router. The list is active-only by default; `include_archived=true` returns both. Create starts a product active. Update keeps its active state. Archive and restore set it through `stamp_updated`, so the last-changed email moves only when the state actually changes. The name rule runs on create and update: trim, reject blank, compare `casefold()` against every product, archived included. The price is whole cents, zero or more and no larger than the integer column stores. No delete route.
 
 Tests: `test_products.py` on its own empty SQLite database, the product cases in `test_who.py`, and the schema half of `test_migrations.py`.
 
@@ -114,7 +115,7 @@ Done when: `npm run check` exits 0, the local sample database shows ten active a
 
 ### Unit — backend (pytest, `backend/tests/`)
 
-- `test_products.py` — create, read, update and list; `active` starts true; `description` may be null; prices are cents; active-only default and `include_archived=true`; `q` matches name and description; sort by name and price; negative prices and blank names refused; `PRIORITY SUPPORT` and whitespace variants of an existing name refused on create and update; an archived name stays reserved; updating an archived product keeps it archived; `DELETE` is 405. Runs on its own empty database, like `test_crud.py`.
+- `test_products.py` — create, read, update and list; `active` starts true; `description` may be null; prices are cents; active-only default and `include_archived=true`; `q` matches name and description; sort by name and price; blank names and prices outside the column's range refused; `PRIORITY SUPPORT` and whitespace variants of an existing name refused on create and update; an archived name stays reserved; updating an archived product keeps it archived; `DELETE` is 405. Runs on its own empty database, like `test_crud.py`.
 - `test_who.py` — a product added by Alex carries both emails; Priya's edit sets only the last-changed one; a no-op save leaves it; archive and restore move it; the product reply carries both emails.
 - `test_search.py` — a product joins the four kinds in name order; `zzy` finds it; an archived product is absent; the existing case, accent and `%`/`_` tests still pass.
 - `test_seed.py` — five tables; product columns; twelve products, ten active and two archived; at least one price with cents; every product attributed to a teammate; the API serves products; reseeding is idempotent.

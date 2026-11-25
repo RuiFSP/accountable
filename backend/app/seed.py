@@ -549,7 +549,7 @@ def _products() -> list[dict]:
         ),
         (
             "Team license",
-            "Per-seat licence for a growing sales team.",
+            "Per-seat license for a growing sales team.",
             19_900,
             True,
         ),
@@ -609,7 +609,7 @@ def _products() -> list[dict]:
         ),
         (
             "Pilot license",
-            "A short pilot for one team, before a full licence.",
+            "A short pilot for one team, before a full license.",
             0,
             False,
         ),

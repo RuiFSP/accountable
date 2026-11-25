@@ -162,7 +162,8 @@ def test_negative_prices_and_blank_names_are_refused(client):
         "/api/products",
         json={"name": "", "description": None, "price_cents": 100},
     )
-    assert empty.status_code == 422
+    assert empty.status_code == 400
+    assert empty.json() == {"detail": "Product name is required."}
 
     product = _create(client, "Real product")
     assert (
@@ -182,6 +183,28 @@ def test_negative_prices_and_blank_names_are_refused(client):
             json={"name": "  ", "description": None, "price_cents": 100},
         ).status_code
         == 400
+    )
+
+
+def test_a_price_the_integer_column_cannot_hold_is_refused(client):
+    too_big = client.post(
+        "/api/products",
+        json={"name": "Big ticket", "description": None, "price_cents": 2_147_483_648},
+    )
+    assert too_big.status_code == 422
+
+    product = _create(client, "Priced right", price_cents=2_147_483_647)
+    assert product["price_cents"] == 2_147_483_647
+    assert (
+        client.put(
+            f"/api/products/{product['id']}",
+            json={
+                "name": "Priced right",
+                "description": None,
+                "price_cents": 2_147_483_648,
+            },
+        ).status_code
+        == 422
     )
 
 

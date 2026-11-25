@@ -5,6 +5,10 @@ import { formatUsdWithCents, parseUsdToCents } from "../lib/money";
 import Field from "./Field";
 import Modal from "./Modal";
 
+// The API's own limit (backend/app/routes/products.py): what the integer
+// column stores, refused here so the form needn't show a raw status message.
+const MAX_PRICE_CENTS = 2_147_483_647;
+
 interface ProductFormProps {
   product?: Product;
   onSubmit: (payload: ProductInput) => Promise<void>;
@@ -28,6 +32,10 @@ export default function ProductForm({
     const priceCents = parseUsdToCents(priceText);
     if (priceCents === null) {
       setError("Enter a price in US dollars, for example 49.50.");
+      return;
+    }
+    if (priceCents > MAX_PRICE_CENTS) {
+      setError("Enter a price of $21,474,836.47 or less.");
       return;
     }
     setError(null);
