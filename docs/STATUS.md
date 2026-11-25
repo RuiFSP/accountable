@@ -351,6 +351,10 @@ Implemented `docs/changes/products/plan.md` phase by phase. The price list joins
 - `test_migrations.py` keeps both suites and adds the products-schema-without-a-version case; `test_seed.py` and `test_reset.py` count both new tables; the frontend and end-to-end suites keep both features' cases.
 - **Check:** `npm run check` exits 0 — 584 tests (182 backend, 321 frontend, 18 script, 63 end-to-end), backend coverage 99.04%, frontend 96.25% statements / 92.76% branches / 96.9% functions / 96.13% lines, gitleaks clean.
 
+## Shared Week 2 Day 2 (2026-11-25)
+
+- The day's two features, products and company settings, in one PR against Ed's `main` (branch `share-week2-day2`), adding only `community_contributions/ruifspinto/week2/day2/`: each feature's `intent.md` and `plan.md`, plus a README on the lead-and-two-developers setup. The two independent reviews and the code are linked through the fork; the reviews were left out of the PR to stay within the guide's five-file cap: https://github.com/ed-donner/accountable/pull/25
+
 ## Not started
 
 - Quotes and invoices, so the company settings reach the documents.
