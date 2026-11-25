@@ -513,9 +513,6 @@ describe("Deals page", () => {
   });
 
   it("keeps the dialog open when the delete fails", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
     vi.mocked(api.deals.remove).mockRejectedValue(new Error("Delete failed."));
     renderDeals();
     await screen.findByText("Wholesale rollout");
@@ -534,7 +531,8 @@ describe("Deals page", () => {
     expect(
       screen.getByRole("alertdialog", { name: "Delete Wholesale rollout?" }),
     ).toBeTruthy();
-    expect(consoleError).toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toBe("Delete failed.");
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
   });
 
   it("opens the deal detail from the View action", async () => {

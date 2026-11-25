@@ -8,3 +8,4 @@ Points this spec fixes:
 
 6. **The cascade confirmation scrolls.** The delete dialog lists every record and activity that will go; with sample data an organization can take a dozen rows. The dialog scrolls, never truncates the list.
 10. **Two searches.** The top bar's search matches part of an organization, contact, deal or active product name, ignoring case, the same on SQLite and Postgres. Each table's own search box keeps working the way it does today; a product match opens the Products page with that product shown, and archived products are left out of the top bar.
+11. **A record another area holds is not deleted.** A deal or an organization with a quote, invoice or bill pointing at it is refused with a 409, and the dialog names what holds it and offers only Close. Contacts and activities are never held. Nothing holds a deal or an organization yet.

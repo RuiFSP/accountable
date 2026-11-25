@@ -126,6 +126,17 @@ products = Table(
     Column("updated_by", String),
 )
 
+# How many numbers each kind of document has taken, so the next is one more.
+# A kind's row is added when it takes its first number. Quotes and invoices are
+# counted apart, and a reset clears the rows with every other table.
+number_counters = Table(
+    "number_counters",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("kind", String, nullable=False, unique=True),
+    Column("last_number", Integer, nullable=False),
+)
+
 
 def inserted_id(result: CursorResult) -> int:
     """The primary key of the single row an insert just wrote."""
@@ -181,14 +192,17 @@ def _unversioned_revision(engine: Engine) -> str | None:
 
     The exact revision its tables and columns match: a pre-change database
     gets the baseline, one with the attribution columns but no products table
-    gets 0002, one with products but not the settings table gets 0003, and one
-    carrying the settings table gets 0004. Stamping head would let a database
-    skip a migration it still needs.
+    gets 0002, one with products but not the settings table gets 0003, one
+    carrying the settings table gets 0004, and one with the number counters
+    gets 0005. Stamping head would let a database skip a migration it still
+    needs.
     """
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     if not tables or "alembic_version" in tables or "organizations" not in tables:
         return None
+    if "number_counters" in tables:
+        return "0005"
     if "company_settings" in tables:
         return "0004"
     if "products" in tables:

@@ -29,7 +29,7 @@ def _counts(engine) -> dict[str, int]:
         }
 
 
-def test_schema_has_the_six_tables(engine):
+def test_schema_has_the_seven_tables(engine):
     seed.ensure_seeded(engine)
     assert set(inspect(engine).get_table_names()) == {
         "organizations",
@@ -38,6 +38,7 @@ def test_schema_has_the_six_tables(engine):
         "activities",
         "company_settings",
         "products",
+        "number_counters",
     }
 
 
@@ -112,6 +113,11 @@ def test_schema_fields_match_the_data_model(engine):
         "created_by",
         "updated_by",
     ]
+    assert [column["name"] for column in columns("number_counters")] == [
+        "id",
+        "kind",
+        "last_number",
+    ]
 
 
 def test_fresh_database_is_seeded(engine):
@@ -180,6 +186,31 @@ def test_sample_data_covers_every_stage(engine):
     with engine.connect() as conn:
         stages = set(conn.execute(select(db.deals.c.stage)).scalars())
     assert stages == set(db.STAGE_PROBABILITIES)
+
+
+def test_sample_data_has_a_year_of_won_deals_and_work_in_proposal_and_negotiation(
+    engine,
+):
+    seed.ensure_seeded(engine)
+    with engine.connect() as conn:
+        won = conn.execute(
+            select(func.count()).select_from(db.deals).where(db.deals.c.stage == "Won")
+        ).scalar_one()
+        working = conn.execute(
+            select(func.count())
+            .select_from(db.deals)
+            .where(db.deals.c.stage.in_(["Proposal", "Negotiation"]))
+        ).scalar_one()
+        organizations = conn.execute(
+            select(func.count()).select_from(db.organizations)
+        ).scalar_one()
+        contacts = conn.execute(
+            select(func.count()).select_from(db.contacts)
+        ).scalar_one()
+        deals = conn.execute(select(func.count()).select_from(db.deals)).scalar_one()
+
+    assert (won, working) == (12, 8)
+    assert (organizations, contacts, deals) == (18, 24, 30)
 
 
 def test_sample_data_covers_every_contact_status(engine):

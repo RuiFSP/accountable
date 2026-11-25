@@ -1,10 +1,10 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
-from app import auth, db
+from app import auth, db, holds
 from app.records import read_or_404, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/organizations", tags=["organizations"])
@@ -82,14 +82,33 @@ def update_organization(
 
 
 @router.delete("/{organization_id}")
-def delete_organization(organization_id: int) -> dict:
+def delete_organization(organization_id: int, request: Request) -> dict:
     with db.get_engine().begin() as connection:
         read_or_404(connection, db.organizations, organization_id, "Organization")
-        contact_ids = select(db.contacts.c.id).where(
-            db.contacts.c.organization_id == organization_id
+        contact_ids = list(
+            connection.execute(
+                select(db.contacts.c.id).where(
+                    db.contacts.c.organization_id == organization_id
+                )
+            ).scalars()
         )
-        deal_ids = select(db.deals.c.id).where(
-            db.deals.c.organization_id == organization_id
+        deal_ids = list(
+            connection.execute(
+                select(db.deals.c.id).where(
+                    db.deals.c.organization_id == organization_id
+                )
+            ).scalars()
+        )
+        # A quote holds its deal, and SQLite does not enforce the foreign key,
+        # so the deals this delete takes must be checked too.
+        holds.refuse_if_held(
+            connection,
+            holds.app_holds(request.app),
+            [
+                (db.organizations, organization_id),
+                *[(db.deals, i) for i in deal_ids],
+            ],
+            "organization",
         )
 
         contacts = (

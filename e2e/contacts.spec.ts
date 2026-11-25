@@ -10,30 +10,36 @@ test.beforeEach(async ({ page }) => {
   await signIn(page);
 });
 
-test("contacts filter by status", async ({ page }) => {
+test("contacts filter by status", async ({ page, request }) => {
+  const contacts = (await (await request.get("/api/contacts")).json()) as {
+    status: string;
+  }[];
+  const countOf = (status: string): number =>
+    contacts.filter((contact) => contact.status === status).length;
+
   await page.goto("/contacts");
   const filter = page.getByRole("combobox", { name: "Status" });
 
   await filter.selectOption("lead");
-  await expect(page.locator("tbody tr")).toHaveCount(4);
+  await expect(page.locator("tbody tr")).toHaveCount(countOf("lead"));
   for (const row of await page.locator("tbody tr").allInnerTexts()) {
     expect(row).toContain("Lead");
   }
 
   await filter.selectOption("qualified");
-  await expect(page.locator("tbody tr")).toHaveCount(4);
+  await expect(page.locator("tbody tr")).toHaveCount(countOf("qualified"));
   for (const row of await page.locator("tbody tr").allInnerTexts()) {
     expect(row).toContain("Qualified");
   }
 
   await filter.selectOption("customer");
-  await expect(page.locator("tbody tr")).toHaveCount(4);
+  await expect(page.locator("tbody tr")).toHaveCount(countOf("customer"));
   for (const row of await page.locator("tbody tr").allInnerTexts()) {
     expect(row).toContain("Customer");
   }
 
   await filter.selectOption("");
-  await expect(page.locator("tbody tr")).toHaveCount(12);
+  await expect(page.locator("tbody tr")).toHaveCount(contacts.length);
 });
 
 test("a contact's page shows its organization and timeline", async ({

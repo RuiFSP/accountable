@@ -22,6 +22,8 @@ interface DataTableProps<T extends { id: number }> {
   searchFields: (row: T) => (string | null)[];
   searchPlaceholder?: string;
   filter?: DataTableFilter;
+  /** More than one filter, such as a document's status and category. */
+  filters?: DataTableFilter[];
   addLabel?: string;
   onAdd?: () => void;
   onEdit?: (row: T) => void;
@@ -65,6 +67,7 @@ export default function DataTable<T extends { id: number }>({
   searchFields,
   searchPlaceholder = "Search",
   filter,
+  filters,
   addLabel = "Add",
   onAdd,
   onEdit,
@@ -78,7 +81,11 @@ export default function DataTable<T extends { id: number }>({
 }: DataTableProps<T>) {
   const [query, setQuery] = useState(initialQuery);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [filterValue, setFilterValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const activeFilters = useMemo(
+    () => filters ?? (filter ? [filter] : []),
+    [filter, filters],
+  );
 
   // A link can bring a new search while the table is already on screen; the
   // key makes the same search apply again when its link is followed twice.
@@ -88,7 +95,9 @@ export default function DataTable<T extends { id: number }>({
 
   const tableColumns = useMemo<ColumnDef<T>[]>(() => {
     const base = columns.map((column) =>
-      filter && columnMatchesId(column, filter.columnId)
+      activeFilters.some((activeFilter) =>
+        columnMatchesId(column, activeFilter.columnId),
+      )
         ? { ...column, filterFn: "equals" as const }
         : column,
     );
@@ -134,14 +143,17 @@ export default function DataTable<T extends { id: number }>({
       ),
     };
     return [...base, actions];
-  }, [columns, filter, onEdit, onDelete, onOpen, rowAction]);
+  }, [activeFilters, columns, onEdit, onDelete, onOpen, rowAction]);
 
   const columnFilters = useMemo(
     () =>
-      filter && filterValue
-        ? [{ id: filter.columnId, value: filterValue }]
-        : [],
-    [filter, filterValue],
+      activeFilters
+        .filter((activeFilter) => filterValues[activeFilter.columnId])
+        .map((activeFilter) => ({
+          id: activeFilter.columnId,
+          value: filterValues[activeFilter.columnId],
+        })),
+    [activeFilters, filterValues],
   );
 
   const table = useReactTable({
@@ -170,21 +182,27 @@ export default function DataTable<T extends { id: number }>({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        {filter ? (
+        {activeFilters.map((activeFilter) => (
           <select
+            key={activeFilter.columnId}
             className="filter-select"
-            aria-label={filter.label}
-            value={filterValue}
-            onChange={(event) => setFilterValue(event.target.value)}
+            aria-label={activeFilter.label}
+            value={filterValues[activeFilter.columnId] ?? ""}
+            onChange={(event) =>
+              setFilterValues((current) => ({
+                ...current,
+                [activeFilter.columnId]: event.target.value,
+              }))
+            }
           >
-            <option value="">{filter.label}: All</option>
-            {filter.options.map((option) => (
+            <option value="">{activeFilter.label}: All</option>
+            {activeFilter.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-        ) : null}
+        ))}
         {toolbar}
         <span className="toolbar-spacer" />
         {onAdd ? (

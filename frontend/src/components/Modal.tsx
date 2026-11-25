@@ -4,9 +4,16 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** Room for a form beside its live preview, such as a quote's. */
+  wide?: boolean;
 }
 
-export default function Modal({ title, onClose, children }: ModalProps) {
+export default function Modal({
+  title,
+  onClose,
+  children,
+  wide = false,
+}: ModalProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -29,7 +36,12 @@ export default function Modal({ title, onClose, children }: ModalProps) {
         }
       }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        className={wide ? "modal modal-wide" : "modal"}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <div className="modal-header">
           <h2>{title}</h2>
           <button

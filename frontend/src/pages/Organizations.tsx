@@ -34,6 +34,7 @@ export default function Organizations() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Organization | null>(null);
   const [deleting, setDeleting] = useState<Organization | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const columns: ColumnDef<Organization>[] = [
     { accessorKey: "name", header: "Name" },
@@ -84,8 +85,13 @@ export default function Organizations() {
       await api.organizations.remove(deleting.id);
       await refreshAll();
       setDeleting(null);
+      setDeleteError(null);
     } catch (error) {
-      console.error(error);
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Could not delete the organization.",
+      );
     }
   };
 
@@ -113,7 +119,10 @@ export default function Organizations() {
             addLabel="Add organization"
             onAdd={() => setAdding(true)}
             onEdit={setEditing}
-            onDelete={setDeleting}
+            onDelete={(organization) => {
+              setDeleteError(null);
+              setDeleting(organization);
+            }}
             onOpen={(row) => navigate(`/organizations/${row.id}`)}
           />
         )}
@@ -141,10 +150,14 @@ export default function Organizations() {
             deals,
             activities,
           })}
+          error={deleteError}
           onConfirm={() => {
             void handleDelete();
           }}
-          onCancel={() => setDeleting(null)}
+          onCancel={() => {
+            setDeleting(null);
+            setDeleteError(null);
+          }}
         />
       ) : null}
     </div>

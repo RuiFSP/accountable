@@ -355,7 +355,31 @@ Implemented `docs/changes/products/plan.md` phase by phase. The price list joins
 
 - The day's two features, products and company settings, in one PR against Ed's `main` (branch `share-week2-day2`), adding only `community_contributions/ruifspinto/week2/day2/`: each feature's `intent.md` and `plan.md`, plus a README on the lead-and-two-developers setup. The two independent reviews and the code are linked through the fork; the reviews were left out of the PR to stay within the guide's five-file cap: https://github.com/ed-donner/accountable/pull/25
 
+## Week 2 Day 3 instructions adapted (2026-11-25)
+
+- `course/instructions/week2day3.md` now builds the day on this fork instead of Ed's checkpoints: OpenCode sessions in place of `/clear`, our own `main`, a `prepare-day3` branch and folder, intent and plan for every branch, test turns on top of the existing port slots, per-worktree dev ports so ui-check can run in three windows, and Claude Code in place of Codex for the independent review. The turns, ports and sample-data growth are Prepare tasks in the instructions; no script or seed changed here.
+- The two decisions are made in the instructions: one Money top-bar entry with Quotes, Invoices and Bills as tabs, keeping seven links and updating decision 18, with placeholder pages for each feature to replace; and a moderate sample-data growth in Prepare to about 18 organizations, 24 contacts and 30 deals (12 won, one per month, and 8 open in Proposal or Negotiation), with quotes, invoices, payments and bills left to their own branches.
+- The migrations all start from `0004`, so the merge section now says to renumber each feature's migration and update its upgrade test. Ed's Settings race is recorded as already fixed here, with the generic find-the-root-cause prompt kept.
+- The checkpoint section and Ed's "start from main" commands are gone; his branches are named as reference only.
+
+## Prepare for quotes, invoices and bills (2026-11-25)
+
+Done on the `prepare` branch before the three features start, from `docs/changes/prepare-day3/`. The PDFs and the dashboard's Money section stay with the features; everything here is either inert or one of the two scaffolds the adaptation note chose.
+
+- **The sums:** `backend/app/tax.py` and `frontend/src/lib/tax.ts` work out a line's amount, the subtotal, the tax once on the subtotal and the total, with `shared/totals-cases.json` run by both suites. Quantities are 1 to 1,000,000, and amounts stay within the integer columns' limit.
+- **Numbers and settings:** `number_counters` and migration `0005_number_counters.py`; `backend/app/documents.py` reads the company settings and takes the next quote or invoice number atomically, so two saves at once cannot repeat one and a failed save rolls its number back.
+- **Held records:** `backend/app/holds.py` refuses to delete a deal or an organization while a later area's record points at it. The organization delete also checks the deals it would take, because SQLite foreign keys are off here. `ConfirmDialog` shows the refusal and offers only Close.
+- **Panels:** `RecordPanels` and optional panels on the deal and organization pages, empty for now; each later area adds its own.
+- **Money's home:** the top bar's seventh section, `/money`, with Quotes, Invoices and Bills tabs and a placeholder page for each area to replace. The tab lives in the URL. Decision 18 now covers seven links, and the bar still fits at 1024px (the e2e check keeps the search wider than 100px there).
+- **Shared UI:** `StatusBadge` with the agreed tones, `KpiCard` moved out of the dashboard, a wide `Modal` for a form beside its preview, and `DataTable` accepting more than one filter.
+- **Area seams:** empty `routes/quotes.py`, `invoices.py` and `bills.py`, each with its holds, registered once in `main.py`; the API client exports its request helpers so each area adds its own module.
+- **Months and charts:** `backend/app/months.py` holds the last 12 months, `stats.py` uses it, and `lib/charts.ts` exports the axis and tooltip tokens.
+- **Sample data:** 18 organizations, 24 contacts and 30 deals, with 12 won across the last 12 months and 8 open in Proposal or Negotiation. The e2e suite now reads those counts from the API instead of pinning them, and the four dark-mode screenshots changed with the data.
+- **Specs:** `docs/spec.md`, `design.md`, `company-settings.md`, `organizations.md`, `deals.md`, `tables.md`, `look-and-feel.md`, `running.md`, and the new `money.md`.
+
+`npm run check` exits 0: 617 tests (199 backend, 336 frontend, 18 script, 64 end-to-end), backend coverage 98.47%, frontend 96.27% statements / 92.55% branches / 97.07% functions / 96.15% lines, gitleaks clean. The e2e suite passed in 5.7 minutes.
+
 ## Not started
 
-- Quotes and invoices, so the company settings reach the documents.
+- Quotes, invoices and bills, filling the Money tabs and using the company settings.
 - The rest of `docs/spec.md`'s Out of scope list: roles and permissions, a phone layout, AI features, integrations, currencies other than US dollars, reports beyond the dashboard, tags and custom fields, changing the pipeline stages, import/export, more than one tax rate and a logo.

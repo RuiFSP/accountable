@@ -93,7 +93,7 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
 
-Next: quotes and invoices, so the company settings reach the documents; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
+Next: quotes, invoices and bills, filling the Money section and using the company settings; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
 ## Acknowledgements
 

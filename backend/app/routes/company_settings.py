@@ -6,12 +6,10 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app import auth, db
-from app.records import read_or_404
+from app import auth, db, documents
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-SETTINGS_ID = 1
 TAX_RATE_MAX_THOUSANDTHS = 100_000  # 100%
 PAYMENT_TERMS_MAX_DAYS = 365
 PREFIX_MAX_LENGTH = 10
@@ -88,14 +86,10 @@ def _as_reply(row: dict) -> dict:
     return {**row, "updated_at": moment}
 
 
-def _read(connection) -> dict:
-    return read_or_404(connection, db.company_settings, SETTINGS_ID, "Settings")
-
-
 @router.get("")
 def get_settings() -> dict:
     with db.get_engine().connect() as connection:
-        return _as_reply(_read(connection))
+        return _as_reply(documents.current_settings(connection))
 
 
 @router.put("")
@@ -105,13 +99,13 @@ def save_settings(
     """Replace every setting, crediting the user only when a stored value differs."""
     values = _checked(payload)
     with db.get_engine().begin() as connection:
-        existing = _read(connection)
+        existing = documents.current_settings(connection)
         if any(existing[name] != value for name, value in values.items()):
             values["updated_by"] = user
             values["updated_at"] = datetime.now(UTC).replace(tzinfo=None)
             connection.execute(
                 db.company_settings.update()
-                .where(db.company_settings.c.id == SETTINGS_ID)
+                .where(db.company_settings.c.id == 1)
                 .values(**values)
             )
-        return _as_reply(_read(connection))
+        return _as_reply(documents.current_settings(connection))

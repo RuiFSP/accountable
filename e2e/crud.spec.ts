@@ -17,14 +17,14 @@ test("an organization can be added, searched, sorted and edited, and survives a 
 
   await page.getByRole("button", { name: "Add organization" }).click();
   const modal = page.getByRole("dialog", { name: "Add organization" });
-  await modal.getByLabel("Name", { exact: true }).fill("Granite Works");
+  await modal.getByLabel("Name", { exact: true }).fill("Zephyr Utilities");
   await modal.getByLabel("Industry").fill("Utilities");
   await modal.getByRole("button", { name: "Add", exact: true }).click();
   await expect(
-    page.locator("tbody tr", { hasText: "Granite Works" }),
+    page.locator("tbody tr", { hasText: "Zephyr Utilities" }),
   ).toBeVisible();
 
-  await page.getByRole("searchbox").fill("granite");
+  await page.getByRole("searchbox").fill("zephyr");
   await expect(page.locator("tbody tr")).toHaveCount(1);
 
   await page.getByRole("searchbox").fill("");
@@ -35,24 +35,24 @@ test("an organization can be added, searched, sorted and edited, and survives a 
   );
   await page.getByRole("button", { name: "Name" }).click();
   await expect(page.locator("tbody tr").first()).toContainText(
-    "Northwind Traders",
+    "Zephyr Utilities",
   );
 
   await page
-    .locator("tbody tr", { hasText: "Granite Works" })
+    .locator("tbody tr", { hasText: "Zephyr Utilities" })
     .getByRole("button", { name: "Edit" })
     .click();
   const editModal = page.getByRole("dialog", { name: "Edit organization" });
-  await editModal.getByLabel("Website").fill("graniteworks.example");
+  await editModal.getByLabel("Website").fill("zephyr.example");
   await editModal.getByRole("button", { name: "Save" }).click();
   await expect(
-    page.locator("tbody tr", { hasText: "Granite Works" }),
-  ).toContainText("graniteworks.example");
+    page.locator("tbody tr", { hasText: "Zephyr Utilities" }),
+  ).toContainText("zephyr.example");
 
   await page.reload();
   await expect(
-    page.locator("tbody tr", { hasText: "Granite Works" }),
-  ).toContainText("graniteworks.example");
+    page.locator("tbody tr", { hasText: "Zephyr Utilities" }),
+  ).toContainText("zephyr.example");
 });
 
 test("a contact and a deal can be added and are found by search", async ({
@@ -174,7 +174,13 @@ test("confirming the delete removes the record and everything linked to it", asy
 
 test("npm run seed with confirmation brings back the sample data", async ({
   page,
+  request,
 }) => {
+  resetSampleData();
+  const organizations = (await (
+    await request.get("/api/organizations")
+  ).json()) as unknown[];
+
   await page.goto("/organizations");
   await page
     .locator("tbody tr", { hasText: "Evergreen Coffee" })
@@ -184,12 +190,12 @@ test("npm run seed with confirmation brings back the sample data", async ({
     .getByRole("alertdialog", { name: "Delete Evergreen Coffee?" })
     .getByRole("button", { name: "Delete", exact: true })
     .click();
-  await expect(page.locator("tbody tr")).toHaveCount(5);
+  await expect(page.locator("tbody tr")).toHaveCount(organizations.length - 1);
 
   resetSampleData(); // the real command, confirmation included
 
   await page.reload();
-  await expect(page.locator("tbody tr")).toHaveCount(6);
+  await expect(page.locator("tbody tr")).toHaveCount(organizations.length);
   await expect(
     page.locator("tbody tr", { hasText: "Evergreen Coffee" }),
   ).toBeVisible();

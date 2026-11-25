@@ -58,12 +58,18 @@ test("signed in, the API answers as it did before", async ({ request }) => {
   expect(((await products.json()) as unknown[]).length).toBe(10);
 });
 
-test("a signed-in walk produces no console errors", async ({ page }) => {
+test("a signed-in walk produces no console errors", async ({
+  page,
+  request,
+}) => {
   const consoleErrors = watchConsole(page);
+  const organizations = (await (
+    await request.get("/api/organizations")
+  ).json()) as unknown[];
 
   await signIn(page);
   await page.goto("/organizations");
-  await expect(page.locator("tbody tr")).toHaveCount(6);
+  await expect(page.locator("tbody tr")).toHaveCount(organizations.length);
 
   expect(consoleErrors()).toEqual([]);
 });

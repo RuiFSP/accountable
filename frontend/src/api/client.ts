@@ -214,7 +214,30 @@ export interface StageMoveResult {
   };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** A refusal's detail, whether the backend sent one string or a field's list. */
+function detailMessage(detail: unknown): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (!Array.isArray(detail)) {
+    return "";
+  }
+  return detail
+    .map((item) => {
+      if (typeof item !== "object" || item === null) {
+        return "";
+      }
+      const { loc, msg } = item as { loc?: unknown; msg?: unknown };
+      const where = Array.isArray(loc)
+        ? loc.filter((part) => part !== "body").join(".")
+        : "";
+      return typeof msg === "string" ? (where ? `${where}: ${msg}` : msg) : "";
+    })
+    .filter(Boolean)
+    .join("; ");
+}
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = currentToken();
   const response = await fetch(path, {
     ...init,
@@ -233,9 +256,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let detail = "";
     try {
       const body = (await response.json()) as { detail?: unknown };
-      if (typeof body.detail === "string") {
-        detail = body.detail;
-      }
+      detail = detailMessage(body.detail);
     } catch {
       // The response had no JSON body; fall back to the status.
     }
@@ -246,18 +267,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-function post<T>(path: string, payload?: unknown): Promise<T> {
+export function post<T>(path: string, payload?: unknown): Promise<T> {
   return request<T>(path, {
     method: "POST",
     ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
   });
 }
 
-function put<T>(path: string, payload: unknown): Promise<T> {
+export function put<T>(path: string, payload: unknown): Promise<T> {
   return request<T>(path, { method: "PUT", body: JSON.stringify(payload) });
 }
 
-function del<T>(path: string): Promise<T> {
+export function del<T>(path: string): Promise<T> {
   return request<T>(path, { method: "DELETE" });
 }
 

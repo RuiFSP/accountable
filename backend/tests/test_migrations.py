@@ -1,5 +1,6 @@
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from app import db
 from sqlalchemy import create_engine, inspect, text
 
@@ -7,7 +8,9 @@ RECORD_TABLES = ("organizations", "contacts", "deals", "activities", "products")
 # The four that already existed when 0002 added their attribution columns.
 ATTRIBUTED_TABLES = ("organizations", "contacts", "deals", "activities")
 SETTINGS_TABLE = "company_settings"
-TABLES = (*RECORD_TABLES, SETTINGS_TABLE)
+# Every table the metadata defines, so a later area's table is covered without
+# this list being edited again.
+TABLES = tuple(table.name for table in db.metadata.sorted_tables)
 
 
 def alembic_config(connection=None, url=None) -> Config:
@@ -17,6 +20,13 @@ def alembic_config(connection=None, url=None) -> Config:
     if url is not None:
         config.set_main_option("sqlalchemy.url", url)
     return config
+
+
+def head_revision() -> str:
+    """The one revision the migrations end at."""
+    head = ScriptDirectory.from_config(alembic_config()).get_current_head()
+    assert head is not None
+    return head
 
 
 def columns(engine, table) -> list[tuple]:
@@ -94,7 +104,7 @@ def test_database_from_before_the_change_upgrades_and_keeps_its_rows():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0004"
+            == head_revision()
         )
         assert (
             connection.execute(text("SELECT created_by FROM organizations")).scalar()
@@ -130,7 +140,7 @@ def test_0002_schema_without_a_version_table_reaches_head_and_keeps_its_rows():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0004"
+            == head_revision()
         )
         assert_kept_its_rows_and_gained_settings(connection)
     assert SETTINGS_TABLE in inspect(engine).get_table_names()
@@ -155,7 +165,7 @@ def test_products_schema_without_a_version_table_reaches_head_and_gains_settings
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0004"
+            == head_revision()
         )
         assert connection.execute(text("SELECT COUNT(*) FROM products")).scalar() == 1
         settings = connection.execute(
@@ -177,9 +187,14 @@ def test_current_schema_without_a_version_table_is_stamped_at_head():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0004"
+            == head_revision()
         )
         assert_kept_its_rows_and_gained_settings(connection)
+
+
+def test_the_migrations_have_one_head():
+    script = ScriptDirectory.from_config(alembic_config())
+    assert len(script.get_heads()) == 1
 
 
 def test_postgres_offline_sql_adds_the_tables_the_columns_and_row_level_security(
@@ -217,3 +232,6 @@ def test_postgres_offline_sql_adds_the_tables_the_columns_and_row_level_security
     assert "CREATE TABLE products" in sql
     for column in ("name", "description", "price_cents", "active"):
         assert f"{column} " in sql.split("CREATE TABLE products")[1]
+    assert "CREATE TABLE number_counters" in sql
+    for column in ("kind", "last_number"):
+        assert f"{column} " in sql.split("CREATE TABLE number_counters")[1]
