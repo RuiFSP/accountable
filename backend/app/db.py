@@ -1,4 +1,4 @@
-"""Engine, connection, schema and migrations for the four tables (SQLAlchemy Core)."""
+"""Engine, connection, schema and migrations for the five tables (SQLAlchemy Core)."""
 
 from __future__ import annotations
 
@@ -93,6 +93,18 @@ activities = Table(
     Column("happened_at", DateTime, nullable=False),
     Column("follow_up_date", Date),
     Column("done", Boolean, nullable=False),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
+products = Table(
+    "products",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("description", Text),
+    Column("price_cents", Integer, nullable=False),
+    Column("active", Boolean, nullable=False),
     Column("created_by", String),
     Column("updated_by", String),
 )

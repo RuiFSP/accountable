@@ -6,7 +6,7 @@
 
 ## Sample data
 
-Accountable comes with realistic sample data, so every screen looks alive the first time it starts: organizations across several industries, contacts at every status, deals at every stage (including deals won and lost over the past months, deals expected to close in the months ahead and a few running late), and activities with some follow-ups due soon and some overdue. Every sample record shows which made-up teammate added it, and some show a different teammate as who last changed them.
+Accountable comes with realistic sample data, so every screen looks alive the first time it starts: organizations across several industries, contacts at every status, deals at every stage (including deals won and lost over the past months, deals expected to close in the months ahead and a few running late), activities with some follow-ups due soon and some overdue, and a dozen products with realistic prices that fit the sample deals, such as licenses, support plans and training days (ten active, two archived). Every sample record shows which made-up teammate added it, and some show a different teammate as who last changed them.
 
 When Supabase is empty, the app seeds it with this sample data the way it seeds a new database, and `npm run seed` drops and reloads it there. The contents of an old local SQLite file are never migrated.
 

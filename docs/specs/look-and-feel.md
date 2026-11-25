@@ -15,3 +15,4 @@ Points this spec fixes:
 1. **Fonts are bundled, not fetched.** Brand fonts (Instrument Sans, Instrument Serif, JetBrains Mono) come from Google Fonts, but the font files are bundled locally, so a page load never waits on Google Fonts and the brand comes from the app itself.
 7. **Dark mode meets WCAG AA.** Dark mode text holds 4.5:1 for normal text and 3:1 for large text and UI elements; light mode's contrast is unchanged.
 11. **The theme lives in the user menu.** The top-bar toggle is gone: the menu under your initials offers light, dark or system, the choice is remembered, and system follows the device's own setting.
+18. **A 1024px laptop fits everything.** With six sections, the top bar keeps room for the search box and New deal by tightening its gaps and link padding below 1180px, and the tables tighten their cell padding, so the page never scrolls sideways.

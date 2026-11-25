@@ -68,7 +68,7 @@ describe("signed out", () => {
 });
 
 describe("app shell", () => {
-  it("lands on the dashboard with links to the five sections", () => {
+  it("lands on the dashboard with links to the six sections", () => {
     renderAt("/");
 
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeTruthy();
@@ -77,6 +77,7 @@ describe("app shell", () => {
       "Organizations",
       "Contacts",
       "Deals",
+      "Products",
       "Pipeline",
     ]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
@@ -121,6 +122,7 @@ describe("user menu", () => {
     "/organizations",
     "/contacts",
     "/deals",
+    "/products",
     "/pipeline",
     "/organizations/1",
     "/contacts/1",

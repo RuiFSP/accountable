@@ -17,7 +17,7 @@ vi.mock("../api/client", () => ({
 
 function At() {
   const location = useLocation();
-  return <div data-testid="at">{location.pathname}</div>;
+  return <div data-testid="at">{location.pathname + location.search}</div>;
 }
 
 function renderBox() {
@@ -54,6 +54,11 @@ const organization: SearchResult = {
   kind: "organization",
   id: 7,
   name: "Northwind Traders",
+};
+const product: SearchResult = {
+  kind: "product",
+  id: 12,
+  name: "Priority support",
 };
 
 beforeEach(() => {
@@ -96,7 +101,12 @@ describe("SearchBox", () => {
   });
 
   it("groups the matches with their kind shown", async () => {
-    vi.mocked(api.search.find).mockResolvedValue([deal, organization, contact]);
+    vi.mocked(api.search.find).mockResolvedValue([
+      deal,
+      organization,
+      contact,
+      product,
+    ]);
     renderBox();
 
     type("a");
@@ -105,8 +115,10 @@ describe("SearchBox", () => {
     expect(screen.getByText("Organizations")).toBeTruthy();
     expect(screen.getByText("Contacts")).toBeTruthy();
     expect(screen.getByText("Deals")).toBeTruthy();
+    expect(screen.getByText("Products")).toBeTruthy();
     expect(screen.getByText("Northwind Traders")).toBeTruthy();
     expect(screen.getByText("Ana Silva")).toBeTruthy();
+    expect(screen.getByText("Priority support")).toBeTruthy();
   });
 
   it("opens a match on click", async () => {
@@ -133,6 +145,31 @@ describe("SearchBox", () => {
     press("Enter");
 
     expect(screen.getByTestId("at").textContent).toBe("/contacts/1");
+  });
+
+  it("opens a product on the table's search by click and by Enter", async () => {
+    vi.mocked(api.search.find).mockResolvedValue([product]);
+    renderBox();
+
+    type("prio");
+    await screen.findByText("Priority support");
+    fireEvent.click(screen.getByRole("button", { name: "Priority support" }));
+
+    expect(screen.getByTestId("at").textContent).toBe(
+      "/products?q=Priority%20support",
+    );
+    expect(
+      (screen.getByRole("textbox", { name: "Search" }) as HTMLInputElement)
+        .value,
+    ).toBe("");
+
+    type("prio");
+    await screen.findByText("Priority support");
+    press("Enter");
+
+    expect(screen.getByTestId("at").textContent).toBe(
+      "/products?q=Priority%20support",
+    );
   });
 
   it("closes the results on Escape", async () => {

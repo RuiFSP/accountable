@@ -89,5 +89,8 @@ a one-line explanation of the problem and its consequence:
    rule leaks, spec/plan mismatches).
 2. **Nits** — at most five, style or naming, non-blocking.
 
+Use exactly these two labels, even if the instructions that launched you name
+another scale.
+
 Then close with one line per pass that came up clean, so the reader knows what
 was checked rather than just what failed.

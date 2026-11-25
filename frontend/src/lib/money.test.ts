@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatUsd, formatUsdCompact, parseUsdToCents } from "./money";
+import {
+  formatUsd,
+  formatUsdCompact,
+  formatUsdWithCents,
+  parseUsdToCents,
+} from "./money";
 
 describe("formatUsd", () => {
   it("formats whole dollars without cents", () => {
@@ -12,6 +17,21 @@ describe("formatUsd", () => {
   it("keeps cents only when there are any", () => {
     expect(formatUsd(123_456)).toBe("$1,234.56");
     expect(formatUsd(50)).toBe("$0.50");
+  });
+});
+
+describe("formatUsdWithCents", () => {
+  it("always shows two decimals", () => {
+    expect(formatUsdWithCents(0)).toBe("$0.00");
+    expect(formatUsdWithCents(4_900)).toBe("$49.00");
+    expect(formatUsdWithCents(14_950)).toBe("$149.50");
+    expect(formatUsdWithCents(120_000)).toBe("$1,200.00");
+  });
+
+  it("round trips with the parser", () => {
+    for (const cents of [0, 50, 4_900, 123_456]) {
+      expect(parseUsdToCents(formatUsdWithCents(cents))).toBe(cents);
+    }
   });
 });
 

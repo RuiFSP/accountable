@@ -31,6 +31,7 @@ test("every sampled API route refuses without a token", async ({ page }) => {
     "/api/contacts",
     "/api/deals",
     "/api/activities",
+    "/api/products",
     "/api/dashboard",
   ];
   for (const path of sample) {
@@ -50,6 +51,10 @@ test("signed in, the API answers as it did before", async ({ request }) => {
 
   expect(organizations.ok()).toBe(true);
   expect((await organizations.json()).length).toBeGreaterThan(0);
+
+  const products = await request.get("/api/products");
+  expect(products.ok()).toBe(true);
+  expect(((await products.json()) as unknown[]).length).toBe(10);
 });
 
 test("a signed-in walk produces no console errors", async ({ page }) => {
