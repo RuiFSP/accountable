@@ -114,6 +114,18 @@ company_settings = Table(
     Column("updated_at", DateTime, nullable=False),
 )
 
+products = Table(
+    "products",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("description", Text),
+    Column("price_cents", Integer, nullable=False),
+    Column("active", Boolean, nullable=False),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
 
 def inserted_id(result: CursorResult) -> int:
     """The primary key of the single row an insert just wrote."""
@@ -168,15 +180,18 @@ def _unversioned_revision(engine: Engine) -> str | None:
     """Revision to stamp a database that has tables but no version table.
 
     The exact revision its tables and columns match: a pre-change database
-    gets the baseline, one with the attribution columns but no settings table
-    gets 0002, and one already carrying every table gets 0003. Stamping head
-    would let a database skip a migration it still needs.
+    gets the baseline, one with the attribution columns but no products table
+    gets 0002, one with products but not the settings table gets 0003, and one
+    carrying the settings table gets 0004. Stamping head would let a database
+    skip a migration it still needs.
     """
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     if not tables or "alembic_version" in tables or "organizations" not in tables:
         return None
     if "company_settings" in tables:
+        return "0004"
+    if "products" in tables:
         return "0003"
     columns = {column["name"] for column in inspector.get_columns("organizations")}
     return "0002" if "created_by" in columns else BASELINE_REVISION

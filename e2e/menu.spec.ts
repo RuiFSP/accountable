@@ -23,6 +23,7 @@ const sections = [
   "/organizations",
   "/contacts",
   "/deals",
+  "/products",
   "/pipeline",
   "/settings",
 ];

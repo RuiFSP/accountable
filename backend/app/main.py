@@ -16,6 +16,7 @@ from app.routes import (
     dashboard,
     deals,
     organizations,
+    products,
     search,
 )
 from app.settings import Settings, load_settings
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(deals.router, dependencies=guard)
     app.include_router(activities.router, dependencies=guard)
     app.include_router(dashboard.router, dependencies=guard)
+    app.include_router(products.router, dependencies=guard)
     app.include_router(search.router, dependencies=guard)
     app.include_router(company_settings.router, dependencies=guard)
 

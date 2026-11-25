@@ -23,6 +23,7 @@ def _counts(engine) -> dict[str, int]:
                 db.deals,
                 db.activities,
                 db.company_settings,
+                db.products,
             )
         }
 
@@ -45,6 +46,7 @@ def _dirty(engine) -> dict[str, int]:
             .where(db.company_settings.c.id == 1)
             .values(name="Not Brightloop")
         )
+        conn.execute(db.products.delete())
     return _counts(engine)
 
 
@@ -78,7 +80,7 @@ def test_reset_leaves_the_version_table_and_the_schema_agreeing(engine):
         version = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert version == "0003"
+    assert version == "0004"
     for table in db.metadata.sorted_tables:
         names = [column["name"] for column in inspect(engine).get_columns(table.name)]
         assert names == [column.name for column in table.columns]

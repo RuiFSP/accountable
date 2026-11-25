@@ -20,17 +20,17 @@ No new dependencies. The email check is a small pattern, and the page reuses the
 ### Backend — new
 
 - `backend/app/routes/company_settings.py` — `GET` and `PUT /api/settings`. The route reads id 1, trims and validates every field, rejects with a 400 detail, and on a change writes `updated_by` and `updated_at`. It reads `updated_at` back with UTC attached when SQLite hands back a naive value, so the reply always carries an offset.
-- `backend/migrations/versions/0003_company_settings.py` — creates `company_settings` with the fields above, and on Postgres only turns on row-level security for it. No data insert: the sample row belongs to the seed.
+- `backend/migrations/versions/0004_company_settings.py` — creates `company_settings` with the fields above, and on Postgres only turns on row-level security for it. No data insert: the sample row belongs to the seed.
 - `backend/tests/test_company_settings.py` — a fresh seeded SQLite database per test, the local app, and a signed-in client. The API's read, save, validation, attribution and one-row behaviour.
 
 ### Backend — edited
 
-- `backend/app/db.py` — the `company_settings` Table in the metadata; the module docstring no longer says four tables; `_unversioned_revision` returns the exact revision the tables and columns match (`0001`, `0002` or `0003`) instead of `head`, so a database with the 0002 schema and no version table is not stamped as 0003 and made to skip the new table; `prepare()` calls `seed.ensure_settings(target)` after seeding, so an existing database with records gets the sample row too.
+- `backend/app/db.py` — the `company_settings` Table in the metadata; the module docstring no longer says four tables; `_unversioned_revision` returns the exact revision the tables and columns match (`0001`, `0002`, `0003` or `0004`) instead of `head`, so a database with the 0002 schema and no version table is not stamped as 0004 and made to skip the migrations it still needs; `prepare()` calls `seed.ensure_settings(target)` after seeding, so an existing database with records gets the sample row too.
 - `backend/app/main.py` — include the company settings router behind the same sign-in dependency as the rest.
 - `backend/app/seed.py` — one sample settings row, `ensure_settings` that inserts id 1 only when it is missing, the row in `seed()` and so in a reset, and `updated_at` as an aware UTC time.
-- `backend/tests/test_migrations.py` — the exact schema includes `company_settings`; the 0001, 0002-schema-without-a-version and current-schema-without-a-version cases reach 0003 and keep their rows; the new row lands; the Postgres offline SQL creates the table and enables RLS on it.
+- `backend/tests/test_migrations.py` — the exact schema includes `company_settings`; the 0001, 0002-schema-without-a-version and current-schema-without-a-version cases reach 0004 and keep their rows; the new row lands; the Postgres offline SQL creates the table and enables RLS on it.
 - `backend/tests/test_seed.py` — five tables, the exact `company_settings` columns, the Brightloop values, a teammate as who last changed them, a database with records but no settings row getting one, and the idempotent counts including the settings row.
-- `backend/tests/test_reset.py` — the counts include the settings row and the version is `0003` after a reset.
+- `backend/tests/test_reset.py` — the counts include the settings row and the version is `0004` after a reset.
 - `backend/tests/test_built_app.py` — `/settings` is one of the addresses that serves the built page.
 
 ### Frontend — new
@@ -77,7 +77,7 @@ No new dependencies. The email check is a small pattern, and the page reuses the
 ### Phase 1 — Schema and the sample row
 
 1. Add the `company_settings` table to `backend/app/db.py` and fix `_unversioned_revision` to return the exact revision.
-2. Add `0003_company_settings.py` with the table and, on Postgres, row-level security.
+2. Add `0004_company_settings.py` with the table and, on Postgres, row-level security.
 3. Add the sample row and `ensure_settings` to `backend/app/seed.py`; call it from `prepare()` after seeding; make `seed()` and a reset load the same row.
 4. Update `test_migrations.py`, `test_seed.py` and `test_reset.py`; add the 0002-schema and current-schema upgrade cases.
 
@@ -115,12 +115,12 @@ Done when: `npm run check` passes, including the new backend, frontend and end-t
 
 Most damaging first.
 
-1. **A database is stamped past the new table.** `_unversioned_revision` used to return `head` for a database with the 0002 columns and no version table; with 0003 in place, `head` would mean 0003 and the new table would never be created. Mitigation: return the exact revision the tables and columns match, and test a 0002-schema database with records and no version table. Phase 1.
+1. **A database is stamped past the new table.** `_unversioned_revision` used to return `head` for a database with the 0002 columns and no version table; with 0004 in place, `head` would mean 0004 and the new table would never be created. Mitigation: return the exact revision the tables and columns match, and test a 0002-schema database with records and no version table. Phase 1.
 2. **The page and the backend drift apart.** The same rules live in two places: a tax rate of 100.001 or a prefix of 11 characters could pass one side and fail the other. Mitigation: `lib/settings.ts` and the route carry the same boundaries, and both suites test 0, 100, 365, 10 characters and the first value past each. Phase 2 and 3.
 3. **The tax rate loses precision.** A float or a `Number("8.875") * 1000` path can produce 8874.999. Mitigation: integer thousandths everywhere; parse the string parts with integers; test 8.875, 0.001, 100 and 100.001. Phase 2 and 3.
 4. **The last-change time is wrong by the timezone.** SQLite drops the timezone from a `DateTime`, and a naive UTC value shown as local is off by the server's offset. Mitigation: store UTC, attach UTC on read, return an ISO timestamp with an offset, and format with `formatDateTime`; assert the offset in the API test. Phase 2 and 3.
 5. **An existing settings row is overwritten.** The sample row must only appear when none exists, or a real deployment would lose the team's values on a restart. Mitigation: `ensure_settings` checks for id 1 and inserts only when it is missing; a test deletes the row, runs the startup path and checks the values; another checks an existing row is left alone. Phase 1.
-6. **RLS is missed on the new table.** The design says every public table refuses the Data API; the sixth table needs the same. Mitigation: enable it in 0003 on Postgres and assert it in the offline SQL test. Phase 1.
+6. **RLS is missed on the new table.** The design says every public table refuses the Data API; the sixth table needs the same. Mitigation: enable it in 0004 on Postgres and assert it in the offline SQL test. Phase 1.
 7. **The one row makes tests order-dependent.** A settings test that saves changes the only row, so the next test sees the wrong values. Mitigation: a fresh seeded database per backend settings test; reset the sample data before each end-to-end settings test. Phase 2 and 4.
 8. **The new page slips past the coverage gate.** The page, the parser and the menu link are new code, and `npm run check` demands 80% on the frontend. Mitigation: the unit tests cover the loaded, saving, saved, error and validation paths; the end-to-end test walks the real page. Phase 3 and 4.
 9. **The menu and route changes break the existing walk.** The theme and sign-out tests open the same menu, and the top-bar sweep renders every route. Mitigation: update both route test files and the menu spec in the same phase, and keep the five section links unchanged. Phase 3 and 4.
@@ -137,9 +137,9 @@ Most damaging first.
 ### Unit — backend (pytest)
 
 - `test_company_settings.py` — `GET` returns the one row and its fields; `PUT` saves trimmed values and returns them; a save by Priya sets `updated_by` and moves `updated_at`; a no-op save leaves both; a body naming a person is ignored; blank optional text becomes `null`; the name of only spaces, a bad email, a tax rate of -1, 100001 or 150000, payment terms of -1, 366 or 400, an 11-character prefix and a prefix with a space or underscore each get a 400 with a plain message; the table still holds one row.
-- `test_migrations.py` — the migrated schema matches the tables exactly, `company_settings` included; a 0001 database, a 0002-schema database without a version table and a current-schema database without one each reach 0003 and keep their rows; the settings table and row are there; the Postgres SQL creates the table and enables RLS on it.
+- `test_migrations.py` — the migrated schema matches the tables exactly, `company_settings` included; a 0001 database, a 0002-schema database without a version table and a current-schema database without one each reach 0004 and keep their rows; the settings table and row are there; the Postgres SQL creates the table and enables RLS on it.
 - `test_seed.py` — the five tables and the exact `company_settings` columns; a fresh database has one Brightloop row with the agreed values and Priya as who last changed it; a database with records but no settings row gets one; an existing row is not replaced; re-seeding keeps one row; the API serves the row.
-- `test_reset.py` — a reset restores the sample settings row and leaves the version table at 0003.
+- `test_reset.py` — a reset restores the sample settings row and leaves the version table at 0004.
 - `test_built_app.py` — `/settings` is served the built page.
 - `test_every_route.py` — no edit; its existing sweep now covers `GET` and `PUT /api/settings` in both copies.
 

@@ -23,6 +23,14 @@ A count or coverage figure written into `docs/` — test totals, coverage percen
 - Give every time column one convention and say which it is: `happened_at` holds local wall-clock time, `company_settings.updated_at` holds UTC. A UTC moment goes into a `DateTime(timezone=True)` column, or into a naive column as `datetime.now(UTC).replace(tzinfo=None)`; an aware value written to a naive column is converted against the database session's timezone on Postgres and silently loses its offset on SQLite.
 - A test that checks a date uses the clock the value was made from: compare a UTC moment with `datetime.now(UTC).date()`, never `date.today()`, or the test flips whenever the machine's local date differs from the UTC date.
 
+## Spec before plan
+
+`docs/spec.md` and the area files are the product's authority; a plan, a test or the build does not settle a disagreement with them in its own favour. Surface the conflict and either build what the spec says or change the spec first, with the person. The products change's plan read "dollars and cents" as whole dollars, the tests followed the plan and every gate stayed green; the review caught the price rule broken.
+
+## URL state
+
+A route's query string can change while the page stays mounted, including navigating to the same address again. Drive the state from the location, or key the work on it, rather than seeding it once, and test it from the same route, not only on arrival. The MVP's New deal action was dead on the deals page, and the products top-bar link missed the same product chosen twice.
+
 ## Checks
 
 - `npm run check` runs every gate and fails if any of them fails: Prettier and ESLint (recommended TypeScript, React Hooks and accessibility rules), ruff format and ruff check for the backend, cyclomatic complexity of at most 15 per function (ESLint `complexity`, ruff `C901`), type checks (`tsc` for the frontend, `ty` for the backend), gitleaks across the repo (the git-ignored `.env` is allowed), and `npm test` with unit-test coverage of at least 80%.

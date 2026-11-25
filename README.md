@@ -1,6 +1,6 @@
 # Accountable
 
-A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, a pipeline board, activities and follow-ups, the team's own company settings, and a dashboard that shows how sales are going at a glance.
+A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, products, a pipeline board, activities and follow-ups, the team's own company settings, and a dashboard that shows how sales are going at a glance.
 
 **Live: [accountable-qie9.onrender.com](https://accountable-qie9.onrender.com/)** — sign in with your email and password (people are added in Supabase's dashboard; there is no sign-up page).
 
@@ -10,12 +10,13 @@ A sales CRM for a small team, on the web — the everyday CRM essentials done we
 
 - **Dashboard** — revenue won in the last 12 months, open pipeline, expected revenue, overdue follow-ups, the sales funnel, recent activity and the follow-up list, all computed server-side from one endpoint.
 - **Organizations, contacts, deals** — full list pages with search, sorting and filters, detail pages with a newest-first timeline, and add/edit dialogs.
+- **Products** — the price list of what the business sells, with unit prices, archive and restore instead of delete, and who added and last changed each one.
 - **Pipeline** — the open deals as cards on a board, one column per stage, drag between or within columns, with column totals and late deals called out.
 - **Activities and follow-ups** — log calls, emails and tasks on a record, with overdue and upcoming follow-ups on the dashboard and a mark-done checkbox.
 - **Team sign-in** — Supabase Auth with email and password; every record shows who added it and who last changed it.
 - **Company settings** — the team's own details in one page: name, address, email and phone, tax label and rate, payment terms, and quote and invoice prefixes, with who last changed them.
-- **Search** — one search box in the top bar across organizations, contacts and deals, plus the search box on each table.
-- **Light, dark and system** — the theme follows the device or your choice, remembered across visits, WCAG AA contrast in both modes.
+- **Search** — one search box in the top bar across organizations, contacts, deals and active products, plus the search box on each table.
+- **Light, dark and system** — the theme follows the device or your choice, remembered across visits; dark mode meets WCAG AA.
 - **Safe deletes** — a confirmation lists exactly what a delete will cascade to, with counts and names, before anything is removed.
 
 ## Screenshots
@@ -90,7 +91,7 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 ## Where it stands
 
-Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
 
 Next: quotes and invoices, so the company settings reach the documents; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 

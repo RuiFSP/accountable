@@ -1,4 +1,4 @@
-"""Search across organizations, contacts and deals, matched in Python."""
+"""Search across organizations, contacts, deals and active products, matched in Python."""
 
 from typing import Literal
 
@@ -10,13 +10,14 @@ from app import db
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-Kind = Literal["organization", "contact", "deal"]
+Kind = Literal["organization", "contact", "deal", "product"]
 
 # id and name from each table, in the order the agreement names the kinds.
 TABLES: tuple[tuple[Kind, Table], ...] = (
     ("organization", db.organizations),
     ("contact", db.contacts),
     ("deal", db.deals),
+    ("product", db.products),
 )
 
 
@@ -40,7 +41,11 @@ def search(q: str | None = None) -> list[SearchResult]:
     found: list[SearchResult] = []
     with db.get_engine().connect() as connection:
         for kind, table in TABLES:
-            rows = connection.execute(select(table.c.id, table.c.name))
+            stmt = select(table.c.id, table.c.name)
+            if kind == "product":
+                # Archived products are hidden from the top-bar search.
+                stmt = stmt.where(table.c.active.is_(True))
+            rows = connection.execute(stmt)
             for row in rows:
                 if needle in row.name.casefold():
                     found.append(SearchResult(kind=kind, id=row.id, name=row.name))

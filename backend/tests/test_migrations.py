@@ -3,7 +3,9 @@ from alembic.config import Config
 from app import db
 from sqlalchemy import create_engine, inspect, text
 
-RECORD_TABLES = ("organizations", "contacts", "deals", "activities")
+RECORD_TABLES = ("organizations", "contacts", "deals", "activities", "products")
+# The four that already existed when 0002 added their attribution columns.
+ATTRIBUTED_TABLES = ("organizations", "contacts", "deals", "activities")
 SETTINGS_TABLE = "company_settings"
 TABLES = (*RECORD_TABLES, SETTINGS_TABLE)
 
@@ -55,8 +57,9 @@ def insert_one_of_each(connection) -> None:
 
 
 def assert_kept_its_rows_and_gained_settings(connection) -> None:
-    for table in RECORD_TABLES:
+    for table in ATTRIBUTED_TABLES:
         assert connection.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 1
+    assert connection.execute(text("SELECT COUNT(*) FROM products")).scalar() == 0
     settings = connection.execute(
         text("SELECT name, updated_by FROM company_settings WHERE id = 1")
     ).one()
@@ -91,20 +94,30 @@ def test_database_from_before_the_change_upgrades_and_keeps_its_rows():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0003"
+            == "0004"
         )
         assert (
             connection.execute(text("SELECT created_by FROM organizations")).scalar()
             is None
         )
         assert_kept_its_rows_and_gained_settings(connection)
-    for table in RECORD_TABLES:
+    for table in ATTRIBUTED_TABLES:
         names = [column["name"] for column in inspect(engine).get_columns(table)]
         assert "created_by" in names
         assert "updated_by" in names
+    products = [column["name"] for column in inspect(engine).get_columns("products")]
+    assert products == [
+        "id",
+        "name",
+        "description",
+        "price_cents",
+        "active",
+        "created_by",
+        "updated_by",
+    ]
 
 
-def test_0002_schema_without_a_version_table_reaches_0003_and_keeps_its_rows():
+def test_0002_schema_without_a_version_table_reaches_head_and_keeps_its_rows():
     engine = create_engine("sqlite:///:memory:")
     with engine.connect() as connection:
         command.upgrade(alembic_config(connection=connection), "0002")
@@ -117,13 +130,42 @@ def test_0002_schema_without_a_version_table_reaches_0003_and_keeps_its_rows():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0003"
+            == "0004"
         )
         assert_kept_its_rows_and_gained_settings(connection)
     assert SETTINGS_TABLE in inspect(engine).get_table_names()
 
 
-def test_current_schema_without_a_version_table_is_stamped_at_0003():
+def test_products_schema_without_a_version_table_reaches_head_and_gains_settings():
+    engine = create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        command.upgrade(alembic_config(connection=connection), "0003")
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE alembic_version"))
+        insert_one_of_each(connection)
+        connection.execute(
+            text(
+                "INSERT INTO products (name, price_cents, active) "
+                "VALUES ('Keep Product', 4950, 1)"
+            )
+        )
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == "0004"
+        )
+        assert connection.execute(text("SELECT COUNT(*) FROM products")).scalar() == 1
+        settings = connection.execute(
+            text("SELECT name FROM company_settings WHERE id = 1")
+        ).scalar_one()
+        assert settings == "Brightloop"
+    assert SETTINGS_TABLE in inspect(engine).get_table_names()
+
+
+def test_current_schema_without_a_version_table_is_stamped_at_head():
     engine = create_engine("sqlite:///:memory:")
     db.metadata.create_all(engine)
     assert "alembic_version" not in inspect(engine).get_table_names()
@@ -135,12 +177,12 @@ def test_current_schema_without_a_version_table_is_stamped_at_0003():
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            == "0003"
+            == "0004"
         )
         assert_kept_its_rows_and_gained_settings(connection)
 
 
-def test_postgres_offline_sql_adds_the_table_the_columns_and_row_level_security(
+def test_postgres_offline_sql_adds_the_tables_the_columns_and_row_level_security(
     capsys,
 ):
     config = alembic_config(url="postgresql://user:pass@localhost:5432/accountable")
@@ -167,8 +209,11 @@ def test_postgres_offline_sql_adds_the_table_the_columns_and_row_level_security(
         "updated_at",
     ):
         assert f"\n    {column} " in created
-    for table in RECORD_TABLES:
+    for table in ATTRIBUTED_TABLES:
         assert f"ALTER TABLE {table} ADD COLUMN created_by" in sql
         assert f"ALTER TABLE {table} ADD COLUMN updated_by" in sql
     for table in (*TABLES, "alembic_version"):
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
+    assert "CREATE TABLE products" in sql
+    for column in ("name", "description", "price_cents", "active"):
+        assert f"{column} " in sql.split("CREATE TABLE products")[1]

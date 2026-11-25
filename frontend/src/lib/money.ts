@@ -20,6 +20,11 @@ export function formatUsd(cents: number): string {
     : centsFormatter.format(cents / 100);
 }
 
+/** A price with the cents always shown: $49.00, $1,200.00 — the Products style. */
+export function formatUsdWithCents(cents: number): string {
+  return centsFormatter.format(cents / 100);
+}
+
 /** Compact axis labels: $24k, $6k — small amounts stay exact. */
 export function formatUsdCompact(cents: number): string {
   const dollars = cents / 100;

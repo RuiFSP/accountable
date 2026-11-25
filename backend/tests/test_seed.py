@@ -24,11 +24,12 @@ def _counts(engine) -> dict[str, int]:
                 db.deals,
                 db.activities,
                 db.company_settings,
+                db.products,
             )
         }
 
 
-def test_schema_has_the_five_tables(engine):
+def test_schema_has_the_six_tables(engine):
     seed.ensure_seeded(engine)
     assert set(inspect(engine).get_table_names()) == {
         "organizations",
@@ -36,6 +37,7 @@ def test_schema_has_the_five_tables(engine):
         "deals",
         "activities",
         "company_settings",
+        "products",
     }
 
 
@@ -100,6 +102,15 @@ def test_schema_fields_match_the_data_model(engine):
         "invoice_prefix",
         "updated_by",
         "updated_at",
+    ]
+    assert [column["name"] for column in columns("products")] == [
+        "id",
+        "name",
+        "description",
+        "price_cents",
+        "active",
+        "created_by",
+        "updated_by",
     ]
 
 
@@ -209,6 +220,23 @@ def test_sample_data_has_follow_ups_overdue_upcoming_and_done(engine):
     assert any(done for _, done in pending)
 
 
+def test_sample_data_has_a_dozen_products_with_two_archived(engine):
+    seed.ensure_seeded(engine)
+    with engine.connect() as conn:
+        products = conn.execute(
+            select(db.products.c.name, db.products.c.price_cents, db.products.c.active)
+        ).all()
+
+    assert len(products) == 12
+    assert sum(1 for product in products if product.active) == 10
+    assert sum(1 for product in products if not product.active) == 2
+    assert any(product.price_cents % 100 for product in products)
+
+    prices = {product.name: product.price_cents for product in products}
+    assert prices["Priority support"] == 14_950
+    assert prices["Onsite training day"] == 120_000
+
+
 def test_activities_link_to_exactly_one_record(engine):
     seed.ensure_seeded(engine)
     with engine.connect() as conn:
@@ -225,7 +253,13 @@ def _attribution(engine) -> list[tuple]:
     """The two emails every sample row carries: who added it, who changed it."""
     with engine.connect() as connection:
         rows = []
-        for table in (db.organizations, db.contacts, db.deals, db.activities):
+        for table in (
+            db.organizations,
+            db.contacts,
+            db.deals,
+            db.activities,
+            db.products,
+        ):
             rows += connection.execute(
                 select(table.c.created_by, table.c.updated_by)
             ).all()
@@ -338,6 +372,7 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
         deals = client.get("/api/deals").json()
         activities = client.get("/api/activities").json()
         settings = client.get("/api/settings").json()
+        products = client.get("/api/products").json()
 
     assert organizations and {"id", "name", "website", "industry", "notes"} <= set(
         organizations[0]
@@ -356,6 +391,13 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
     assert settings["name"] == "Brightloop"
     assert settings["tax_rate_thousandths"] == 8875
     assert settings["updated_by"] == "priya@brightloop.example"
+    assert products and {
+        "name",
+        "description",
+        "price_cents",
+        "active",
+    } <= set(products[0])
+    assert len(products) == 10
 
     assert isinstance(activities[0]["happened_at"], str)
     assert isinstance(deals[0]["close_date"], str)

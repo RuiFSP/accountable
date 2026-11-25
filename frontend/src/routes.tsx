@@ -17,6 +17,7 @@ import Deals from "./pages/Deals";
 import Organization from "./pages/Organization";
 import Organizations from "./pages/Organizations";
 import Pipeline from "./pages/Pipeline";
+import Products from "./pages/Products";
 import Settings from "./pages/Settings";
 
 const sections = [
@@ -24,6 +25,7 @@ const sections = [
   { path: "/organizations", label: "Organizations" },
   { path: "/contacts", label: "Contacts" },
   { path: "/deals", label: "Deals" },
+  { path: "/products", label: "Products" },
   { path: "/pipeline", label: "Pipeline" },
 ];
 
@@ -66,6 +68,7 @@ export function AppRoutes() {
             <Route path="/contacts/:id" element={<Contact />} />
             <Route path="/deals" element={<Deals />} />
             <Route path="/deals/:id" element={<Deal />} />
+            <Route path="/products" element={<Products />} />
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />

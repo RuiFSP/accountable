@@ -1,6 +1,6 @@
 # Review policy
 
-Every change is reviewed against this policy before it merges. The reviewer reports its findings and doesn't change any code.
+Every change is reviewed against this policy before it merges. The reviewer reports its findings and doesn't change any code. Findings are **Important** or **Nits** — the two labels below; don't substitute a generic severity scale.
 
 ## Evidence
 
