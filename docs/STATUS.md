@@ -403,6 +403,10 @@ Done on the `prepare` branch before the three features start, from `docs/changes
 - Area files brought up to date: `spec.md` (summary, out of scope, areas index), `money.md` (the Quotes tab is live), `deals.md` and `organizations.md` (their quotes panels and the deletes a quote holds), `tables.md` (a quote is never deleted and holds its deal and its organization's deals), `products.md` (a quote line keeps a product's name and price), `company-settings.md` (quotes use the details, the tax and the prefix, and the sums are in use), `running.md` (the sample quotes), `look-and-feel.md` (the quote document's brand), `sign-in.md`, `activities.md` and `design.md` (`quotes`, `quote_lines`, `/quotes` and the PDF).
 - No plan or code yet: `plan.md` is next.
 
+## Quotes, plan done (2026-11-26)
+
+- `docs/changes/quotes/plan.md` written: the contract the two sides agree on (the two tables, the states with expired as a view, the sums owned by `tax.py`, the numbers from `documents.take_number`, the accept move shared with the board through a new `stages.py`, the five totals, the PDF), the file lists on the prepare change's seams, four phases ending in the build, fourteen risks (the number sequence, the sent freeze, the accept move, the rounding, the sums' agreement, fpdf2's default `**bold**` markup on typed text, the totals and expiry boundary, the PDF/preview drift, the dependency and the TTF fonts, the document's fixed colors against `colors.test.ts`, the holds, the sample data, the URL-state trap, coverage and the one-second rule) and the proof mapped to the eight criteria. One new dependency with its case: fpdf2 for the PDF, with the three brand TTFs as assets. No code yet. Next: the build.
+
 ## Not started
 
 - Quotes, invoices and bills, filling the Money tabs and using the company settings.
