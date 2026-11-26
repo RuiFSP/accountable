@@ -396,7 +396,15 @@ Done on the `prepare` branch before the three features start, from `docs/changes
 
 `npm run check` exits 0: 617 tests (199 backend, 336 frontend, 18 script, 64 end-to-end), backend coverage 98.47%, frontend 96.27% statements / 92.55% branches / 97.07% functions / 96.15% lines, gitleaks clean. The e2e suite passed in 5.7 minutes.
 
+## Invoices: the spec written first (2026-11-26)
+
+Written on the `invoices` branch before the build, from `docs/changes/invoices/intent.md`, so the specs describe the product as it will be once the change merges.
+
+- New `docs/specs/invoices.md`: the Invoice record, making one from a won deal, issuing and voiding, payments, the three designs and the PDF, with its decisions 1–10.
+- `docs/spec.md` — invoicing in the summary and the out-of-scope list, and Invoices in the areas index; `money.md` — the Invoices tab filled in; `company-settings.md` — the Documents section and decisions 21–23; `deals.md` — the invoice panel and the locked value (decision 5); `organizations.md` — the billing address and the invoice panel (decisions 2–3); `dashboard.md` — the Money section (decision 6); `design.md` — the invoices, invoice_lines and payments tables, the new settings columns and the routes; `look-and-feel.md` — decision 20 on the document's look; `tables.md` — decision 12 on the invoices table; `running.md`, `sign-in.md` and `products.md` — the sample invoices, the attribution and the product lines.
+- The intent left open what the build now has rules for: how the subtotal is held to the deal's value, what an issued invoice freezes, what happens when the design changes later, the names of the three designs, the accent's contrast rule and the payment's date. Each is decided in the specs above and listed in the session's concerns.
+
 ## Not started
 
-- Quotes, invoices and bills, filling the Money tabs and using the company settings.
-- The rest of `docs/spec.md`'s Out of scope list: roles and permissions, a phone layout, AI features, integrations, currencies other than US dollars, reports beyond the dashboard, tags and custom fields, changing the pipeline stages, import/export, more than one tax rate and a logo.
+- Quotes and bills, filling the other two Money tabs and using the company settings. Invoices are specified here and built next.
+- The rest of `docs/spec.md`'s Out of scope list: roles and permissions, a phone layout, AI features, integrations, currencies other than US dollars, reports beyond the dashboard, tags and custom fields, changing the pipeline stages, import/export and more than one tax rate.
