@@ -60,7 +60,7 @@ That starts the backend (http://127.0.0.1:8000) and the frontend (http://localho
 | `npm run check:quick` | The same without the end-to-end tests                                                        |
 | `npm start`        | The shared copy, the way Render runs it: needs `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` in `.env` |
 
-The end-to-end run starts its own servers and temporary database, so a running `npm run dev` is not in its way.
+The end-to-end run starts its own servers and temporary database, so a running `npm run dev` is not in its way. Test runs in separate worktrees take turns: two go at once, and the rest wait and say so.
 
 ## Deploying
 
@@ -77,7 +77,7 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 - `backend/` — the FastAPI app, migrations and pytest suite.
 - `frontend/` — the React app, its styles and the Vitest suite.
 - `e2e/` — the Playwright suite; `playwright.config.ts` starts the app itself.
-- `scripts/` — `seed`, `start`, the `.env` splitting, and the test runner and its port slots.
+- `scripts/` — `seed`, `start`, the `.env` splitting, and the test runner with its port slots and turns.
 - `docs/` — the spec and its area files, standards, status, and one folder per change.
 - `plugins/hooks/` — the OpenCode hooks: the turn-end check and `.env` protection.
 - `course/` — material from the course this repo started from; see the credit below.

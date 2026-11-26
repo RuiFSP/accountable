@@ -34,3 +34,17 @@
 - Frontend: `tax.test.ts`, `RecordPanels.test.tsx`, `StatusBadge.test.tsx`, `ConfirmDialog.test.tsx`, `DataTable.test.tsx`, `routes.test.tsx` and the page tests.
 - End to end: the top bar fits at 1024px, the Money tabs open, and the sample data counts come from the API rather than a fixed number.
 - `npm run check` green, with the counts taken from its output.
+
+## Test runs take turns
+
+- New `scripts/test-plan.mjs`: the ports and how many runs go at once. `TURNS` is 2, the 16 slots stay on 20001–20016, their servers use 20100 up, and the two turn ports are 24113 and 24114. The speed tests' turn is on port 20000; this build has no timing suite yet, so its path is covered by tests and ready for one.
+- New `scripts/test-runs.mjs`: a run takes a slot by listening on its port, joins a queue, and holds one of the two turns while its checks and end-to-end tests go, by listening on the turn's port. Waiting is printed once a reason lasts, with how many runs are ahead. The operating system frees a port when a process ends, even after a crash, so there is nothing to clean up.
+- New `scripts/test-run.mjs`: every test entry point goes through it — `test`, `test:unit`, `test:backend`, `test:frontend`, `test:scripts`, `test:e2e`, `check` and `check:quick`. It joins the queue, waits for a turn, passes the slot's web and API ports down, and holds the turn until the command ends. A command already inside a run, such as `npm test` called by `npm run check`, inherits the turn instead of queuing again.
+- `scripts/e2e.mjs` uses the slot and turn its parent passes down; run directly, it takes its own.
+- `package.json` keeps the raw suite commands (`*:raw`) behind those entry points, so no suite can start without a turn.
+- `plugins/hooks/index.ts`: the turn-end `check:quick` now has 30 minutes rather than 15, because it can wait behind two full checks.
+- `scripts/test-plan.test.mjs` and `scripts/test-runs.test.mjs`: the two-run limit, the queue order, waiting messages, the speed tests' turn, and a program on a turn's port.
+
+Risks: a waiting run must not hold the turn, a run that crashes must free both the slot and the turn, and the queue must not starve the third run behind two long checks.
+
+Proof: `npm run check` in three worktrees at once — two going and the third printing that it is waiting, then green once its turn comes — with every count and time taken from the run output.

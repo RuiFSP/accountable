@@ -18,6 +18,8 @@ Make once, before the three features start:
 
 The PDFs and the dashboard's Money section stay with the features, to be brought together after the merges. The app's existing pages and actions keep working as they do; the new Money page says what is coming and the sample data is richer.
 
+Test runs also take turns: three or four agents work on this computer at once, each in its own worktree, and each runs `npm run check` or `npm run check:quick` when it finishes a piece of work. More than two test runs at once overload the computer and tests time out, so no more than two go at once and the rest wait, saying they are waiting. The speed tests stay reliable by running with the computer to themselves.
+
 ## Constraints
 
 - No new dependencies.
