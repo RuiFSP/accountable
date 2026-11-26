@@ -396,6 +396,13 @@ Done on the `prepare` branch before the three features start, from `docs/changes
 
 `npm run check` exits 0: 617 tests (199 backend, 336 frontend, 18 script, 64 end-to-end), backend coverage 98.47%, frontend 96.27% statements / 92.55% branches / 97.07% functions / 96.15% lines, gitleaks clean. The e2e suite passed in 5.7 minutes.
 
+## Quotes, docs done (2026-11-26)
+
+- `docs/changes/quotes/intent.md`, refined in an interview and read with `docs/spec.md`: five status totals including tax, quotes never deleted so a wrong draft is edited and a sent one copied, one accepted quote per deal that sets the deal's value from the subtotal, quotes on the sample deals in Proposal and Negotiation and on every won deal of the last three months, and every unit test under a second.
+- New area file `docs/specs/quotes.md`: the quote on one deal, its lines and customer, the draft, sent, expired, accepted and declined states, the 30-day validity, the live preview and the PDF, the five totals, accepting and copying, and its own design decisions numbered from 1 like the other area files.
+- Area files brought up to date: `spec.md` (summary, out of scope, areas index), `money.md` (the Quotes tab is live), `deals.md` and `organizations.md` (their quotes panels and the deletes a quote holds), `tables.md` (a quote is never deleted and holds its deal and its organization's deals), `products.md` (a quote line keeps a product's name and price), `company-settings.md` (quotes use the details, the tax and the prefix, and the sums are in use), `running.md` (the sample quotes), `look-and-feel.md` (the quote document's brand), `sign-in.md`, `activities.md` and `design.md` (`quotes`, `quote_lines`, `/quotes` and the PDF).
+- No plan or code yet: `plan.md` is next.
+
 ## Not started
 
 - Quotes, invoices and bills, filling the Money tabs and using the company settings.
