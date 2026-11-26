@@ -11,12 +11,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from app import auth, db
 from app.routes import (
     activities,
+    bills,
     company_settings,
     contacts,
     dashboard,
     deals,
+    invoices,
     organizations,
     products,
+    quotes,
     search,
 )
 from app.settings import Settings, load_settings
@@ -39,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Accountable API", lifespan=lifespan)
     app.state.settings = chosen
     app.state.keys = None
+    app.state.holds = [*quotes.HOLDS, *invoices.HOLDS, *bills.HOLDS]
 
     guard = [Depends(auth.current_user)]
     app.include_router(organizations.router, dependencies=guard)
@@ -49,6 +53,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(products.router, dependencies=guard)
     app.include_router(search.router, dependencies=guard)
     app.include_router(company_settings.router, dependencies=guard)
+    app.include_router(quotes.router, dependencies=guard)
+    app.include_router(invoices.router, dependencies=guard)
+    app.include_router(bills.router, dependencies=guard)
 
     if chosen.mode == "shared":
         # The shared copy is only built with its settings, so the URL is there.

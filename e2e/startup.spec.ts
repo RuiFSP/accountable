@@ -9,6 +9,7 @@ const sections = [
   { path: "/deals", label: "Deals" },
   { path: "/products", label: "Products" },
   { path: "/pipeline", label: "Pipeline" },
+  { path: "/money", label: "Money" },
 ];
 
 test.beforeAll(() => {
@@ -38,19 +39,27 @@ test("the app starts on the dashboard with no console errors", async ({
   expect(consoleErrors()).toEqual([]);
 });
 
-test("every section shows the sample data", async ({ page }) => {
+test("every section shows the sample data", async ({ page, request }) => {
+  const count = async (resource: string): Promise<number> =>
+    ((await (await request.get(`/api/${resource}`)).json()) as unknown[])
+      .length;
+
+  const organizations = await count("organizations");
+  const contacts = await count("contacts");
+  const deals = await count("deals");
+
   await page.goto("/organizations");
-  await expect(page.locator("tbody tr")).toHaveCount(6);
+  await expect(page.locator("tbody tr")).toHaveCount(organizations);
   await expect(page.locator("tbody tr").first()).toContainText(
     "Northwind Traders",
   );
 
   await page.goto("/contacts");
-  await expect(page.locator("tbody tr")).toHaveCount(12);
+  await expect(page.locator("tbody tr")).toHaveCount(contacts);
   await expect(page.locator(".badge-customer").first()).toBeVisible();
 
   await page.goto("/deals");
-  await expect(page.locator("tbody tr")).toHaveCount(14);
+  await expect(page.locator("tbody tr")).toHaveCount(deals);
   await expect(page.locator(".badge-Won").first()).toBeVisible();
 
   await page.goto("/products");
@@ -68,10 +77,17 @@ test("every section shows the sample data", async ({ page }) => {
   ]) {
     await expect(page.locator(`[aria-label="${stage} column"]`)).toBeVisible();
   }
-  await expect(page.locator(".deal-card")).toHaveCount(14);
+  await expect(page.locator(".deal-card")).toHaveCount(deals);
 
   await page.goto("/");
-  await expect(page.locator(".kpi-grid .kpi")).toHaveCount(4);
+  for (const label of [
+    "Revenue won",
+    "Open pipeline",
+    "Expected revenue",
+    "Overdue follow-ups",
+  ]) {
+    await expect(page.locator(".kpi").filter({ hasText: label })).toBeVisible();
+  }
 });
 
 test("the API serves the sample data through the frontend", async ({

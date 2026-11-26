@@ -14,6 +14,7 @@ from typing import TypedDict
 from sqlalchemy import and_, func, select
 
 from app import db
+from app import months as month_buckets
 
 OPEN_STAGES = ("New", "Qualified", "Proposal", "Negotiation")
 RECENT_ACTIVITY_LIMIT = 8
@@ -29,18 +30,6 @@ def expected_revenue(value_cents: int, probability: int) -> int:
     return (value_cents * probability) // 100
 
 
-def _month_starts(today: date, count: int = 12) -> list[date]:
-    starts = []
-    year, month = today.year, today.month
-    for _ in range(count):
-        starts.append(date(year, month, 1))
-        month -= 1
-        if month == 0:
-            month = 12
-            year -= 1
-    return list(reversed(starts))
-
-
 def won_summary(conn, today: date | None = None) -> dict:
     """Won count and revenue bucketed into the last 12 calendar months.
 
@@ -49,7 +38,8 @@ def won_summary(conn, today: date | None = None) -> dict:
     of disappearing from every figure.
     """
     today = today or date.today()
-    lower = _month_starts(today)[0]
+    starts = month_buckets.last_month_starts(today)
+    lower = starts[0]
     rows = conn.execute(
         select(db.deals.c.value_cents, db.deals.c.close_date).where(
             and_(
@@ -60,9 +50,7 @@ def won_summary(conn, today: date | None = None) -> dict:
         )
     ).all()
 
-    buckets = {
-        start: {"revenue_cents": 0, "deals": 0} for start in _month_starts(today)
-    }
+    buckets = {start: {"revenue_cents": 0, "deals": 0} for start in starts}
     for value_cents, close_date in rows:
         capped = min(close_date, today)
         bucket = buckets[date(capped.year, capped.month, 1)]

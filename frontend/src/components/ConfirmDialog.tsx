@@ -6,6 +6,8 @@ interface ConfirmDialogProps {
   title: string;
   message?: string;
   groups: CascadeGroup[];
+  /** Why the server refused the delete, such as a record another area holds. */
+  error?: string | null;
   confirmLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -15,6 +17,7 @@ export default function ConfirmDialog({
   title,
   message,
   groups,
+  error,
   confirmLabel = "Delete",
   onConfirm,
   onCancel,
@@ -70,13 +73,24 @@ export default function ConfirmDialog({
             ))}
           </div>
         ) : null}
+        {error ? (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onCancel}>
-            Cancel
+            {error ? "Close" : "Cancel"}
           </button>
-          <button type="button" className="btn btn-danger" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
+          {error ? null : (
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

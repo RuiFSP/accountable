@@ -5,6 +5,9 @@
  * `npm run test:e2e`: take a slot no other test run is using, give this run
  * its own database, then start Playwright. The slot stays held until
  * Playwright exits, so two runs can't choose the same ports.
+ *
+ * npm run check and npm test already hold a slot and a turn, and pass them
+ * down; run directly, this takes its own.
  */
 
 import { spawn } from "node:child_process";
@@ -13,7 +16,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { claimTestRun } from "./test-ports.mjs";
+import { portsFor } from "./test-plan.mjs";
+import { joinTestRuns, whyWaiting } from "./test-runs.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const PLAYWRIGHT = path.join(
@@ -25,17 +29,32 @@ const PLAYWRIGHT = path.join(
 );
 
 async function main() {
-  const run = await claimTestRun();
-  const folder = mkdtempSync(
-    path.join(tmpdir(), `accountable-e2e-${run.slot}-`),
+  const alreadyGoing =
+    process.env.ACCOUNTABLE_TEST_TURN === "1" &&
+    process.env.ACCOUNTABLE_TEST_SLOT !== undefined;
+  let run = null;
+
+  if (!alreadyGoing) {
+    run = await joinTestRuns({
+      serverPorts: (slot) => Object.values(portsFor(slot)),
+    });
+    await run.takeTurn((reason) => {
+      console.log(`\n${whyWaiting(reason)}`);
+    });
+  }
+
+  const slot = Number(
+    alreadyGoing ? process.env.ACCOUNTABLE_TEST_SLOT : run.slot,
   );
+  const ports = portsFor(slot);
+  const folder = mkdtempSync(path.join(tmpdir(), `accountable-e2e-${slot}-`));
   const database = path.join(folder, "accountable-e2e.db");
   const environment = {
     ...process.env,
     ACCOUNTABLE_DB: database,
-    ACCOUNTABLE_TEST_SLOT: String(run.slot),
-    ACCOUNTABLE_API_PORT: String(run.apiPort),
-    ACCOUNTABLE_WEB_PORT: String(run.webPort),
+    ACCOUNTABLE_TEST_SLOT: String(slot),
+    ACCOUNTABLE_API_PORT: String(ports.apiPort),
+    ACCOUNTABLE_WEB_PORT: String(ports.webPort),
   };
 
   const child = spawn(
@@ -50,7 +69,9 @@ async function main() {
       return;
     }
     finished = true;
-    await run.leave();
+    if (run) {
+      await run.leave();
+    }
     rmSync(folder, { recursive: true, force: true });
     process.exit(code);
   };

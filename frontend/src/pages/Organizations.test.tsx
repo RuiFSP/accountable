@@ -416,9 +416,6 @@ describe("Organizations page", () => {
   });
 
   it("keeps the dialog open when the delete fails", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
     vi.mocked(api.organizations.remove).mockRejectedValue(
       new Error("Delete failed."),
     );
@@ -443,7 +440,8 @@ describe("Organizations page", () => {
         name: "Delete Northwind Traders?",
       }),
     ).toBeTruthy();
-    expect(consoleError).toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toBe("Delete failed.");
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
   });
 
   it("opens the organization detail from the View action", async () => {

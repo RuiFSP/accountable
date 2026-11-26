@@ -12,37 +12,18 @@ import {
 } from "recharts";
 
 import { api, type Activity, type ActivityCreateType } from "../api/client";
+import KpiCard from "../components/KpiCard";
 import { ACTIVITY_COLORS } from "../lib/activity";
-import { chartMonths, funnelBars, monthYearLabel } from "../lib/charts";
+import {
+  AXIS_TICK,
+  TOOLTIP_STYLE,
+  chartMonths,
+  funnelBars,
+  monthYearLabel,
+} from "../lib/charts";
 import { formatDue, formatWhen, isOverdue } from "../lib/dates";
 import { formatUsd, formatUsdCompact } from "../lib/money";
 import { STAGE_META } from "../lib/pipeline";
-
-const AXIS_TICK = { fill: "var(--color-ink-muted)", fontSize: 12 };
-
-/** Recharts' default tooltip is a white box; both modes take it from tokens. */
-const TOOLTIP_STYLE = {
-  backgroundColor: "var(--color-panel)",
-  border: "1px solid var(--color-tooltip-border)",
-  color: "var(--color-ink)",
-};
-
-interface KpiCardProps {
-  label: string;
-  value: string;
-  note: string;
-  danger?: boolean;
-}
-
-function KpiCard({ label, value, note, danger }: KpiCardProps) {
-  return (
-    <section className="panel kpi">
-      <p className="kpi-label">{label}</p>
-      <p className={`kpi-value num${danger ? " danger" : ""}`}>{value}</p>
-      <p className="kpi-note muted">{note}</p>
-    </section>
-  );
-}
 
 export default function Dashboard() {
   const queryClient = useQueryClient();

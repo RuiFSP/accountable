@@ -48,6 +48,7 @@ export default function Deals() {
   const adding = searchParams.get("new") === "1";
   const [editing, setEditing] = useState<Deal | null>(null);
   const [deleting, setDeleting] = useState<Deal | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const openAdd = () => setSearchParams({ new: "1" });
   const closeAdd = () => {
@@ -147,8 +148,11 @@ export default function Deals() {
       await api.deals.remove(deleting.id);
       await refreshDealsAndActivities();
       setDeleting(null);
+      setDeleteError(null);
     } catch (error) {
-      console.error(error);
+      setDeleteError(
+        error instanceof Error ? error.message : "Could not delete the deal.",
+      );
     }
   };
 
@@ -180,7 +184,10 @@ export default function Deals() {
             }}
             onAdd={openAdd}
             onEdit={setEditing}
-            onDelete={setDeleting}
+            onDelete={(deal) => {
+              setDeleteError(null);
+              setDeleting(deal);
+            }}
             onOpen={(row) => navigate(`/deals/${row.id}`)}
           />
         )}
@@ -212,10 +219,14 @@ export default function Deals() {
             deals: [],
             activities,
           })}
+          error={deleteError}
           onConfirm={() => {
             void handleDelete();
           }}
-          onCancel={() => setDeleting(null)}
+          onCancel={() => {
+            setDeleting(null);
+            setDeleteError(null);
+          }}
         />
       ) : null}
     </div>

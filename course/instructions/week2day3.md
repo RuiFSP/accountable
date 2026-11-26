@@ -2,59 +2,9 @@
 
 Today a bigger team builds three features at the same time, then five more pieces of work side by side. The lead prepares `main` first. Three developers each build one feature with their own coding agent in their own worktree, and the integration lead merges them, tracking down a bug found along the way. Then the lead makes one Money section while four developers work on the merged code, and the day ends with a first look at the whole app. I recommend that rather than running the exact same Coding Agent runs as me, you simply follow along with my checkpoints. At the end I've laid out every interim step if you'd rather build it yourself.
 
-## Follow along with my checkpoints
-
-My checkpoints are branches, like my versions of the Week 1 days. In the `accountable` folder:
-
-### The three intents
-
-```
-git checkout week2day3-intents
-```
-
-Read the three intents the developers agreed with their agents, in `docs/changes/quotes/`, `docs/changes/invoices/` and `docs/changes/bills/`. To see what the lead prepared before they started, list the lead's Prepare main commits. The two at the top are today's, and the two below them are from Day 2:
-
-```
-git log --oneline --grep "^Prepare:"
-```
-
-### The three features merged
-
-```
-git checkout week2day3-merged
-npm run seed
-npm run dev
-```
-
-`npm run seed` installs anything new the app needs, brings your local database up to date and puts the sample data back, with the new quotes, invoices and bills. It asks first, because it replaces what's in your local copy: type `yes`.
-
-Open the app and look at Quotes, Invoices and Bills in the top bar, and at the Money section at the bottom of the dashboard. In `docs/changes/`, each feature has its plan and its independent review. Stop the app with Ctrl+C when you're done.
-
-### The day's end
-
-```
-git checkout week2day3-end
-npm run seed
-npm run dev
-```
-
-The cash flow chart now leads the Money section. Look at what was done after the merges: one Money section, the review of the three together, quotes now using the invoice designs after the refactor, and one story in the sample data. `docs/STATUS.md` tells the story of each stage. Stop the app with Ctrl+C when you're done.
-
 ## If you'd rather build it yourself
 
 These are the steps and prompts behind my checkpoints. They take many hours of agent time, and the cash flow chart alone is a full feature.
-
-### Start from main
-
-Your `main` holds your build from Day 2, with products and company settings merged.
-
-Or to build on my Day 2 version, this keeps your own work on a branch called `my-week2day2` and moves your `main` onto my branch:
-
-```
-git checkout main
-git branch my-week2day2
-git checkout --no-track -B main origin/week2day2-end
-```
 
 ### Prepare main for three developers
 

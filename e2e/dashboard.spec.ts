@@ -28,8 +28,19 @@ test("the dashboard shows charts, funnel, activity and follow-ups", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.locator(".kpi-grid .kpi")).toHaveCount(4);
-  await expect(page.locator(".chart-box svg")).toHaveCount(2); // line + bar
+  for (const label of [
+    "Revenue won",
+    "Open pipeline",
+    "Expected revenue",
+    "Overdue follow-ups",
+  ]) {
+    await expect(page.locator(".kpi").filter({ hasText: label })).toBeVisible();
+  }
+  for (const heading of ["Revenue won per month", "Deals won per month"]) {
+    await expect(
+      page.locator(".panel").filter({ hasText: heading }).locator("svg"),
+    ).toBeVisible();
+  }
   await expect(page.locator(".funnel-row")).toHaveCount(4);
   await expect(page.locator(".funnel-chips")).toContainText("Won, 12 months");
   await expect(page.locator(".funnel-chips")).toContainText("Lost");

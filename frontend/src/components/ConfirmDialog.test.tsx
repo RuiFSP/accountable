@@ -156,4 +156,29 @@ describe("ConfirmDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onConfirm).toHaveBeenCalled();
   });
+
+  it("shows why a held record was refused, and offers only Close", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+
+    render(
+      <ConfirmDialog
+        title="Delete Northwind Traders?"
+        groups={[]}
+        error="This organization has 2 quotes, so it can't be deleted."
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "This organization has 2 quotes, so it can't be deleted.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onCancel).toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

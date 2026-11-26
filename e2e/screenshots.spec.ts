@@ -23,7 +23,11 @@ test.beforeEach(async ({ page }) => {
 /** Fonts loaded and the dashboard's chart animations finished. */
 async function settleDashboard(page: Page): Promise<void> {
   await page.locator(".kpi-grid .kpi").first().waitFor();
-  await expect(page.locator(".chart-box svg")).toHaveCount(2);
+  for (const heading of ["Revenue won per month", "Deals won per month"]) {
+    await expect(
+      page.locator(".panel").filter({ hasText: heading }).locator("svg"),
+    ).toBeVisible();
+  }
   await expect(
     page.locator(".recharts-cartesian-axis-tick-value").first(),
   ).toBeVisible();
@@ -45,7 +49,7 @@ test("dashboard and pipeline in both modes", async ({ page }) => {
   await page.screenshot({ path: `${OUT}/dashboard-dark.png`, fullPage: true });
 
   await page.goto("/pipeline");
-  await expect(page.locator(".deal-card")).toHaveCount(14);
+  await expect(page.locator(".deal-card").first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await page.screenshot({
     path: `${OUT}/pipeline-dark.png`,

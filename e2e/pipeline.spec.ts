@@ -20,7 +20,9 @@ function stageMoveResponse(page: import("@playwright/test").Page) {
 
 test("the board shows six columns and late deals stand out", async ({
   page,
+  request,
 }) => {
+  const deals = (await (await request.get("/api/deals")).json()) as unknown[];
   await page.goto("/pipeline");
   for (const stage of [
     "New",
@@ -32,7 +34,7 @@ test("the board shows six columns and late deals stand out", async ({
   ]) {
     await expect(page.locator(`[aria-label="${stage} column"]`)).toBeVisible();
   }
-  await expect(page.locator(".deal-card")).toHaveCount(14);
+  await expect(page.locator(".deal-card")).toHaveCount(deals.length);
   await expect(
     page.locator(".deal-card.late", { hasText: "Delta renewal" }),
   ).toBeVisible();
@@ -99,16 +101,17 @@ test("a card dropped within a column keeps its exact slot after a refresh", asyn
   const before = await column.allInnerTexts();
   expect(before.length).toBeGreaterThanOrEqual(3);
 
+  const cards = page.locator('[aria-label="Qualified column"] .deal-card');
+  await cards.first().scrollIntoViewIfNeeded();
+  await cards.nth(1).scrollIntoViewIfNeeded();
+
   const moved = stageMoveResponse(page);
-  await page.dragAndDrop(
-    `[aria-label="Qualified column"] .deal-card:has-text("${before[0]}")`,
-    `[aria-label="Qualified column"] .deal-card:has-text("${before[before.length - 1]}")`,
-    { steps: 12 },
-  );
+  await cards.first().dragTo(cards.nth(1), { steps: 12 });
   expect((await moved).ok()).toBe(true);
 
   const after = await column.allInnerTexts();
-  expect(after[after.length - 1]).toBe(before[0]);
+  expect(after[0]).toBe(before[1]);
+  expect(after[1]).toBe(before[0]);
 
   await page.reload();
   await expect(

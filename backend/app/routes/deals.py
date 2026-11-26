@@ -1,11 +1,11 @@
 from datetime import date, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app import auth, db, stats
+from app import auth, db, holds, stats
 from app.records import read_or_404, require_exists, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
@@ -189,9 +189,15 @@ def move_deal_stage(
 
 
 @router.delete("/{deal_id}")
-def delete_deal(deal_id: int) -> dict:
+def delete_deal(deal_id: int, request: Request) -> dict:
     with db.get_engine().begin() as connection:
         read_or_404(connection, db.deals, deal_id, "Deal")
+        holds.refuse_if_held(
+            connection,
+            holds.app_holds(request.app),
+            [(db.deals, deal_id)],
+            "deal",
+        )
         activities = (
             connection.execute(
                 select(db.activities.c.description)

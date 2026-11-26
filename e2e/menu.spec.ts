@@ -25,6 +25,10 @@ const sections = [
   "/deals",
   "/products",
   "/pipeline",
+  "/money",
+  "/money/quotes",
+  "/money/invoices",
+  "/money/bills",
   "/settings",
 ];
 
@@ -46,6 +50,24 @@ function panelOf(page: Page, path: string) {
     ? page.locator(".deal-card").first()
     : page.locator(".panel").first();
 }
+
+test("the top bar links to the seven sections and fits at 1024px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("/");
+
+  const links = page.getByRole("navigation").getByRole("link");
+  await expect(links).toHaveCount(7);
+  await expect(page.getByRole("link", { name: "Money" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Search" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New deal" })).toBeVisible();
+
+  const sideways = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(sideways).toBeLessThanOrEqual(0);
+});
 
 test("the menu is on every route and a record's page, and names its person", async ({
   page,

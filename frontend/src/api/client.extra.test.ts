@@ -352,13 +352,35 @@ describe("api client writes", () => {
     });
   });
 
-  it("falls back to the status when the detail is not a string", async () => {
+  it("reads a field error from the backend's validation list", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
         status: 422,
-        json: async () => ({ detail: ["Not a valid stage."] }),
+        json: async () => ({
+          detail: [
+            {
+              loc: ["body", "lines", 2, "quantity"],
+              msg: "Enter a whole number from 1 to 1,000,000",
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(api.deals.list()).rejects.toThrow(
+      "lines.2.quantity: Enter a whole number from 1 to 1,000,000",
+    );
+  });
+
+  it("falls back to the status when the detail has no message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({ detail: [{}] }),
       }),
     );
 

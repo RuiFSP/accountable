@@ -138,6 +138,54 @@ describe("DataTable", () => {
     expect(visibleNames()).toEqual(["Zulu", "Alpha", "Beta"]);
   });
 
+  it("narrows by more than one filter at once", () => {
+    const withCategory = rows.map((row) => ({
+      ...row,
+      category: row.name === "Alpha" ? "software" : "office",
+    }));
+    const categoryColumns: ColumnDef<(typeof withCategory)[number]>[] = [
+      { accessorKey: "name", header: "Name" },
+      { accessorKey: "status", header: "Status" },
+      { accessorKey: "value", header: "Value" },
+      { accessorKey: "category", header: "Category" },
+    ];
+    render(
+      <DataTable
+        rows={withCategory}
+        columns={categoryColumns}
+        searchFields={(row) => [row.name, row.status, row.category]}
+        searchPlaceholder="Search"
+        filters={[
+          {
+            columnId: "status",
+            label: "Status",
+            options: [
+              { value: "lead", label: "Lead" },
+              { value: "customer", label: "Customer" },
+            ],
+          },
+          {
+            columnId: "category",
+            label: "Category",
+            options: [
+              { value: "software", label: "Software" },
+              { value: "office", label: "Office" },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Status" }), {
+      target: { value: "lead" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Category" }), {
+      target: { value: "office" },
+    });
+
+    expect(visibleNames()).toEqual(["Zulu", "Beta"]);
+  });
+
   it("shows an empty message when nothing matches", () => {
     setup();
 

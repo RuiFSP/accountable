@@ -1,13 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
-import { api } from "../api/client";
+import { api, type Deal as DealRecord } from "../api/client";
+import AddedPanels, { type RecordPanel } from "../components/RecordPanels";
 import RecordAttribution from "../components/RecordAttribution";
 import Timeline from "../components/Timeline";
 import { formatDate } from "../lib/dates";
 import { formatUsd } from "../lib/money";
 
-export default function Deal() {
+interface DealProps {
+  panels?: RecordPanel<DealRecord>[];
+}
+
+export default function Deal({ panels = [] }: DealProps) {
   const { id } = useParams();
   const dealId = Number(id);
 
@@ -89,6 +94,8 @@ export default function Deal() {
           />
         </dl>
       </section>
+
+      <AddedPanels panels={panels} record={deal} />
 
       <Timeline activities={timeline} recordType="deal" recordId={dealId} />
     </div>

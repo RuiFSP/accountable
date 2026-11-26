@@ -33,15 +33,24 @@ test("the sample price list has ten active products and two archived", async ({
   await expect(row(page, "Starter license")).toContainText("$49.00");
   await expect(row(page, "Priority support")).toContainText("$149.50");
   await expect(row(page, "Onsite training day")).toContainText("$1,200.00");
-  // Sample rows carry both attribution lines; this one's differ. Which
-  // teammates they are follows the seed's row order, so only the shape and
-  // the difference are pinned.
-  const onsite = row(page, "Onsite training day");
-  const addedBy = onsite.locator("td").nth(4);
-  const changedBy = onsite.locator("td").nth(5);
-  await expect(addedBy).toHaveText(/^[^@\s]+@brightloop\.example$/);
-  await expect(changedBy).toHaveText(/^[^@\s]+@brightloop\.example$/);
-  expect(await changedBy.textContent()).not.toBe(await addedBy.textContent());
+  // Sample rows carry both attribution lines, and at least one shows a
+  // different teammate as who last changed it. Which row follows the seed's
+  // row order, so find one rather than pinning a product.
+  const attribution = await page.locator("tbody tr").evaluateAll((rows) =>
+    rows
+      .map((row) => {
+        const cells = row.querySelectorAll("td");
+        return [cells[4]?.textContent ?? "", cells[5]?.textContent ?? ""];
+      })
+      .find(
+        ([added, changed]) =>
+          added !== "" && changed !== "" && added !== changed,
+      ),
+  );
+  expect(attribution).toBeTruthy();
+  for (const email of attribution ?? []) {
+    expect(email).toMatch(/^[^@\s]+@brightloop\.example$/);
+  }
   await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "View" })).toHaveCount(0);
 

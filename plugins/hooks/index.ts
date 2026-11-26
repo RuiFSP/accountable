@@ -18,7 +18,8 @@ import path from "node:path";
 // Observability: every decision is appended to `logs/hooks.log` (git-ignored).
 
 const DEFAULT_CHECK_COMMAND = "npm run check:quick";
-const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
+// A check:quick can wait behind two full checks, so give it room to take its turn.
+const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const OUTPUT_LIMIT = 200_000;
 const TAIL_LIMIT = 6_000;
 const TEMPLATE_ENV_FILES = [".env.example", ".env.sample", ".env.template"];

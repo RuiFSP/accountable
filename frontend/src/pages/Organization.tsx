@@ -1,12 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
-import { api } from "../api/client";
+import { api, type Organization as OrganizationRecord } from "../api/client";
+import AddedPanels, { type RecordPanel } from "../components/RecordPanels";
 import RecordAttribution from "../components/RecordAttribution";
 import { formatUsd } from "../lib/money";
 import { capitalize } from "../lib/text";
 
-export default function Organization() {
+interface OrganizationProps {
+  panels?: RecordPanel<OrganizationRecord>[];
+}
+
+export default function Organization({ panels = [] }: OrganizationProps) {
   const { id } = useParams();
   const organizationId = Number(id);
 
@@ -114,6 +119,8 @@ export default function Organization() {
           )}
         </section>
       </div>
+
+      <AddedPanels panels={panels} record={organization} />
     </div>
   );
 }

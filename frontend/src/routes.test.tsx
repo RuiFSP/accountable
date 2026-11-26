@@ -68,7 +68,7 @@ describe("signed out", () => {
 });
 
 describe("app shell", () => {
-  it("lands on the dashboard with links to the six sections", () => {
+  it("lands on the dashboard with links to every section", () => {
     renderAt("/");
 
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeTruthy();
@@ -79,9 +79,25 @@ describe("app shell", () => {
       "Deals",
       "Products",
       "Pipeline",
+      "Money",
     ]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
+  });
+
+  it("opens the Money tabs from its section link", () => {
+    renderAt("/money");
+
+    expect(screen.getByRole("heading", { name: "Quotes" })).toBeTruthy();
+    for (const label of ["Quotes", "Invoices", "Bills"]) {
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+  });
+
+  it("opens Quotes for an unknown Money tab", () => {
+    renderAt("/money/nowhere");
+
+    expect(screen.getByRole("heading", { name: "Quotes" })).toBeTruthy();
   });
 
   it("holds the search box in the top bar, between the nav and the actions", () => {
@@ -124,6 +140,10 @@ describe("user menu", () => {
     "/deals",
     "/products",
     "/pipeline",
+    "/money",
+    "/money/quotes",
+    "/money/invoices",
+    "/money/bills",
     "/settings",
     "/organizations/1",
     "/contacts/1",

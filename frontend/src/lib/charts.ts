@@ -2,6 +2,16 @@
 
 import type { DashboardPayload, Stage } from "../api/client";
 
+/** Recharts' axis labels follow the mode through the ink token. */
+export const AXIS_TICK = { fill: "var(--color-ink-muted)", fontSize: 12 };
+
+/** Recharts' default tooltip is a white box; both modes take it from tokens. */
+export const TOOLTIP_STYLE = {
+  backgroundColor: "var(--color-panel)",
+  border: "1px solid var(--color-tooltip-border)",
+  color: "var(--color-ink)",
+};
+
 /** Axis label for a "YYYY-MM" bucket, e.g. "Dec". */
 export function monthLabel(month: string): string {
   const [year, monthNumber] = month.split("-").map(Number);
