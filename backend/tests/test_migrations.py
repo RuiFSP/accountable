@@ -5,7 +5,14 @@ from alembic.script import ScriptDirectory
 from app import db
 from sqlalchemy import create_engine, inspect, text
 
-RECORD_TABLES = ("organizations", "contacts", "deals", "activities", "products")
+RECORD_TABLES = (
+    "organizations",
+    "contacts",
+    "deals",
+    "activities",
+    "products",
+    "bills",
+)
 # The four that already existed when 0002 added their attribution columns.
 ATTRIBUTED_TABLES = ("organizations", "contacts", "deals", "activities")
 SETTINGS_TABLE = "company_settings"
@@ -71,6 +78,7 @@ def assert_kept_its_rows_and_gained_settings(connection) -> None:
     for table in ATTRIBUTED_TABLES:
         assert connection.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 1
     assert connection.execute(text("SELECT COUNT(*) FROM products")).scalar() == 0
+    assert connection.execute(text("SELECT COUNT(*) FROM bills")).scalar() == 0
     settings = connection.execute(
         text(
             "SELECT name, updated_by, invoice_design, accent_color, "
@@ -135,6 +143,25 @@ def test_database_from_before_the_change_upgrades_and_keeps_its_rows():
         "active",
         "created_by",
         "updated_by",
+    ]
+    bills = [column["name"] for column in inspect(engine).get_columns("bills")]
+    assert bills == [
+        "id",
+        "organization_id",
+        "bill_number",
+        "bill_date",
+        "due_date",
+        "category",
+        "amount_cents",
+        "tax_cents",
+        "total_cents",
+        "notes",
+        "paid_date",
+        "created_by",
+        "updated_by",
+    ]
+    assert foreign_keys(engine, "bills") == [
+        (("organization_id",), "organizations", ("id",))
     ]
 
 
@@ -252,6 +279,61 @@ def test_a_database_at_an_earlier_revision_upgrades_keeps_its_rows_and_gains_the
             assert (design, accent, logo_type) == ("classic", "#073B4C", "image/png")
 
 
+def test_0005_schema_without_a_version_table_reaches_head_and_keeps_its_rows():
+    engine = create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        command.upgrade(alembic_config(connection=connection), "0005")
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE alembic_version"))
+        insert_one_of_each(connection)
+        connection.execute(
+            text("INSERT INTO number_counters (kind, last_number) VALUES ('quote', 7)")
+        )
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == head_revision()
+        )
+        assert (
+            connection.execute(
+                text("SELECT last_number FROM number_counters WHERE kind = 'quote'")
+            ).scalar()
+            == 7
+        )
+        assert_kept_its_rows_and_gained_settings(connection)
+        assert connection.execute(text("SELECT COUNT(*) FROM quotes")).scalar() == 0
+    assert "quote_lines" in inspect(engine).get_table_names()
+
+
+def test_a_0005_database_upgrades_to_head_and_keeps_its_rows():
+    engine = create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        command.upgrade(alembic_config(connection=connection), "0005")
+    with engine.begin() as connection:
+        insert_one_of_each(connection)
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == head_revision()
+        )
+        assert_kept_its_rows_and_gained_settings(connection)
+        for table in (
+            "quotes",
+            "quote_lines",
+            "bills",
+            "invoices",
+            "invoice_lines",
+            "payments",
+        ):
+            assert table in inspect(engine).get_table_names()
+
+
 def test_the_migrations_have_one_head():
     script = ScriptDirectory.from_config(alembic_config())
     assert len(script.get_heads()) == 1
@@ -300,3 +382,50 @@ def test_postgres_offline_sql_adds_the_tables_the_columns_and_row_level_security
         assert f"{column} " in sql.split("CREATE TABLE invoices")[1]
     assert "CREATE TABLE invoice_lines" in sql
     assert "CREATE TABLE payments" in sql
+    assert "CREATE TABLE quotes" in sql
+    quote_block = sql.split("CREATE TABLE quotes")[1].split("CREATE TABLE quote_lines")[
+        0
+    ]
+    for column in (
+        "number",
+        "deal_id",
+        "status",
+        "created_at",
+        "valid_until",
+        "tax_label",
+        "tax_rate_thousandths",
+        "created_by",
+        "updated_by",
+    ):
+        assert f"{column} " in quote_block
+    assert "CREATE TABLE quote_lines" in sql
+    for column in (
+        "quote_id",
+        "product_id",
+        "product_name",
+        "description",
+        "quantity",
+        "unit_price_cents",
+        "position",
+    ):
+        assert f"{column} " in sql.split("CREATE TABLE quote_lines")[1]
+    assert "CREATE TABLE bills" in sql
+    created_bills = sql[
+        sql.index("CREATE TABLE bills") : sql.index(
+            "ALTER TABLE bills ENABLE ROW LEVEL SECURITY"
+        )
+    ]
+    for column in (
+        "organization_id",
+        "bill_number",
+        "bill_date",
+        "due_date",
+        "category",
+        "amount_cents",
+        "tax_cents",
+        "total_cents",
+        "notes",
+        "paid_date",
+    ):
+        assert f"\n    {column} " in created_bills
+    assert "REFERENCES organizations (id)" in created_bills

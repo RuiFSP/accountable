@@ -53,7 +53,7 @@ organizations = Table(
     Column("notes", Text),
     Column("created_by", String),
     Column("updated_by", String),
-    # Added by 0007, which can only append it.
+    # Added by 0009, which can only append it.
     Column("billing_address", Text),
 )
 
@@ -117,7 +117,7 @@ company_settings = Table(
     Column("invoice_prefix", String),
     Column("updated_by", String),
     Column("updated_at", DateTime, nullable=False),
-    # Added by 0008, which can only append them: the Documents section's
+    # Added by 0010, which can only append them: the Documents section's
     # design, accent and logo, with the Classic design and the Midnight accent
     # for rows that predate it.
     Column("invoice_design", String, nullable=False),
@@ -137,6 +137,55 @@ products = Table(
     Column("created_by", String),
     Column("updated_by", String),
 )
+
+quotes = Table(
+    "quotes",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("number", String, nullable=False),
+    Column("deal_id", Integer, ForeignKey("deals.id"), nullable=False),
+    Column("status", String, nullable=False),
+    Column("created_at", Date, nullable=False),
+    Column("valid_until", Date, nullable=False),
+    # The tax a quote keeps once it is sent; a draft reads it from the settings.
+    Column("tax_label", String),
+    Column("tax_rate_thousandths", Integer),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
+bills = Table(
+    "bills",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("organization_id", Integer, ForeignKey("organizations.id"), nullable=False),
+    Column("bill_number", String, nullable=False),
+    Column("bill_date", Date, nullable=False),
+    Column("due_date", Date, nullable=False),
+    Column("category", String, nullable=False),
+    Column("amount_cents", Integer, nullable=False),
+    Column("tax_cents", Integer, nullable=False),
+    Column("total_cents", Integer, nullable=False),
+    Column("notes", Text),
+    Column("paid_date", Date),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
+quote_lines = Table(
+    "quote_lines",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("quote_id", Integer, ForeignKey("quotes.id"), nullable=False),
+    Column("product_id", Integer, ForeignKey("products.id"), nullable=False),
+    # The product's name and price as they were when the line was added.
+    Column("product_name", String, nullable=False),
+    Column("description", Text),
+    Column("quantity", Integer, nullable=False),
+    Column("unit_price_cents", Integer, nullable=False),
+    Column("position", Integer, nullable=False),
+)
+
 
 # How many numbers each kind of document has taken, so the next is one more.
 # A kind's row is added when it takes its first number. Quotes and invoices are
@@ -271,8 +320,9 @@ def _unversioned_revision(engine: Engine) -> str | None:
     gets the baseline, one with the attribution columns but no products table
     gets 0002, one with products but not the settings table gets 0003, one
     carrying the settings table gets 0004, one with the number counters gets
-    0005, and one with the invoice tables gets 0006, 0007 or 0008 by which of
-    the later columns landed. Stamping head would let a database skip a
+    0005, one with the quotes tables gets 0006, one carrying the bills table
+    gets 0007, and one with the invoice tables gets 0008, 0009 or 0010 by which
+    of the later columns landed. Stamping head would let a database skip a
     migration it still needs.
     """
     inspector = inspect(engine)
@@ -281,9 +331,13 @@ def _unversioned_revision(engine: Engine) -> str | None:
         return None
     if "invoices" in tables:
         if "invoice_design" in _column_names(inspector, "company_settings"):
-            return "0008"
+            return "0010"
         if "billing_address" in _column_names(inspector, "organizations"):
-            return "0007"
+            return "0009"
+        return "0008"
+    if "bills" in tables and "quotes" in tables:
+        return "0007"
+    if "quotes" in tables:
         return "0006"
     if "number_counters" in tables:
         return "0005"

@@ -2,10 +2,12 @@
 
 import type {
   AgingRow,
+  BillCategory,
   DashboardPayload,
   PaymentPoint,
   Stage,
 } from "../api/client";
+import { BILL_CATEGORIES, CATEGORY_COLORS } from "./bills";
 
 /** Recharts' axis labels follow the mode through the ink token. */
 export const AXIS_TICK = { fill: "var(--color-ink-muted)", fontSize: 12 };
@@ -84,4 +86,43 @@ export function agingRows(
 ): (AgingRow & { share: number })[] {
   const largest = Math.max(1, ...money.aging.map((row) => row.cents));
   return money.aging.map((row) => ({ ...row, share: row.cents / largest }));
+}
+
+export interface SpendingSegment {
+  category: BillCategory;
+  cents: number;
+  color: string;
+  /**0…1 share of the tallest month's total, for stacked heights. */
+  share: number;
+}
+
+export interface SpendingBar {
+  month: string;
+  label: string;
+  totalCents: number;
+  segments: SpendingSegment[];
+}
+
+/** Spending payload → one stacked bar per month, split by category. */
+export function spendingBars(
+  spending: DashboardPayload["payables"]["spending"],
+): SpendingBar[] {
+  const totals = spending.map((row) =>
+    BILL_CATEGORIES.reduce(
+      (sum, category) => sum + row.categories[category],
+      0,
+    ),
+  );
+  const tallest = Math.max(1, ...totals);
+  return spending.map((row, index) => ({
+    month: row.month,
+    label: monthLabel(row.month),
+    totalCents: totals[index],
+    segments: BILL_CATEGORIES.map((category) => ({
+      category,
+      cents: row.categories[category],
+      color: CATEGORY_COLORS[category],
+      share: row.categories[category] / tallest,
+    })),
+  }));
 }

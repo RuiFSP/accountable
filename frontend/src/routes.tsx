@@ -8,6 +8,10 @@ import {
 
 import { type Deal, type Organization } from "./api/client";
 import { type RecordPanel } from "./components/RecordPanels";
+import {
+  DealQuotesPanel,
+  OrganizationQuotesPanel,
+} from "./components/QuotePanels";
 import { SignedIn } from "./components/SignIn";
 import SearchBox from "./components/SearchBox";
 import UserMenu from "./components/UserMenu";
@@ -26,6 +30,7 @@ import BillsTab from "./pages/money/BillsTab";
 import DealInvoices from "./pages/money/DealInvoices";
 import InvoicePage from "./pages/money/Invoice";
 import InvoicesTab from "./pages/money/InvoicesTab";
+import OrganizationBills from "./pages/money/OrganizationBills";
 import OrganizationInvoices from "./pages/money/OrganizationInvoices";
 import QuotesTab from "./pages/money/QuotesTab";
 
@@ -42,9 +47,12 @@ export const SECTIONS = [
 // The panels the quotes, invoices and bills changes add to the CRM's pages.
 // Each area adds its own entry when it lands.
 const DEAL_PANELS: RecordPanel<Deal>[] = [
+  DealQuotesPanel,
   { name: "Invoices", Panel: DealInvoices },
 ];
 const ORGANIZATION_PANELS: RecordPanel<Organization>[] = [
+  OrganizationQuotesPanel,
+  { name: "bills", Panel: OrganizationBills },
   { name: "Invoices", Panel: OrganizationInvoices },
 ];
 

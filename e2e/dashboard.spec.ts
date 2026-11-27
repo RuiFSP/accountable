@@ -19,10 +19,43 @@ const usd = (cents: number): string =>
     maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
   }).format(cents / 100);
 
+/** The bills' money style: cents only when there are any. */
+const billUsd = (cents: number): string =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  }).format(cents / 100);
+
 const asNumber = (text: string): number => Number(text.replace(/[^0-9]/g, ""));
 
 function kpi(page: import("@playwright/test").Page, label: string) {
   return page.locator(".kpi").filter({ hasText: label });
+}
+
+/** The Money section's figures, clear of the sales figures above them. */
+function moneyKpi(page: import("@playwright/test").Page, label: string) {
+  return page.locator(".money-suppliers .kpi").filter({ hasText: label });
+}
+
+interface Bill {
+  id: number;
+  organization_name: string;
+  bill_number: string;
+  bill_date: string;
+  due_date: string;
+  category: string;
+  total_cents: number;
+  status: "unpaid" | "overdue" | "paid";
+}
+
+async function listBills(
+  request: import("@playwright/test").APIRequestContext,
+): Promise<Bill[]> {
+  const response = await request.get("/api/bills");
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as Bill[];
 }
 
 test("the dashboard shows charts, funnel, activity and follow-ups", async ({
@@ -48,12 +81,12 @@ test("the dashboard shows charts, funnel, activity and follow-ups", async ({
   await expect(
     page.locator(".activity-list .activity-row").first(),
   ).toBeVisible();
+  // The Money section below carries its own "Overdue" labels, so this one is
+  // the follow-up group's heading.
   await expect(
     page.getByRole("heading", { name: "Overdue", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Upcoming", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Upcoming", { exact: true })).toBeVisible();
 });
 
 test("every figure matches the data behind it", async ({ page, request }) => {
@@ -334,7 +367,7 @@ test("the Money section's figures, aging and payments match what is behind them"
   );
   await expect(
     page
-      .locator(".money-kpis .kpi")
+      .locator(".money-customers .kpi")
       .filter({ hasText: "Overdue" })
       .locator(".kpi-value"),
   ).toHaveText(usd(overdue));
@@ -357,4 +390,141 @@ test("the Money section's figures, aging and payments match what is behind them"
   for (const month of perMonth.keys()) {
     await expect(payments.getByText(shortMonth(month))).toBeVisible();
   }
+});
+
+test("the Money figures and timeline match the unpaid bills behind them", async ({
+  page,
+  request,
+}) => {
+  const bills = await listBills(request);
+  const today = isoDaysFromNow(0);
+  const horizon = isoDaysFromNow(30);
+  const unpaid = bills.filter((bill) => bill.status !== "paid");
+  const overdue = bills.filter((bill) => bill.status === "overdue");
+  const dueSoon = unpaid
+    .filter((bill) => bill.due_date >= today && bill.due_date <= horizon)
+    .sort(
+      (left, right) =>
+        left.due_date.localeCompare(right.due_date) || left.id - right.id,
+    );
+  expect(overdue.length).toBeGreaterThan(0);
+  expect(dueSoon.length).toBeGreaterThan(0);
+
+  await page.goto("/");
+
+  await expect(moneyKpi(page, "Bills to pay").locator(".kpi-value")).toHaveText(
+    billUsd(unpaid.reduce((sum, bill) => sum + bill.total_cents, 0)),
+  );
+  await expect(moneyKpi(page, "Bills to pay").locator(".kpi-note")).toHaveText(
+    `${unpaid.length} bills`,
+  );
+  await expect(moneyKpi(page, "Overdue").locator(".kpi-value")).toHaveText(
+    billUsd(overdue.reduce((sum, bill) => sum + bill.total_cents, 0)),
+  );
+  await expect(moneyKpi(page, "Overdue").locator(".kpi-note")).toHaveText(
+    `${overdue.length} bills`,
+  );
+  await expect(
+    moneyKpi(page, "Due in the next 30 days").locator(".kpi-value"),
+  ).toHaveText(
+    billUsd(dueSoon.reduce((sum, bill) => sum + bill.total_cents, 0)),
+  );
+  await expect(
+    moneyKpi(page, "Due in the next 30 days").locator(".kpi-note"),
+  ).toHaveText(`${dueSoon.length} bills`);
+
+  const timeline = page.locator(".panel").filter({ hasText: "Bills due soon" });
+  await expect(timeline.locator("li")).toHaveCount(dueSoon.length);
+  await expect(timeline.locator("li").first()).toContainText(
+    dueSoon[0].organization_name,
+  );
+  await expect(timeline.locator("li").first()).toContainText(
+    billUsd(dueSoon[0].total_cents),
+  );
+
+  await expect(page.locator(".spending-bar")).toHaveCount(12);
+  await expect(page.locator(".spending-segment")).toHaveCount(72);
+  const legend = await page
+    .locator(".spending-legend .legend-item")
+    .allInnerTexts();
+  expect(legend.map((item) => item.trim())).toEqual([
+    "Software",
+    "Contractors",
+    "Travel",
+    "Office",
+    "Marketing",
+    "Other",
+  ]);
+  const filled = await page
+    .locator(".spending-bar")
+    .evaluateAll((bars) =>
+      bars.map((bar) =>
+        Array.from(bar.querySelectorAll(".spending-segment")).some(
+          (segment) => segment.getBoundingClientRect().height > 0,
+        ),
+      ),
+    );
+  expect(filled.every(Boolean)).toBe(true);
+});
+
+test("marking a bill paid moves the figures and its month's bar at once", async ({
+  page,
+  request,
+}) => {
+  const bills = await listBills(request);
+  const month = isoDaysFromNow(0).slice(0, 7);
+  const candidate = bills.find(
+    (bill) =>
+      bill.status === "unpaid" &&
+      bill.category === "Contractors" &&
+      bill.bill_date.startsWith(month),
+  );
+  expect(
+    candidate,
+    "the sample has this month's unpaid contractor bill",
+  ).toBeTruthy();
+
+  const unpaid = bills.filter((bill) => bill.status !== "paid");
+  const expectedTotal =
+    unpaid.reduce((sum, bill) => sum + bill.total_cents, 0) -
+    candidate!.total_cents;
+  const expectedCount = unpaid.length - 1;
+
+  await page.goto("/");
+  await expect(moneyKpi(page, "Bills to pay").locator(".kpi-value")).toHaveText(
+    billUsd(unpaid.reduce((sum, bill) => sum + bill.total_cents, 0)),
+  );
+  const currentBar = page.locator(".spending-bar").last();
+  const contractors = currentBar.locator(
+    '.spending-segment[data-category="Contractors"]',
+  );
+  expect(
+    await contractors.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    ),
+  ).toBe(0);
+
+  await page.goto("/money/bills");
+  await page.getByRole("searchbox").fill(candidate!.bill_number);
+  const billRow = page.locator("tbody tr", { hasText: candidate!.bill_number });
+  await billRow.getByRole("button", { name: "Mark paid" }).click();
+  await expect(billRow.locator(".badge-positive")).toHaveText("Paid");
+
+  await page
+    .getByRole("navigation")
+    .getByRole("link", { name: "Dashboard" })
+    .click();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(moneyKpi(page, "Bills to pay").locator(".kpi-value")).toHaveText(
+    billUsd(expectedTotal),
+  );
+  await expect(moneyKpi(page, "Bills to pay").locator(".kpi-note")).toHaveText(
+    `${expectedCount} ${expectedCount === 1 ? "bill" : "bills"}`,
+  );
+  await expect(
+    page
+      .locator(".spending-bar")
+      .last()
+      .locator('.spending-segment[data-category="Contractors"]'),
+  ).not.toHaveCSS("height", "0px");
 });

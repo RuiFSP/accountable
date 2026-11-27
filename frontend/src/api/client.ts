@@ -1,6 +1,7 @@
 /** Typed fetch wrapper for the Accountable JSON API. */
 
 import { currentToken, endSession } from "../lib/session";
+import * as quotesApi from "./quotes";
 
 export type Stage =
   "New" | "Qualified" | "Proposal" | "Negotiation" | "Won" | "Lost";
@@ -250,6 +251,46 @@ export interface ProductInput {
   price_cents: number;
 }
 
+/** What a bill bought, from the fixed list. */
+export type BillCategory =
+  "Software" | "Contractors" | "Travel" | "Office" | "Marketing" | "Other";
+
+/**
+ * A bill's status, derived from its dates and never stored: paid when the
+ * paid date is set, overdue when unpaid and the due date is before today.
+ */
+export type BillStatus = "unpaid" | "overdue" | "paid";
+
+export interface Bill extends Attribution {
+  id: number;
+  organization_id: number;
+  /** The supplier's name, carried in from the join. */
+  organization_name: string;
+  bill_number: string;
+  bill_date: string;
+  due_date: string;
+  category: BillCategory;
+  amount_cents: number;
+  tax_cents: number;
+  /** The backend's sum: amount plus tax. */
+  total_cents: number;
+  notes: string | null;
+  paid_date: string | null;
+  status: BillStatus;
+}
+
+/** No total and no paid date: the backend owns both. */
+export interface BillInput {
+  organization_id: number;
+  bill_number: string;
+  bill_date: string;
+  due_date: string | null;
+  category: BillCategory;
+  amount_cents: number;
+  tax_cents: number;
+  notes: string | null;
+}
+
 /** What a delete endpoint reports: the records removed alongside the target. */
 export interface CascadeResult {
   contacts?: string[];
@@ -307,6 +348,36 @@ export interface MoneySummary {
   payments: { month: string; cents: number }[];
 }
 
+/** The total and count of a window of bills, tax included. */
+export interface BillTotal {
+  total_cents: number;
+  count: number;
+}
+
+/** One row of the due-date timeline: the supplier, its due date and total. */
+export interface DueBillRow {
+  supplier: string;
+  due_date: string;
+  total_cents: number;
+}
+
+/** One month of spending: a cents figure per category. */
+export interface SpendingMonth {
+  month: string;
+  categories: Record<BillCategory, number>;
+}
+
+/** The payables half of the dashboard's Money section. */
+export interface Payables {
+  /** Every bill not yet paid: "Bills to pay". */
+  unpaid: BillTotal;
+  overdue: BillTotal;
+  /** The bills due from today through 30 days from today, soonest first. */
+  due_soon: BillTotal & { rows: DueBillRow[] };
+  /** Each paid bill's total in the month it was paid, over 12 buckets. */
+  spending: SpendingMonth[];
+}
+
 export interface DashboardPayload {
   won: { months: WonMonth[]; total_revenue_cents: number; total_deals: number };
   pipeline: { value_cents: number; expected_cents: number; count: number };
@@ -325,6 +396,7 @@ export interface DashboardPayload {
     overdue_count: number;
     open_count: number;
   };
+  payables: Payables;
 }
 
 export interface StageMoveInput {
@@ -501,5 +573,27 @@ export const api = {
       put<Product>(`/api/products/${id}`, payload),
     archive: (id: number) => post<Product>(`/api/products/${id}/archive`),
     restore: (id: number) => post<Product>(`/api/products/${id}/restore`),
+  },
+  // The quotes area's calls, from api/quotes.ts: the shared `api` object
+  // carries every area, so one mock stands in for all of them in tests.
+  quotes: quotesApi,
+  bills: {
+    list: (q?: string, status?: BillStatus, organizationId?: number) => {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (status) params.set("status", status);
+      if (organizationId !== undefined) {
+        params.set("organization_id", String(organizationId));
+      }
+      const query = params.toString();
+      return request<Bill[]>(query ? `/api/bills?${query}` : "/api/bills");
+    },
+    create: (payload: BillInput) => post<Bill>("/api/bills", payload),
+    update: (id: number, payload: BillInput) =>
+      put<Bill>(`/api/bills/${id}`, payload),
+    remove: (id: number) => del<CascadeResult>(`/api/bills/${id}`),
+    markPaid: (id: number, day?: string) =>
+      post<Bill>(`/api/bills/${id}/paid`, day ? { day } : undefined),
+    markUnpaid: (id: number) => post<Bill>(`/api/bills/${id}/unpaid`),
   },
 };

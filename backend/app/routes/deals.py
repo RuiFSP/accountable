@@ -1,11 +1,11 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app import auth, db, holds, stats
+from app import auth, db, holds, stages, stats
 from app.records import read_or_404, require_exists, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
@@ -125,9 +125,10 @@ def update_deal(
             # The edit form has no placement, so a stage change through it
             # behaves like a move to the end of the new column: the stage's
             # default probability and a timeline entry, same as the drag.
-            values["probability"] = db.STAGE_PROBABILITIES[values["stage"]]
-            target = _column_ids(connection, values["stage"], exclude_id=deal_id)
-            values["position"] = len(target)
+            moved = stages.move(connection, deal_id, values["stage"], None, user)
+            existing = moved
+            values["probability"] = moved["probability"]
+            values["position"] = moved["position"]
         elif values["position"] is None:
             values["position"] = existing["position"]
 
@@ -136,15 +137,6 @@ def update_deal(
         connection.execute(
             db.deals.update().where(db.deals.c.id == deal_id).values(**values)
         )
-
-        if stage_changed:
-            target.append(deal_id)
-            _apply_positions(connection, target)
-            source = _column_ids(connection, existing["stage"], exclude_id=deal_id)
-            _apply_positions(connection, source)
-            _write_stage_entry(
-                connection, deal_id, existing["stage"], values["stage"], user
-            )
 
         return read_or_404(connection, db.deals, deal_id, "Deal")
 
@@ -155,36 +147,13 @@ def move_deal_stage(
 ) -> dict:
     """Move a card between or within columns: stage, probability, position.
 
-    A stage change resets the probability to the new stage's default and writes
-    a system ``stage_change`` entry into the deal's timeline. Positions are
-    renumbered in the affected column(s) so a dropped card keeps its slot.
+    The shared move rules in ``stages.py`` do the work — the same ones
+    accepting a quote uses — and the reply carries fresh board totals.
     """
     with db.get_engine().begin() as connection:
-        deal = read_or_404(connection, db.deals, deal_id, "Deal")
-        changed = deal["stage"] != payload.stage
-
-        values = {"stage": payload.stage}
-        if changed:
-            values["probability"] = db.STAGE_PROBABILITIES[payload.stage]
-        target = _column_ids(connection, payload.stage, exclude_id=deal_id)
-        position = min(payload.position, len(target))
-        # The card that moved changed; the cards renumbered around it did not.
-        if changed or position != deal["position"]:
-            values["updated_by"] = user
-        connection.execute(
-            db.deals.update().where(db.deals.c.id == deal_id).values(**values)
-        )
-
-        target.insert(position, deal_id)
-        _apply_positions(connection, target)
-
-        if changed:
-            source = _column_ids(connection, deal["stage"], exclude_id=deal_id)
-            _apply_positions(connection, source)
-            _write_stage_entry(connection, deal_id, deal["stage"], payload.stage, user)
-
+        moved = stages.move(connection, deal_id, payload.stage, payload.position, user)
         return {
-            "deal": read_or_404(connection, db.deals, deal_id, "Deal"),
+            "deal": moved,
             "totals": {
                 "board": stats.pipeline_totals(connection),
                 "columns": stats.column_totals(connection),
@@ -231,39 +200,3 @@ def _refuse_value_change(connection, deal_id: int) -> None:
     ).scalar_one()
     if held:
         raise HTTPException(status_code=409, detail=VALUE_HELD)
-
-
-def _write_stage_entry(
-    connection, deal_id: int, from_stage: str, to_stage: str, user: str
-) -> None:
-    """The system timeline entry every stage change leaves behind."""
-    values = stamp_created(
-        {
-            "type": "stage_change",
-            "contact_id": None,
-            "deal_id": deal_id,
-            "description": f"Moved from {from_stage} to {to_stage}",
-            "happened_at": datetime.now(),
-            "follow_up_date": None,
-            "done": True,
-        },
-        user,
-    )
-    connection.execute(db.activities.insert().values(**values))
-
-
-def _column_ids(connection, stage: str, exclude_id: int | None = None) -> list[int]:
-    stmt = select(db.deals.c.id).where(db.deals.c.stage == stage)
-    if exclude_id is not None:
-        stmt = stmt.where(db.deals.c.id != exclude_id)
-    stmt = stmt.order_by(db.deals.c.position, db.deals.c.id)
-    return list(connection.execute(stmt).scalars())
-
-
-def _apply_positions(connection, ordered_ids: list[int]) -> None:
-    for position, column_deal_id in enumerate(ordered_ids):
-        connection.execute(
-            db.deals.update()
-            .where(db.deals.c.id == column_deal_id)
-            .values(position=position)
-        )

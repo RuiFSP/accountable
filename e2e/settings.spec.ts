@@ -11,9 +11,10 @@ import {
 
 // Company settings live on one row for the whole team
 // (docs/specs/company-settings.md). Every test changes that row, so the
-// sample data is reset before each one — and that reset takes about twenty
-// seconds on this machine, so the file's tests get more than the default
-// thirty, the way products.spec.ts's do.
+// sample data is reset before each one. One run of that real `npm run seed`
+// takes 16-22s on this machine, so each test gets the same 90s the other
+// seed-per-test specs (products, quotes) give theirs rather than the 30s
+// default, which a seed alone can fill.
 test.describe.configure({ timeout: 90_000 });
 
 const BRIGHTLOOP_ADDRESS = "1 Brightloop Plaza, Floor 12, New York, NY 10004";

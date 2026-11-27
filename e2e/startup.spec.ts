@@ -47,6 +47,7 @@ test("every section shows the sample data", async ({ page, request }) => {
   const organizations = await count("organizations");
   const contacts = await count("contacts");
   const deals = await count("deals");
+  const bills = await count("bills");
 
   await page.goto("/organizations");
   await expect(page.locator("tbody tr")).toHaveCount(organizations);
@@ -65,6 +66,12 @@ test("every section shows the sample data", async ({ page, request }) => {
   await page.goto("/products");
   await expect(page.locator("tbody tr")).toHaveCount(10);
   await expect(page.locator(".badge-active").first()).toBeVisible();
+
+  await page.goto("/money/bills");
+  await expect(page.locator("tbody tr")).toHaveCount(bills);
+  await expect(
+    page.locator(".badge-info, .badge-positive, .badge-negative").first(),
+  ).toBeVisible();
 
   await page.goto("/pipeline");
   for (const stage of [
@@ -85,6 +92,8 @@ test("every section shows the sample data", async ({ page, request }) => {
     "Open pipeline",
     "Expected revenue",
     "Overdue follow-ups",
+    "Bills to pay",
+    "Due in the next 30 days",
   ]) {
     await expect(page.locator(".kpi").filter({ hasText: label })).toBeVisible();
   }
@@ -110,4 +119,12 @@ test("the API serves the sample data through the frontend", async ({
   const archived = await request.get("/api/products?include_archived=true");
   expect(archived.ok()).toBe(true);
   expect(((await archived.json()) as unknown[]).length).toBe(12);
+
+  const bills = await request.get("/api/bills");
+  expect(bills.ok()).toBe(true);
+  const billRecords = (await bills.json()) as { status: string }[];
+  expect(billRecords.length).toBeGreaterThan(0);
+  expect(new Set(billRecords.map((bill) => bill.status)).size).toBeGreaterThan(
+    1,
+  );
 });

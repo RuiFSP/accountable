@@ -1,23 +1,27 @@
-"""Dashboard aggregations: month buckets, pipeline totals, follow-ups split.
+"""Dashboard aggregations: month buckets, pipeline totals, follow-ups split,
+what customers owe and what the business owes its suppliers.
 
 Every figure the dashboard shows is computed here, against one connection, so
 the numbers on screen can't drift apart. Per-deal expected revenue is
 ``value_cents * probability // 100`` — floored in cents, the same way the
-frontend computes it, so both sides always agree.
+frontend computes it, so both sides always agree. Bill status comes from the
+one ``bill_status`` helper the bills routes share.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import TypedDict
 
 from sqlalchemy import and_, func, select
 
 from app import db, invoice_state
 from app import months as month_buckets
+from app.routes.bills import CATEGORIES, bill_status
 
 OPEN_STAGES = ("New", "Qualified", "Proposal", "Negotiation")
 RECENT_ACTIVITY_LIMIT = 8
+DUE_WINDOW_DAYS = 30
 
 
 class MonthTotal(TypedDict):
@@ -269,6 +273,80 @@ def money_summary(conn, today: date | None = None) -> dict:
     }
 
 
+def _money(rows) -> dict:
+    """The total and count of a window of bills, tax included."""
+    return {
+        "total_cents": sum(row["total_cents"] for row in rows),
+        "count": len(rows),
+    }
+
+
+def spending(conn, today: date | None = None) -> list[dict]:
+    """Each paid bill's total in the month it was paid, per category, over the
+    same 12 buckets the sales charts use. Unpaid bills are in no bar."""
+    today = today or date.today()
+    starts = month_buckets.last_month_starts(today)
+    lower = starts[0]
+    buckets = {start: dict.fromkeys(CATEGORIES, 0) for start in starts}
+    rows = conn.execute(
+        select(db.bills.c.category, db.bills.c.total_cents, db.bills.c.paid_date).where(
+            db.bills.c.paid_date.is_not(None)
+        )
+    ).all()
+    for category, total_cents, paid_date in rows:
+        capped = min(paid_date, today)
+        if capped < lower:
+            continue
+        bucket = buckets[date(capped.year, capped.month, 1)]
+        bucket[category] = bucket.get(category, 0) + total_cents
+    return [
+        {"month": start.strftime("%Y-%m"), "categories": dict(buckets[start])}
+        for start in sorted(buckets)
+    ]
+
+
+def payables(conn, today: date | None = None) -> dict:
+    """What the business owes its suppliers: the payables half of the Money
+    section. "Bills to pay" is every bill not yet paid; "Overdue" and "Due in
+    the next 30 days" are its windows. A paid bill is in none of them."""
+    today = today or date.today()
+    rows = (
+        conn.execute(
+            select(db.bills, db.organizations.c.name.label("supplier")).select_from(
+                db.bills.join(
+                    db.organizations,
+                    db.bills.c.organization_id == db.organizations.c.id,
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    unpaid = [row for row in rows if bill_status(row, today) != "paid"]
+    overdue = [row for row in unpaid if row["due_date"] < today]
+    horizon = today + timedelta(days=DUE_WINDOW_DAYS)
+    due_soon = sorted(
+        (row for row in unpaid if today <= row["due_date"] <= horizon),
+        key=lambda row: (row["due_date"], row["id"]),
+    )
+    return {
+        "unpaid": _money(unpaid),
+        "overdue": _money(overdue),
+        "due_soon": {
+            **_money(due_soon),
+            "rows": [
+                {
+                    "supplier": row["supplier"],
+                    "due_date": row["due_date"],
+                    "total_cents": row["total_cents"],
+                }
+                for row in due_soon
+            ],
+        },
+        "spending": spending(conn, today),
+    }
+
+
 def dashboard_payload(conn, today: date | None = None) -> dict:
     """Everything the dashboard shows, in one round trip."""
     today = today or date.today()
@@ -279,4 +357,5 @@ def dashboard_payload(conn, today: date | None = None) -> dict:
         "money": money_summary(conn, today),
         "recent_activity": recent_activity(conn),
         "follow_ups": follow_ups(conn, today),
+        "payables": payables(conn, today),
     }

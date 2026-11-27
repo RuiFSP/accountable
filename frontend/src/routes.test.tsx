@@ -93,7 +93,13 @@ function invoiceAt(id: number): InvoiceDetail {
 
 describe("signed out", () => {
   it("shows the sign-in screen with no top bar at any address", async () => {
-    for (const path of ["/", "/contacts/5", "/settings", "/nowhere"]) {
+    for (const path of [
+      "/",
+      "/contacts/5",
+      "/settings",
+      "/money/quotes/1",
+      "/nowhere",
+    ]) {
       signOut();
       renderAt(path);
 
@@ -203,6 +209,7 @@ describe("user menu", () => {
     "/organizations/1",
     "/contacts/1",
     "/deals/1",
+    "/money/quotes/1",
   ];
 
   beforeEach(() => {

@@ -332,6 +332,93 @@ def _product(client, name: str) -> dict:
     )
 
 
+def _quote(client, organization_id: int, contact_id: int, product_name: str) -> dict:
+    """A fresh quote on a new open deal, from a product of its own."""
+    deal = _deal(client, organization_id, contact_id, stage="Proposal", probability=50)
+    product = _product(client, product_name)
+    return _post(
+        client,
+        "/api/quotes",
+        {
+            "deal_id": deal["id"],
+            "valid_until": None,
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "description": None,
+                    "quantity": 1,
+                    "unit_price_cents": 10_000,
+                }
+            ],
+        },
+    )
+
+
+def test_a_quote_add_sets_both_the_emails(client):
+    organization = _organization(client)
+    contact = _contact(client, organization["id"])
+    quote = _quote(client, organization["id"], contact["id"], "Who Quote Add")
+
+    assert quote["created_by"] == ALEX
+    assert quote["updated_by"] == ALEX
+
+
+def test_a_quote_save_that_changes_a_value_sets_the_last_changed_one(
+    client, sign_in_as
+):
+    organization = _organization(client)
+    contact = _contact(client, organization["id"])
+    quote = _quote(client, organization["id"], contact["id"], "Who Quote Edit")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/quotes/{quote['id']}",
+        {
+            "valid_until": quote["valid_until"],
+            "lines": [
+                {
+                    "product_id": line["product_id"],
+                    "description": line["description"],
+                    "quantity": line["quantity"] + 1,
+                    "unit_price_cents": line["unit_price_cents"],
+                }
+                for line in quote["lines"]
+            ],
+        },
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == PRIYA
+
+
+def test_a_quote_save_that_changes_nothing_does_not(client, sign_in_as):
+    organization = _organization(client)
+    contact = _contact(client, organization["id"])
+    quote = _quote(client, organization["id"], contact["id"], "Who Quote No-op")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/quotes/{quote['id']}",
+        {
+            "valid_until": quote["valid_until"],
+            "lines": [
+                {
+                    "product_id": line["product_id"],
+                    "description": line["description"],
+                    "quantity": line["quantity"],
+                    "unit_price_cents": line["unit_price_cents"],
+                }
+                for line in quote["lines"]
+            ],
+        },
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == ALEX
+
+
 def test_a_product_add_sets_both_the_emails(client):
     product = _product(client, "Who Product Add")
 
@@ -404,6 +491,98 @@ def test_a_product_reply_carries_both_emails(client, sign_in_as):
 
     assert product["created_by"] == ALEX
     assert product["updated_by"] == ALEX
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == PRIYA
+    assert listed["created_by"] == ALEX
+    assert listed["updated_by"] == PRIYA
+
+
+def _bill_payload(organization_id: int, number: str) -> dict:
+    return {
+        "organization_id": organization_id,
+        "bill_number": number,
+        "bill_date": "2026-06-01",
+        "due_date": None,
+        "category": "Software",
+        "amount_cents": 10_000,
+        "tax_cents": 800,
+        "notes": None,
+    }
+
+
+def _bill(client, organization_id: int, number: str) -> dict:
+    """A bill of its own, with its own supplier and number, because the shared
+    sample database now seeds bills."""
+    return _post(client, "/api/bills", _bill_payload(organization_id, number))
+
+
+def test_a_bill_add_sets_both_the_emails(client):
+    organization = _organization(client, "Who Supplier Add")
+    bill = _bill(client, organization["id"], "WHO-ADD")
+
+    assert bill["created_by"] == ALEX
+    assert bill["updated_by"] == ALEX
+
+
+def test_a_bill_save_that_changes_a_value_sets_the_last_changed_one(client, sign_in_as):
+    organization = _organization(client, "Who Supplier Edit")
+    bill = _bill(client, organization["id"], "WHO-EDIT")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/bills/{bill['id']}",
+        {**_bill_payload(organization["id"], "WHO-EDIT"), "notes": "Changed."},
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == PRIYA
+
+
+def test_a_bill_save_that_changes_nothing_does_not(client, sign_in_as):
+    organization = _organization(client, "Who Supplier No-op")
+    bill = _bill(client, organization["id"], "WHO-NOOP")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/bills/{bill['id']}",
+        _bill_payload(organization["id"], "WHO-NOOP"),
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == ALEX
+
+
+def test_paying_and_unpaying_a_bill_move_the_last_changed_one(client, sign_in_as):
+    organization = _organization(client, "Who Supplier Paid")
+    bill = _bill(client, organization["id"], "WHO-PAID")
+    _as(client, sign_in_as, PRIYA)
+
+    paid = client.post(f"/api/bills/{bill['id']}/paid", json={})
+    assert paid.status_code == 200, paid.text
+    assert paid.json()["updated_by"] == PRIYA
+
+    unpaid = client.post(f"/api/bills/{bill['id']}/unpaid")
+    assert unpaid.status_code == 200, unpaid.text
+    assert unpaid.json()["updated_by"] == PRIYA
+
+
+def test_a_bill_reply_carries_both_emails(client, sign_in_as):
+    organization = _organization(client, "Who Supplier Reply")
+    bill = _bill(client, organization["id"], "WHO-REPLY")
+    _as(client, sign_in_as, PRIYA)
+    saved = _put(
+        client,
+        f"/api/bills/{bill['id']}",
+        {**_bill_payload(organization["id"], "WHO-REPLY"), "tax_cents": 900},
+    )
+    listed = next(
+        item for item in client.get("/api/bills").json() if item["id"] == bill["id"]
+    )
+
+    assert bill["created_by"] == ALEX
+    assert bill["updated_by"] == ALEX
     assert saved["created_by"] == ALEX
     assert saved["updated_by"] == PRIYA
     assert listed["created_by"] == ALEX

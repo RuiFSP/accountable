@@ -10,6 +10,7 @@ from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 
 from app import db, documents, images, invoice_state, tax
+from app import months as month_buckets
 from app.auth import TEAMMATES
 
 STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
@@ -230,6 +231,24 @@ def _organizations() -> list[dict]:
             "website": "quarrystone.example",
             "industry": "Manufacturing",
             "notes": "Safety reporting is still paper-based.",
+        },
+        {
+            "name": "Vantage Software",
+            "website": "vantagesoftware.example",
+            "industry": "Software",
+            "notes": "Supplies our platform subscription. Bills monthly.",
+        },
+        {
+            "name": "Cedar Contractors",
+            "website": "cedarcontractors.example",
+            "industry": "Construction",
+            "notes": "Contract development and event work, on a monthly retainer.",
+        },
+        {
+            "name": "Riverview Property",
+            "website": "riverviewproperty.example",
+            "industry": "Real Estate",
+            "notes": "Our office landlord. Rent bills on the first of the month.",
         },
     ]
     return [
@@ -1151,6 +1170,381 @@ def _invoices(conn: Connection, offset) -> None:
             )
 
 
+def _quotes(deal_ids: dict[str, int]) -> list[dict]:
+    """The sample quotes, numbered in the order they were created.
+
+    The open Proposal and Negotiation deals carry the live offers — drafts,
+    sent ones, two gone past their date and one declined — and every deal won
+    in the last months carries the accepted quote that won it, its subtotal
+    rounding to the deal's value. Each row keeps its lines beside it;
+    _quote_lines turns them into rows.
+    """
+    # deal name, status, created offset, [(product, quantity) or
+    # (product, quantity, description)]
+    rows = [
+        (
+            "Fathom dashboard rollout",
+            "accepted",
+            -100,
+            [
+                ("Annual support plan", 3),
+                ("Data migration", 3),
+                ("Onsite training day", 2),
+                ("Remote training day", 2),
+            ],
+        ),
+        (
+            "Evergreen loyalty program",
+            "accepted",
+            -70,
+            [("Data migration", 2), ("Onsite training day", 1)],
+        ),
+        (
+            "Acme line upgrade",
+            "accepted",
+            -40,
+            [
+                ("Implementation package", 4),
+                ("Annual support plan", 4),
+                ("Data migration", 2),
+                ("Custom report", 2),
+            ],
+        ),
+        (
+            "Quarry safety portal",
+            "sent",
+            -50,
+            [
+                ("Implementation package", 2),
+                ("Onsite training day", 1),
+                ("Annual support plan", 1),
+            ],
+        ),
+        (
+            "Northwind e-commerce add-on",
+            "sent",
+            -45,
+            [
+                ("Team license", 4),
+                ("Priority support", 1),
+                ("API access", 2, "Sandbox keys for the pilot storefront."),
+            ],
+        ),
+        (
+            "Fathom data warehouse",
+            "declined",
+            -25,
+            [("Data migration", 2), ("Custom report", 2), ("API access", 1)],
+        ),
+        (
+            "Acme spare parts portal",
+            "sent",
+            -12,
+            [("API access", 3), ("Starter license", 2), ("Team license", 1)],
+        ),
+        (
+            "Pinecrest admin suite",
+            "sent",
+            -9,
+            [
+                ("Team license", 5),
+                ("Remote training day", 2),
+                ("Annual support plan", 1),
+            ],
+        ),
+        (
+            "Northwind store rollout",
+            "accepted",
+            -8,
+            [
+                ("Data migration", 2),
+                ("Annual support plan", 1),
+                ("Onsite training day", 5),
+            ],
+        ),
+        (
+            "Cobalt records migration",
+            "sent",
+            -6,
+            [
+                ("Data migration", 2, "Historic case records, in two passes."),
+                ("Implementation package", 1),
+                ("Custom report", 1),
+            ],
+        ),
+        (
+            "Delta renewal",
+            "draft",
+            -2,
+            [("Annual support plan", 2), ("Priority support", 1)],
+        ),
+        (
+            "Oakline order portal",
+            "draft",
+            -1,
+            [
+                ("Implementation package", 1),
+                ("Data migration", 1),
+                ("Onsite training day", 1),
+            ],
+        ),
+    ]
+    settings = _settings_row()
+    prefix = settings["quote_prefix"] or ""
+    numbered = sorted(rows, key=lambda row: row[2])
+    return [
+        {
+            "number": f"{prefix}{index:0{documents.DIGITS}d}",
+            "deal_id": deal_ids[deal],
+            "status": status,
+            "created_at": _days(offset),
+            "valid_until": _days(offset + 30),
+            # A draft reads its tax from the settings; the rest kept the tax
+            # they were sent with.
+            "tax_label": None if status == "draft" else settings["tax_label"],
+            "tax_rate_thousandths": (
+                None if status == "draft" else settings["tax_rate_thousandths"]
+            ),
+            "lines": lines,
+        }
+        for index, (deal, status, offset, lines) in enumerate(numbered, start=1)
+    ]
+
+
+def _quote_lines(lines: list[tuple], product_ids: dict[str, int]) -> list[dict]:
+    """One quote's lines, taking each product's name and price as they stand."""
+    catalog = {row["name"]: row for row in _products()}
+    rows = []
+    for position, line in enumerate(lines):
+        name, quantity, *description = line
+        product = catalog[name]
+        rows.append(
+            {
+                "product_id": product_ids[name],
+                "product_name": product["name"],
+                "description": (
+                    description[0] if description else product["description"]
+                ),
+                "quantity": quantity,
+                "unit_price_cents": product["price_cents"],
+                "position": position,
+            }
+        )
+    return rows
+
+
+def _bills(org_ids: dict[str, int]) -> list[dict]:
+    """A year of supplier bills: a monthly bill from each of the three
+    suppliers, a few large one-offs, most paid with their paid days spread
+    across the twelve months so every month of the spending chart has bars,
+    a few waiting unpaid and a few overdue. Every category is used.
+    """
+    today = date.today()
+    starts = month_buckets.last_month_starts(today)
+    rows: list[dict] = []
+
+    def bill(
+        supplier,
+        number,
+        bill_date,
+        category,
+        amount_cents,
+        tax_cents,
+        notes,
+        paid_date=None,
+    ):
+        rows.append(
+            {
+                "organization_id": org_ids[supplier],
+                "bill_number": number,
+                "bill_date": bill_date,
+                "due_date": bill_date + timedelta(days=30),
+                "category": category,
+                "amount_cents": amount_cents,
+                "tax_cents": tax_cents,
+                "total_cents": amount_cents + tax_cents,
+                "notes": notes,
+                "paid_date": paid_date,
+            }
+        )
+
+    for start in starts:
+        year, month = start.year, start.month
+        billed = min(start + timedelta(days=2), today)
+        bill(
+            "Vantage Software",
+            f"VS-{year}-{month:02d}",
+            billed,
+            "Software",
+            24_900,
+            1_992,
+            "Monthly platform subscription.",
+            paid_date=min(start + timedelta(days=6), today),
+        )
+        bill(
+            "Riverview Property",
+            f"RP-{year}-{month:02d}",
+            min(start + timedelta(days=1), today),
+            "Office",
+            85_000,
+            6_800,
+            "Office rent.",
+            paid_date=min(start + timedelta(days=4), today),
+        )
+        # Every retainer but this month's is paid; the current one waits.
+        bill(
+            "Cedar Contractors",
+            f"CC-{year}-{month:02d}",
+            billed,
+            "Contractors",
+            60_000,
+            4_800,
+            "Monthly support retainer.",
+            paid_date=(
+                None if start == starts[-1] else min(start + timedelta(days=8), today)
+            ),
+        )
+
+    def one_off(
+        supplier,
+        number,
+        months_back,
+        billed_day,
+        paid_day,
+        category,
+        amount,
+        tax,
+        notes,
+    ):
+        start = starts[len(starts) - 1 - months_back]
+        bill(
+            supplier,
+            number,
+            start + timedelta(days=billed_day),
+            category,
+            amount,
+            tax,
+            notes,
+            paid_date=start + timedelta(days=paid_day),
+        )
+
+    # The occasional large one-off, each paid in its own month.
+    one_off(
+        "Vantage Software",
+        f"VS-{starts[3].year}-LIC",
+        8,
+        10,
+        15,
+        "Software",
+        2_400_000,
+        192_000,
+        "Annual platform license.",
+    )
+    one_off(
+        "Cedar Contractors",
+        f"CC-{starts[6].year}-FIT",
+        5,
+        12,
+        18,
+        "Contractors",
+        1_250_000,
+        100_000,
+        "Warehouse fit-out.",
+    )
+    one_off(
+        "Riverview Property",
+        f"RP-{starts[8].year}-HVAC",
+        3,
+        9,
+        14,
+        "Office",
+        640_000,
+        51_200,
+        "Air conditioning replacement.",
+    )
+    one_off(
+        "Cedar Contractors",
+        f"CC-{starts[4].year}-EXPO",
+        7,
+        11,
+        16,
+        "Marketing",
+        95_000,
+        7_600,
+        "Expo stand materials.",
+    )
+    one_off(
+        "Cedar Contractors",
+        f"CC-{starts[9].year}-TRIP",
+        2,
+        8,
+        13,
+        "Travel",
+        64_000,
+        5_120,
+        "Site survey travel.",
+    )
+    one_off(
+        "Riverview Property",
+        f"RP-{starts[2].year}-FEE",
+        9,
+        7,
+        12,
+        "Other",
+        55_000,
+        4_400,
+        "Building service charge.",
+    )
+
+    # Bills still waiting: some due within the month, a few overdue.
+    bill(
+        "Vantage Software",
+        f"VS-{_days(-12).year}-SEATS",
+        _days(-12),
+        "Software",
+        32_000,
+        2_560,
+        "Extra seats for the support team.",
+    )
+    bill(
+        "Cedar Contractors",
+        f"CC-{_days(-5).year}-TRV",
+        _days(-5),
+        "Travel",
+        128_000,
+        10_240,
+        "Site visit travel.",
+    )
+    bill(
+        "Cedar Contractors",
+        f"CC-{_days(-75).year}-SHOW",
+        _days(-75),
+        "Marketing",
+        95_000,
+        7_600,
+        "Trade show stand.",
+    )
+    bill(
+        "Riverview Property",
+        f"RP-{_days(-60).year}-INS",
+        _days(-60),
+        "Other",
+        48_000,
+        3_840,
+        "Building insurance.",
+    )
+    bill(
+        "Riverview Property",
+        f"RP-{_days(-40).year}-LIFT",
+        _days(-40),
+        "Office",
+        22_000,
+        1_760,
+        "Lift maintenance.",
+    )
+    return rows
+
+
 def _clear(engine: Engine) -> None:
     with engine.begin() as conn:
         for table in reversed(db.metadata.sorted_tables):
@@ -1181,8 +1575,22 @@ def seed(engine: Engine) -> None:
         for row in _activities(contact_ids, deal_ids):
             insert_sample(db.activities, row)
         conn.execute(db.company_settings.insert().values(**_settings_row()))
-        for row in _products():
-            insert_sample(db.products, row)
+        product_ids = {
+            row["name"]: insert_sample(db.products, row) for row in _products()
+        }
+        quotes = _quotes(deal_ids)
+        for quote in quotes:
+            lines = quote.pop("lines")
+            quote_id = insert_sample(db.quotes, quote)
+            for line in _quote_lines(lines, product_ids):
+                _insert(conn, db.quote_lines, {"quote_id": quote_id, **line})
+        # The counter sits at the sample's last number, so the next real quote
+        # continues the sequence instead of colliding with it.
+        conn.execute(
+            db.number_counters.insert().values(kind="quote", last_number=len(quotes))
+        )
+        for row in _bills(org_ids):
+            insert_sample(db.bills, row)
         _invoices(conn, offset)
 
 

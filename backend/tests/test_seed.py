@@ -30,6 +30,9 @@ def _counts(engine) -> dict[str, int]:
                 db.invoices,
                 db.invoice_lines,
                 db.payments,
+                db.quotes,
+                db.quote_lines,
+                db.bills,
             )
         }
 
@@ -43,10 +46,13 @@ def test_schema_has_the_tables(engine):
         "activities",
         "company_settings",
         "products",
+        "bills",
         "number_counters",
         "invoices",
         "invoice_lines",
         "payments",
+        "quotes",
+        "quote_lines",
     }
 
 
@@ -126,6 +132,21 @@ def test_schema_fields_match_the_data_model(engine):
         "created_by",
         "updated_by",
     ]
+    assert [column["name"] for column in columns("bills")] == [
+        "id",
+        "organization_id",
+        "bill_number",
+        "bill_date",
+        "due_date",
+        "category",
+        "amount_cents",
+        "tax_cents",
+        "total_cents",
+        "notes",
+        "paid_date",
+        "created_by",
+        "updated_by",
+    ]
     assert [column["name"] for column in columns("number_counters")] == [
         "id",
         "kind",
@@ -155,6 +176,28 @@ def test_schema_fields_match_the_data_model(engine):
         "id",
         "invoice_id",
         "product_id",
+        "description",
+        "quantity",
+        "unit_price_cents",
+        "position",
+    ]
+    assert [column["name"] for column in columns("quotes")] == [
+        "id",
+        "number",
+        "deal_id",
+        "status",
+        "created_at",
+        "valid_until",
+        "tax_label",
+        "tax_rate_thousandths",
+        "created_by",
+        "updated_by",
+    ]
+    assert [column["name"] for column in columns("quote_lines")] == [
+        "id",
+        "quote_id",
+        "product_id",
+        "product_name",
         "description",
         "quantity",
         "unit_price_cents",
@@ -261,7 +304,7 @@ def test_sample_data_has_a_year_of_won_deals_and_work_in_proposal_and_negotiatio
         deals = conn.execute(select(func.count()).select_from(db.deals)).scalar_one()
 
     assert (won, working) == (12, 8)
-    assert (organizations, contacts, deals) == (18, 24, 30)
+    assert (organizations, contacts, deals) == (21, 24, 30)
 
 
 def test_sample_data_covers_every_contact_status(engine):
@@ -319,6 +362,166 @@ def test_sample_data_has_a_dozen_products_with_two_archived(engine):
     assert prices["Onsite training day"] == 120_000
 
 
+def _quotes(engine) -> list[dict]:
+    with engine.connect() as conn:
+        return [dict(row) for row in conn.execute(select(db.quotes)).mappings()]
+
+
+def _lines_of(engine) -> dict[int, list[dict]]:
+    with engine.connect() as conn:
+        rows = [
+            dict(row)
+            for row in conn.execute(
+                select(db.quote_lines).order_by(
+                    db.quote_lines.c.quote_id, db.quote_lines.c.position
+                )
+            ).mappings()
+        ]
+    grouped: dict[int, list[dict]] = {}
+    for row in rows:
+        grouped.setdefault(row["quote_id"], []).append(row)
+    return grouped
+
+
+def test_the_sample_quotes_cover_the_open_deals_with_every_state(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+    quotes = _quotes(engine)
+    with engine.connect() as conn:
+        open_deals = (
+            conn.execute(
+                select(db.deals.c.id).where(
+                    db.deals.c.stage.in_(["Proposal", "Negotiation"])
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    states = {"draft": 0, "sent": 0, "expired": 0, "declined": 0, "accepted": 0}
+    for quote in quotes:
+        if quote["status"] == "sent" and today > quote["valid_until"]:
+            states["expired"] += 1
+        else:
+            states[quote["status"]] += 1
+
+    assert len(quotes) == 12
+    assert states["draft"] >= 2
+    assert states["sent"] >= 2
+    assert 1 <= states["expired"] <= 2
+    assert states["declined"] >= 1
+    assert states["accepted"] >= 1
+    # Every open Proposal and Negotiation deal carries its quote.
+    assert {quote["deal_id"] for quote in quotes} >= set(open_deals)
+
+
+def test_an_accepted_quote_rounds_to_its_deals_value(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+    lines = _lines_of(engine)
+    with engine.connect() as conn:
+        deals = {
+            row["id"]: dict(row) for row in conn.execute(select(db.deals)).mappings()
+        }
+
+    accepted = {
+        quote["deal_id"]: quote
+        for quote in _quotes(engine)
+        if quote["status"] == "accepted"
+    }
+    # Every deal won in the last months carries its accepted quote...
+    recent_wins = [
+        deal
+        for deal in deals.values()
+        if deal["stage"] == "Won" and deal["close_date"] >= today - timedelta(days=92)
+    ]
+    assert recent_wins
+    assert {deal["id"] for deal in recent_wins} <= set(accepted)
+
+    # ...and every accepted quote's subtotal before tax rounds to its deal's value.
+    for deal_id, quote in accepted.items():
+        subtotal = sum(
+            line["quantity"] * line["unit_price_cents"] for line in lines[quote["id"]]
+        )
+        assert ((subtotal + 50) // 100) * 100 == deals[deal_id]["value_cents"]
+
+
+def test_the_sample_quotes_are_numbered_in_order_with_the_counter_at_the_last(engine):
+    seed.ensure_seeded(engine)
+    with engine.connect() as conn:
+        numbers = (
+            conn.execute(select(db.quotes.c.number).order_by(db.quotes.c.id))
+            .scalars()
+            .all()
+        )
+        counter = conn.execute(
+            select(db.number_counters.c.last_number).where(
+                db.number_counters.c.kind == "quote"
+            )
+        ).scalar_one()
+
+    assert numbers == [f"QT-{index:04d}" for index in range(1, 13)]
+    assert counter == len(numbers)
+
+
+def test_three_supplier_organizations_come_with_bills(engine):
+    seed.ensure_seeded(engine)
+    with engine.connect() as conn:
+        counts = dict(
+            conn.execute(
+                select(db.organizations.c.name, func.count(db.bills.c.id))
+                .select_from(
+                    db.bills.join(
+                        db.organizations,
+                        db.bills.c.organization_id == db.organizations.c.id,
+                    )
+                )
+                .group_by(db.organizations.c.name)
+            ).all()
+        )
+
+    assert set(counts) == {
+        "Vantage Software",
+        "Cedar Contractors",
+        "Riverview Property",
+    }
+    assert all(count > 0 for count in counts.values())
+
+
+def test_sample_bills_cover_every_month_category_and_status(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+    with engine.connect() as conn:
+        bills = conn.execute(select(db.bills)).mappings().all()
+
+    assert bills
+    assert {bill["category"] for bill in bills} == {
+        "Software",
+        "Contractors",
+        "Travel",
+        "Office",
+        "Marketing",
+        "Other",
+    }
+
+    unpaid = [bill for bill in bills if bill["paid_date"] is None]
+    assert any(bill["due_date"] < today for bill in unpaid)  # overdue bills
+    assert any(
+        today <= bill["due_date"] <= today + timedelta(days=30) for bill in unpaid
+    )
+
+    # Every one of the last twelve months has paid bills, so every month of
+    # the spending chart has bars.
+    paid_months = {
+        f"{bill['paid_date'].year}-{bill['paid_date'].month:02d}"
+        for bill in bills
+        if bill["paid_date"] is not None
+    }
+    assert {
+        start.strftime("%Y-%m") for start in month_buckets.last_month_starts(today)
+    } <= paid_months
+
+
 def test_activities_link_to_exactly_one_record(engine):
     seed.ensure_seeded(engine)
     with engine.connect() as conn:
@@ -342,6 +545,7 @@ def _attribution(engine) -> list[tuple]:
             db.activities,
             db.products,
             db.invoices,
+            db.bills,
         ):
             rows += connection.execute(
                 select(table.c.created_by, table.c.updated_by)
@@ -456,6 +660,7 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
         activities = client.get("/api/activities").json()
         settings = client.get("/api/settings").json()
         products = client.get("/api/products").json()
+        bills = client.get("/api/bills").json()
 
     assert organizations and {"id", "name", "website", "industry", "notes"} <= set(
         organizations[0]
@@ -481,6 +686,12 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
         "active",
     } <= set(products[0])
     assert len(products) == 10
+    assert bills and {
+        "bill_number",
+        "organization_name",
+        "total_cents",
+        "status",
+    } <= set(bills[0])
 
     assert isinstance(activities[0]["happened_at"], str)
     assert isinstance(deals[0]["close_date"], str)

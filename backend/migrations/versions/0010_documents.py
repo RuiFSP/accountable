@@ -5,16 +5,16 @@ Classic design, the Midnight accent and no logo (company-settings decision 18),
 which the columns' defaults give every existing row. Nothing else is written:
 the sample row belongs to the seed.
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0010
+Revises: 0009
 Create Date: 2026-11-26
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0008"
-down_revision = "0007"
+revision = "0010"
+down_revision = "0009"
 branch_labels = None
 depends_on = None
 

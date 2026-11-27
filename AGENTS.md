@@ -22,6 +22,11 @@ A count or coverage figure written into `docs/` — test totals, coverage percen
 
 - Give every time column one convention and say which it is: `happened_at` holds local wall-clock time, `company_settings.updated_at` holds UTC. A UTC moment goes into a `DateTime(timezone=True)` column, or into a naive column as `datetime.now(UTC).replace(tzinfo=None)`; an aware value written to a naive column is converted against the database session's timezone on Postgres and silently loses its offset on SQLite.
 - A test that checks a date uses the clock the value was made from: compare a UTC moment with `datetime.now(UTC).date()`, never `date.today()`, or the test flips whenever the machine's local date differs from the UTC date.
+- A date the server stamps and the page shows comes from one clock: the request carries the page's day (the way `api.bills.markPaid` takes `day`) rather than leaving the server to use its own `date.today()`. Render runs UTC, so an evening click in the Americas and the server's "today" are different days — bills' Mark paid stored tomorrow until review caught it.
+
+## Every write settles on the server's copy
+
+After a successful write, invalidate every query key its result changes — the record's list, the panels that show it, the dashboard — so the refetch puts what the server stored on the screen. Firing the request and dropping the reply leaves the row on the optimistic value and `updated_by` stale; the reply is the only proof of what was stored. This has broken twice: the deal update that left `["activities"]` unrefreshed, so the delete dialog listed one activity fewer than the server held (2026-11-14), and bills' Mark paid and Mark unpaid, which refreshed nothing (2026-11-27).
 
 ## Spec before plan
 
@@ -46,4 +51,5 @@ A route's query string can change while the page stays mounted, including naviga
 - The e2e run starts its own API and Vite servers, on ports no other test run is using, and a temporary database of its own (`scripts/e2e.mjs` and `playwright.config.ts`), so a running `npm run dev` is not in its way. Never edit data by hand to make a test pass.
 - For every write, test the path where nothing changes as well as the path where a value changes: a no-op save still leaves the screen showing what the server stored.
 - Walk a dialog's refusal through the page that opens and closes it, not through the form alone: the form's tests mock `onSave` and `onIssue`, so they cannot see a dialog closed at the wrong moment. The server refuses, the dialog is still open and the message is on it — that assertion is the test. The invoices change's refused issue was invisible to `InvoiceForm.test.tsx` and caught only by the review.
+- Test the shape that can break the rule, not the shape that runs: a count needs two things to count, a refusal needs the same record twice rather than a second different one, and a layout needs past one screenful. The quotes review found all three with every gate green — one quote on a deal proved `This deal has 1 quote`, one line of an archived product never tried a second line of it, and a three-line PDF never reached a page break.
 - Test runs in separate worktrees can share this computer, with nothing to set: each takes a port slot and database of its own. No more than two go at once; the rest wait for a turn and print why, with how many runs are ahead. Let a waiting run wait rather than stopping it, and start `npm run check` with a generous timeout or in the background, because the wait can outlast a short one.

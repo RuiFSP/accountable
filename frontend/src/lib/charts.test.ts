@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { DashboardPayload } from "../api/client";
+import { BILL_CATEGORIES, CATEGORY_COLORS } from "./bills";
 import {
   agingRows,
   chartMonths,
@@ -8,6 +9,7 @@ import {
   monthLabel,
   monthYearLabel,
   paymentMonths,
+  spendingBars,
 } from "./charts";
 
 const twelveMonths = [
@@ -170,5 +172,77 @@ describe("agingRows", () => {
     });
 
     expect(empty.every((row) => row.share === 0)).toBe(true);
+  });
+});
+
+function month(
+  key: string,
+  entries: Partial<Record<string, number>> = {},
+): DashboardPayload["payables"]["spending"][number] {
+  const categories = Object.fromEntries(
+    BILL_CATEGORIES.map((category) => [category, entries[category] ?? 0]),
+  ) as DashboardPayload["payables"]["spending"][number]["categories"];
+  return { month: key, categories };
+}
+
+const spending: DashboardPayload["payables"]["spending"] = [
+  month("2025-07"),
+  month("2025-08", { Software: 12_000 }),
+  month("2025-09"),
+  month("2025-10"),
+  month("2025-11"),
+  month("2025-12"),
+  month("2026-01", { Software: 24_000, Contractors: 6_000 }),
+  month("2026-02"),
+  month("2026-03"),
+  month("2026-04"),
+  month("2026-05"),
+  month("2026-06"),
+];
+
+describe("spendingBars", () => {
+  it("builds the 12 months and keeps the zero ones", () => {
+    const bars = spendingBars(spending);
+
+    expect(bars).toHaveLength(12);
+    expect(bars.map((bar) => bar.month)).toEqual(
+      spending.map((row) => row.month),
+    );
+    expect(bars[0].label).toBe("Jul");
+    const zero = bars.find((bar) => bar.month === "2025-09");
+    expect(zero?.totalCents).toBe(0);
+  });
+
+  it("splits a month by category, each in its color", () => {
+    const bars = spendingBars(spending);
+    const split = bars.find((bar) => bar.month === "2026-01");
+
+    expect(split?.totalCents).toBe(30_000);
+    expect(split?.segments.map((segment) => segment.category)).toEqual(
+      BILL_CATEGORIES,
+    );
+    expect(split?.segments.map((segment) => segment.cents)).toEqual([
+      24_000, 6_000, 0, 0, 0, 0,
+    ]);
+    expect(split?.segments.map((segment) => segment.color)).toEqual(
+      BILL_CATEGORIES.map((category) => CATEGORY_COLORS[category]),
+    );
+  });
+
+  it("sizes segments against the tallest month", () => {
+    const bars = spendingBars(spending);
+    const split = bars.find((bar) => bar.month === "2026-01");
+
+    expect(split?.segments[0].share).toBeCloseTo(0.8, 5);
+    expect(split?.segments[1].share).toBeCloseTo(0.2, 5);
+  });
+
+  it("never divides by zero when every month is empty", () => {
+    const empty = spending.map((row) => month(row.month));
+    expect(
+      spendingBars(empty).every((bar) =>
+        bar.segments.every((segment) => segment.share === 0),
+      ),
+    ).toBe(true);
   });
 });

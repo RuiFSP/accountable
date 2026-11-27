@@ -6,7 +6,7 @@ import type {
   InvoiceLineInput,
   Product,
 } from "../api/client";
-import { formatDate, todayIso } from "../lib/dates";
+import { formatDate, isoToday } from "../lib/dates";
 import { formatUsdWithCents, parseUsdToCents } from "../lib/money";
 import {
   AMOUNT_MESSAGE,
@@ -135,7 +135,7 @@ export default function InvoiceForm({
   const [lines, setLines] = useState<DraftLine[]>(() =>
     draftFrom(invoice, deal),
   );
-  const [issueDate, setIssueDate] = useState(todayIso);
+  const [issueDate, setIssueDate] = useState(isoToday);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);

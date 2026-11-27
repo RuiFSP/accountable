@@ -2,6 +2,11 @@ import { expect } from "@playwright/test";
 
 import { resetSampleData, signIn, test } from "./helpers";
 
+// One run of the real `npm run seed` takes 16-22s on this machine, and the
+// seed test runs it twice inside one test, so the default 30s cannot hold it —
+// the same 90s the other seed-running specs (products, quotes) give theirs.
+test.describe.configure({ timeout: 90_000 });
+
 test.beforeAll(() => {
   resetSampleData();
 });
@@ -144,31 +149,51 @@ test("confirming the delete removes the record and everything linked to it", asy
   page,
   request,
 }) => {
-  await page.goto("/organizations");
-  await page.getByRole("searchbox").fill("Quarry");
+  // An activity on one of Bluebird's deals, so the cascade has all three kinds.
+  await page.goto("/deals");
+  await page.getByRole("searchbox").fill("Bluebird content retainer");
   await page
-    .locator("tbody tr", { hasText: "Quarry Stone" })
+    .locator("tbody tr", { hasText: "Bluebird content retainer" })
+    .getByRole("button", { name: "View" })
+    .click();
+  await page.waitForURL(/\/deals\/\d+/);
+  await page.getByRole("button", { name: "Log activity" }).click();
+  const activityModal = page.getByRole("dialog", { name: "Log activity" });
+  await activityModal
+    .getByLabel("Description")
+    .fill("Kickoff call for Bluebird retainer");
+  await activityModal.getByRole("button", { name: "Log", exact: true }).click();
+  await expect(
+    page.locator(".timeline-item", {
+      hasText: "Kickoff call for Bluebird retainer",
+    }),
+  ).toBeVisible();
+
+  await page.goto("/organizations");
+  await page.getByRole("searchbox").fill("Bluebird");
+  await page
+    .locator("tbody tr", { hasText: "Bluebird Media" })
     .getByRole("button", { name: "Delete" })
     .click();
   const dialog = page.getByRole("alertdialog", {
-    name: "Delete Quarry Stone?",
+    name: "Delete Bluebird Media?",
   });
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("No matches.")).toBeVisible();
 
   await page.goto("/contacts");
-  await page.getByRole("searchbox").fill("riley");
+  await page.getByRole("searchbox").fill("Chloe");
   await expect(page.getByText("No matches.")).toBeVisible();
 
   await page.goto("/deals");
-  await page.getByRole("searchbox").fill("Granite pilot");
+  await page.getByRole("searchbox").fill("Bluebird");
   await expect(page.getByText("No matches.")).toBeVisible();
 
   const activities = (await (await request.get("/api/activities")).json()) as {
     description: string;
   }[];
   expect(activities.map((activity) => activity.description)).not.toContain(
-    "Kickoff call for Granite pilot",
+    "Kickoff call for Bluebird retainer",
   );
 });
 
@@ -176,7 +201,9 @@ test("npm run seed with confirmation brings back the sample data", async ({
   page,
   request,
 }) => {
-  // Two full resets in one test: the command takes about twenty seconds each.
+  // This one test runs the real seed command twice: a seed takes 16-22
+  // seconds on this computer, so two of them plus the page work exceed the
+  // default 30 seconds, and the suite runs alongside the other unit tests.
   test.setTimeout(90_000);
   resetSampleData();
   const organizations = (await (
@@ -184,12 +211,14 @@ test("npm run seed with confirmation brings back the sample data", async ({
   ).json()) as unknown[];
 
   await page.goto("/organizations");
+  // An organization no quote holds, so the delete goes through: a quote holds
+  // its deal and the deals of its organization (docs/specs/tables.md 11).
   await page
-    .locator("tbody tr", { hasText: "Pinecrest Schools" })
+    .locator("tbody tr", { hasText: "Bluebird Media" })
     .getByRole("button", { name: "Delete" })
     .click();
   await page
-    .getByRole("alertdialog", { name: "Delete Pinecrest Schools?" })
+    .getByRole("alertdialog", { name: "Delete Bluebird Media?" })
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(page.locator("tbody tr")).toHaveCount(organizations.length - 1);
@@ -199,7 +228,7 @@ test("npm run seed with confirmation brings back the sample data", async ({
   await page.reload();
   await expect(page.locator("tbody tr")).toHaveCount(organizations.length);
   await expect(
-    page.locator("tbody tr", { hasText: "Pinecrest Schools" }),
+    page.locator("tbody tr", { hasText: "Bluebird Media" }),
   ).toBeVisible();
 });
 

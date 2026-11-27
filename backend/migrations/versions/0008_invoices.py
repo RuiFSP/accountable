@@ -8,16 +8,16 @@ sample invoices belong to the seed.
 On Postgres, the tables get row-level security with no policies, like every
 other table.
 
-Revision ID: 0006
-Revises: 0005
+Revision ID: 0008
+Revises: 0007
 Create Date: 2026-11-26
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0006"
-down_revision = "0005"
+revision = "0008"
+down_revision = "0007"
 branch_labels = None
 depends_on = None
 

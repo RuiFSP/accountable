@@ -25,7 +25,7 @@ import InvoicePreview, {
 } from "../../components/InvoicePreview";
 import Modal from "../../components/Modal";
 import StatusBadge from "../../components/StatusBadge";
-import { formatDate, todayIso } from "../../lib/dates";
+import { formatDate, isoToday } from "../../lib/dates";
 import {
   PAYMENT_METHODS,
   paymentMethodLabel,
@@ -218,7 +218,7 @@ function PaymentDialog({ invoice, onRecord, onCancel }: PaymentDialogProps) {
   const [amount, setAmount] = useState(
     formatUsdWithCents(invoice.balance_cents ?? 0),
   );
-  const [paidOn, setPaidOn] = useState(todayIso);
+  const [paidOn, setPaidOn] = useState(isoToday);
   const [method, setMethod] = useState<PaymentMethod>("bank_transfer");
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -266,7 +266,7 @@ function PaymentDialog({ invoice, onRecord, onCancel }: PaymentDialogProps) {
             <input
               type="date"
               required
-              max={todayIso()}
+              max={isoToday()}
               value={paidOn}
               onChange={(event) => setPaidOn(event.target.value)}
             />

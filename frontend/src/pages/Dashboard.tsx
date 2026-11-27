@@ -13,10 +13,18 @@ import {
   YAxis,
 } from "recharts";
 
-import { api, type Activity, type ActivityCreateType } from "../api/client";
-import type { DashboardPayload } from "../api/client";
+import {
+  api,
+  type Activity,
+  type ActivityCreateType,
+  type DashboardPayload,
+  type DueBillRow,
+  type Payables,
+  type SpendingMonth,
+} from "../api/client";
 import KpiCard from "../components/KpiCard";
 import { ACTIVITY_COLORS } from "../lib/activity";
+import { BILL_CATEGORIES, CATEGORY_COLORS } from "../lib/bills";
 import {
   AXIS_TICK,
   TOOLTIP_STYLE,
@@ -25,106 +33,217 @@ import {
   funnelBars,
   monthYearLabel,
   paymentMonths,
+  spendingBars,
 } from "../lib/charts";
 import { formatDue, formatWhen, isOverdue } from "../lib/dates";
 import { formatUsd, formatUsdCompact } from "../lib/money";
 import { STAGE_META } from "../lib/pipeline";
 
+function billCount(count: number): string {
+  return `${count} ${count === 1 ? "bill" : "bills"}`;
+}
+
+/** The bills due in the next 30 days, soonest first. */
+function DueTimeline({ rows }: { rows: DueBillRow[] }) {
+  return (
+    <section className="panel">
+      <h2>Bills due soon</h2>
+      <p className="panel-sub muted">
+        Unpaid bills due in the next 30 days, soonest first
+      </p>
+      {rows.length === 0 ? (
+        <p className="muted">Nothing is due in the next 30 days.</p>
+      ) : (
+        <ul className="link-list">
+          {rows.map((row, index) => (
+            <li key={`${row.supplier}-${row.due_date}-${index}`}>
+              <span>{row.supplier}</span>
+              <span className="muted">{formatDue(row.due_date)}</span>
+              <span className="num">{formatUsd(row.total_cents)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** One stacked bar per month, one segment per category in its color. */
+function SpendingChart({ spending }: { spending: SpendingMonth[] }) {
+  const bars = spendingBars(spending);
+  return (
+    <section className="panel">
+      <h2>Spending by category</h2>
+      <p className="panel-sub muted">
+        Paid bills, counted in the month they were paid
+      </p>
+      <div className="spending-bars">
+        {bars.map((bar) => (
+          <div key={bar.month} className="spending-bar">
+            <div className="spending-stack">
+              {bar.segments.map((segment) => (
+                <div
+                  key={segment.category}
+                  className="spending-segment"
+                  data-category={segment.category}
+                  style={{
+                    height: `${segment.share * 100}%`,
+                    background: segment.color,
+                  }}
+                />
+              ))}
+            </div>
+            <span className="spending-label">{bar.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="spending-legend">
+        {BILL_CATEGORIES.map((category) => (
+          <span key={category} className="legend-item">
+            <span
+              className="chip-dot"
+              style={{ background: CATEGORY_COLORS[category] }}
+              aria-hidden="true"
+            />
+            {category}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /**
- * The Money section: the two figures lead, the five aging buckets sit as bars
- * and the payments arrive on the same 12 months every other chart uses.
+ * The Money section: what customers owe, the aging as bars and the payments
+ * received, then what the business owes its suppliers and its spending.
  */
-function MoneySection({ money }: { money: DashboardPayload["money"] }) {
+function MoneySection({
+  money,
+  payables,
+}: {
+  money: DashboardPayload["money"];
+  payables: Payables;
+}) {
   const aging = agingRows(money);
   const payments = paymentMonths(money);
   return (
-    <div className="money-section">
+    <section className="money-section">
       <h2 className="money-title">Money</h2>
-      <div className="money-kpis">
-        <KpiCard
-          label="Owed by customers"
-          value={formatUsd(money.owed_cents)}
-          note="Issued invoices; drafts and void left out"
-        />
-        <KpiCard
-          label="Overdue"
-          value={formatUsd(money.overdue_cents)}
-          note="Still owed after the due date"
-          danger={money.overdue_cents > 0}
-        />
-      </div>
 
-      <div className="money-charts">
-        <section className="panel">
-          <h2>How late the money is</h2>
-          <p className="panel-sub muted">
-            Days past the due date, in five buckets
-          </p>
-          {aging.map((row, index) => (
-            <div key={row.bucket} className="aging-row">
-              <span className="aging-label">{row.bucket}</span>
-              <div className="aging-track">
-                <div
-                  className="aging-fill"
-                  style={{
-                    width: `${Math.round(row.share * 100)}%`,
-                    background:
-                      index === 0
-                        ? "var(--color-cerulean)"
-                        : "var(--color-raspberry)",
-                  }}
-                />
+      <div className="money-group money-customers">
+        <h3 className="money-group-title">What customers owe</h3>
+        <div className="money-kpis money-kpis-two">
+          <KpiCard
+            label="Owed by customers"
+            value={formatUsd(money.owed_cents)}
+            note="Issued invoices; drafts and void left out"
+          />
+          <KpiCard
+            label="Overdue"
+            value={formatUsd(money.overdue_cents)}
+            note="Still owed after the due date"
+            danger={money.overdue_cents > 0}
+          />
+        </div>
+
+        <div className="money-charts">
+          <section className="panel">
+            <h2>How late the money is</h2>
+            <p className="panel-sub muted">
+              Days past the due date, in five buckets
+            </p>
+            {aging.map((row, index) => (
+              <div key={row.bucket} className="aging-row">
+                <span className="aging-label">{row.bucket}</span>
+                <div className="aging-track">
+                  <div
+                    className="aging-fill"
+                    style={{
+                      width: `${Math.round(row.share * 100)}%`,
+                      background:
+                        index === 0
+                          ? "var(--color-cerulean)"
+                          : "var(--color-raspberry)",
+                    }}
+                  />
+                </div>
+                <span className="aging-value num">{formatUsd(row.cents)}</span>
               </div>
-              <span className="aging-value num">{formatUsd(row.cents)}</span>
-            </div>
-          ))}
-        </section>
+            ))}
+          </section>
 
-        <section className="panel">
-          <h2>Payments received</h2>
-          <p className="panel-sub muted">
-            Last 12 months, by the day each payment arrived
-          </p>
-          <div className="chart-box">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={payments}
-                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid stroke="var(--color-grid)" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={AXIS_TICK}
-                  interval={0}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  width={52}
-                  tick={AXIS_TICK}
-                  tickFormatter={(value: number | string) =>
-                    formatUsdCompact(Number(value))
-                  }
-                />
-                <Tooltip
-                  formatter={(value) => formatUsd(Number(value))}
-                  contentStyle={TOOLTIP_STYLE}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="cents"
-                  stroke="var(--color-sea-green)"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: "var(--color-sea-green)" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+          <section className="panel">
+            <h2>Payments received</h2>
+            <p className="panel-sub muted">
+              Last 12 months, by the day each payment arrived
+            </p>
+            <div className="chart-box">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={payments}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid stroke="var(--color-grid)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={AXIS_TICK}
+                    interval={0}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={52}
+                    tick={AXIS_TICK}
+                    tickFormatter={(value: number | string) =>
+                      formatUsdCompact(Number(value))
+                    }
+                  />
+                  <Tooltip
+                    formatter={(value) => formatUsd(Number(value))}
+                    contentStyle={TOOLTIP_STYLE}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cents"
+                    stroke="var(--color-sea-green)"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: "var(--color-sea-green)" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </div>
       </div>
-    </div>
+
+      <div className="money-group money-suppliers">
+        <h3 className="money-group-title">What we owe suppliers</h3>
+        <div className="money-kpis money-kpis-three">
+          <KpiCard
+            label="Bills to pay"
+            value={formatUsd(payables.unpaid.total_cents)}
+            note={billCount(payables.unpaid.count)}
+          />
+          <KpiCard
+            label="Overdue"
+            value={formatUsd(payables.overdue.total_cents)}
+            note={billCount(payables.overdue.count)}
+            danger={payables.overdue.count > 0}
+          />
+          <KpiCard
+            label="Due in the next 30 days"
+            value={formatUsd(payables.due_soon.total_cents)}
+            note={billCount(payables.due_soon.count)}
+          />
+        </div>
+        <div className="money-panels">
+          <DueTimeline rows={payables.due_soon.rows} />
+          <SpendingChart spending={payables.spending} />
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -382,7 +501,7 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <MoneySection money={payload.money} />
+          <MoneySection money={payload.money} payables={payload.payables} />
 
           <div className="dashboard-lower">
             <section className="panel">

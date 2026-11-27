@@ -176,6 +176,43 @@ const twelveMonths = [
   "2026-12",
 ];
 
+const payables: DashboardPayload["payables"] = {
+  unpaid: { total_cents: 415_800, count: 6 },
+  overdue: { total_cents: 178_200, count: 3 },
+  due_soon: {
+    total_cents: 120_000,
+    count: 3,
+    rows: [
+      {
+        supplier: "Cedar Contractors",
+        due_date: "2030-01-05",
+        total_cents: 64_800,
+      },
+      {
+        supplier: "Vantage Software",
+        due_date: "2030-01-15",
+        total_cents: 35_200,
+      },
+      {
+        supplier: "Riverview Property",
+        due_date: "2030-02-01",
+        total_cents: 20_000,
+      },
+    ],
+  },
+  spending: twelveMonths.map((month, index) => ({
+    month,
+    categories: {
+      Software: index === 3 ? 24_000 : 0,
+      Contractors: 6_000,
+      Travel: 0,
+      Office: 9_180,
+      Marketing: 0,
+      Other: 0,
+    },
+  })),
+};
+
 const payload: DashboardPayload = {
   won: {
     months: twelveMonths.map((month, index) => ({
@@ -231,6 +268,7 @@ const payload: DashboardPayload = {
     overdue_count: 1,
     open_count: 3,
   },
+  payables,
 };
 
 const emptyPayload: DashboardPayload = {
@@ -266,6 +304,12 @@ const emptyPayload: DashboardPayload = {
     upcoming: [],
     overdue_count: 0,
     open_count: 0,
+  },
+  payables: {
+    unpaid: { total_cents: 0, count: 0 },
+    overdue: { total_cents: 0, count: 0 },
+    due_soon: { total_cents: 0, count: 0, rows: [] },
+    spending: [],
   },
 };
 
@@ -376,10 +420,11 @@ describe("Dashboard page", () => {
       await screen.findByRole("heading", { name: "Money" })
     ).closest(".money-section") as HTMLElement;
     expect(money).toBeTruthy();
-    const owed = within(money)
+    const customers = money.querySelector(".money-customers") as HTMLElement;
+    const owed = within(customers)
       .getByText("Owed by customers")
       .closest("section") as HTMLElement;
-    const overdue = within(money)
+    const overdue = within(customers)
       .getByText("Overdue")
       .closest("section") as HTMLElement;
     expect(within(owed).getByText("$18,000")).toBeTruthy();
@@ -565,5 +610,123 @@ describe("Dashboard page", () => {
       await screen.findByRole("heading", { name: "Overdue" }),
     ).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Upcoming" })).toBeNull();
+  });
+
+  function moneySection(): HTMLElement {
+    const section = screen
+      .getByRole("heading", { name: "Money" })
+      .closest("section");
+    if (!section) {
+      throw new Error("No Money section found");
+    }
+    return section as HTMLElement;
+  }
+
+  it("sits the Money section below the sales charts", async () => {
+    renderDashboard();
+
+    await screen.findByRole("heading", { name: "Money" });
+    const money = moneySection();
+    for (const chart of [
+      panelSection("Revenue won per month"),
+      panelSection("Deals won per month"),
+    ]) {
+      expect(
+        chart.compareDocumentPosition(money) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("shows the three payables figures with their counts", async () => {
+    renderDashboard();
+
+    await screen.findByRole("heading", { name: "Money" });
+    const money = moneySection();
+    const suppliers = money.querySelector(".money-suppliers") as HTMLElement;
+    const figures: [string, string, string][] = [
+      ["Bills to pay", "$4,158", "6 bills"],
+      ["Overdue", "$1,782", "3 bills"],
+      ["Due in the next 30 days", "$1,200", "3 bills"],
+    ];
+    for (const [label, value, note] of figures) {
+      const kpi = within(suppliers).getByText(label).closest("section");
+      expect(kpi, label).toBeTruthy();
+      expect(within(kpi as HTMLElement).getByText(value), label).toBeTruthy();
+      expect(within(kpi as HTMLElement).getByText(note), label).toBeTruthy();
+    }
+  });
+
+  it("lists the bills due soon, soonest first", async () => {
+    renderDashboard();
+
+    await screen.findByRole("heading", { name: "Bills due soon" });
+    const rows = within(panelSection("Bills due soon")).getAllByRole(
+      "listitem",
+    );
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "Cedar ContractorsJan 5, 2030$648",
+      "Vantage SoftwareJan 15, 2030$352",
+      "Riverview PropertyFeb 1, 2030$200",
+    ]);
+  });
+
+  it("stacks one segment per category in the legend's six keys", async () => {
+    renderDashboard();
+
+    await screen.findByRole("heading", { name: "Spending by category" });
+    const chart = panelSection("Spending by category");
+    const legendKeys = Array.from(chart.querySelectorAll(".legend-item")).map(
+      (item) => item.textContent,
+    );
+    expect(legendKeys).toEqual([
+      "Software",
+      "Contractors",
+      "Travel",
+      "Office",
+      "Marketing",
+      "Other",
+    ]);
+
+    const bars = chart.querySelectorAll(".spending-bar");
+    expect(bars).toHaveLength(12);
+    for (const bar of bars) {
+      const keys = Array.from(bar.querySelectorAll(".spending-segment")).map(
+        (segment) => segment.getAttribute("data-category"),
+      );
+      expect(keys).toEqual(legendKeys);
+    }
+  });
+
+  it("says when nothing is due and moves the figures with the payload", async () => {
+    vi.mocked(api.dashboard.get).mockResolvedValue({
+      ...payload,
+      payables: {
+        unpaid: { total_cents: 100, count: 1 },
+        overdue: { total_cents: 0, count: 0 },
+        due_soon: { total_cents: 0, count: 0, rows: [] },
+        spending: payload.payables.spending,
+      },
+    });
+    renderDashboard();
+
+    expect(
+      await screen.findByText("Nothing is due in the next 30 days."),
+    ).toBeTruthy();
+    const money = moneySection();
+    const suppliers = money.querySelector(".money-suppliers") as HTMLElement;
+    expect(
+      within(suppliers).getByText("Bills to pay").closest("section")
+        ?.textContent,
+    ).toContain("$1");
+    expect(
+      within(suppliers).getByText("Bills to pay").closest("section")
+        ?.textContent,
+    ).toContain("1 bill");
+    expect(
+      within(suppliers)
+        .getByText("Overdue", { selector: ".kpi-label" })
+        .closest("section")?.textContent,
+    ).toContain("0 bills");
   });
 });

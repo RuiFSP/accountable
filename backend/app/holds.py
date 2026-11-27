@@ -44,22 +44,27 @@ def holding(
 ) -> dict[str, int]:
     """How many records of each kind hold any of these records.
 
-    A document that holds both an organization and one of its deals is counted
-    once. The targets include the organization's deals because SQLite does not
-    enforce the foreign keys, so the organization's cascade would otherwise
-    delete a deal a quote still points at.
+    Every holding record counts, however many of them hold the same record:
+    two quotes on one deal are two quotes. A document that holds both an
+    organization and one of its deals still counts once, because records are
+    keyed by their table and primary key, so the same row found through two
+    holds is one record. The targets include the organization's deals because
+    SQLite does not enforce the foreign keys, so the organization's cascade
+    would otherwise delete a deal a quote still points at.
     """
-    found: dict[str, set[int]] = {}
+    found: dict[str, set[tuple[str, tuple]]] = {}
     for hold in holds:
         ids = [record_id for table, record_id in targets if table is hold.held]
         if not ids:
             continue
-        # The holding records' own ids: two invoices on one deal count as two.
+        table = hold.link.table
         rows = connection.execute(
-            select(hold.link.table.c.id).where(hold.link.in_(ids))
-        ).scalars()
-        found.setdefault(hold.noun, set()).update(rows)
-    return {noun: len(rows) for noun, rows in found.items() if rows}
+            select(*table.primary_key.columns).where(hold.link.in_(ids))
+        )
+        found.setdefault(hold.noun, set()).update(
+            (table.name, tuple(row)) for row in rows
+        )
+    return {noun: len(records) for noun, records in found.items() if records}
 
 
 def refuse_if_held(

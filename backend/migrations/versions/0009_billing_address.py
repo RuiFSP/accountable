@@ -3,16 +3,16 @@ page and used on the invoices it is billed to.
 
 No data here: the sample addresses belong to the seed.
 
-Revision ID: 0007
-Revises: 0006
+Revision ID: 0009
+Revises: 0008
 Create Date: 2026-11-26
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0007"
-down_revision = "0006"
+revision = "0009"
+down_revision = "0008"
 branch_labels = None
 depends_on = None
 
