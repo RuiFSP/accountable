@@ -4,7 +4,7 @@
 
 ## Activities and follow-ups
 
-From any contact or deal you can log an activity (a note, call or email) and give it a follow-up date. An activity relates to exactly one record — a contact or a deal, never both. A follow-up shows on the dashboard as a task until it's marked done. Activities can be edited and deleted too. When a deal moves to another stage, including Won or Lost, an entry such as "Moved from Proposal to Negotiation" appears in its timeline and in the dashboard's recent activity by itself.
+From any contact or deal you can log an activity (a note, call or email) and give it a follow-up date. An activity relates to exactly one record — a contact or a deal, never both. A follow-up shows on the dashboard as a task until it's marked done. Activities can be edited and deleted too. When a deal moves to another stage, including Won or Lost — dragged on the board or moved by accepting one of its quotes — an entry such as "Moved from Proposal to Negotiation" appears in its timeline and in the dashboard's recent activity by itself, naming who moved it.
 
 ## Design decisions
 

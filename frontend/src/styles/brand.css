@@ -55,6 +55,11 @@
   --color-cerulean: #118ab2;
   --color-raspberry: #ef476f;
   --color-sea-mist: #cdd8db;
+  /* The quote document is the customer's paper, not the app's: white with
+     Midnight ink and a Sea Green accent in both themes. */
+  --color-document-paper: #ffffff;
+  --color-document-ink: #073b4c;
+  --color-document-accent: #06d6a0;
   --tint-sea-green: #e0faf3;
   --tint-marigold: #fff4dc;
   --tint-coral: #fdece5;
@@ -639,6 +644,188 @@ textarea:focus-visible {
   align-items: start;
 }
 
+/* The quote document: the customer's paper, white in both themes, Midnight
+   ink and a Sea Green accent (docs/specs/quotes.md decision 4). */
+
+.quote-document {
+  background: var(--color-document-paper);
+  color: var(--color-document-ink);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-soft);
+  padding: 26px 30px;
+}
+
+.quote-document-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 400;
+}
+
+.quote-document-rule {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-document-accent);
+  margin: 8px 0 18px;
+}
+
+.quote-document-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.quote-document-party p {
+  margin: 0 0 3px;
+  font-size: 12.5px;
+}
+
+.quote-document-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.quote-document-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quote-document-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.quote-document-meta dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.quote-document-meta dd {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.quote-document-lines {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.quote-document-lines th {
+  padding: 0 8px 8px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--color-document-accent);
+}
+
+.quote-document-lines td {
+  padding: 9px 8px;
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.quote-document-lines th.num,
+.quote-document-lines td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.quote-document-totals {
+  width: min(300px, 100%);
+  margin: 0 0 0 auto;
+}
+
+.quote-document-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.quote-document-totals dt,
+.quote-document-totals dd {
+  margin: 0;
+}
+
+.quote-document-totals .quote-document-total {
+  border-top: 2px solid var(--color-document-accent);
+  margin-top: 6px;
+  padding-top: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* The quote form, beside its live preview in the wide dialog. */
+
+.quote-form-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 12px;
+}
+
+.quote-form-line {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.quote-form-line-name {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quote-form-line-amount {
+  align-self: center;
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+
+.quote-form-totals {
+  margin: 14px 0 0;
+}
+
+.quote-form-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 0;
+  font-size: 13.5px;
+}
+
+.quote-form-totals dt,
+.quote-form-totals dd {
+  margin: 0;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.record-panels-action {
+  margin-top: 12px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -657,6 +844,12 @@ textarea:focus-visible {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 18px;
+  /* A tall dialog scrolls its content behind the actions, so they stay in
+     view against the dialog's edge instead of scrolling away below it. */
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0;
+  background: var(--color-panel);
 }
 
 .cascade-list {
@@ -911,6 +1104,19 @@ textarea:focus-visible {
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 20px;
+}
+
+/* The Quotes tab's five totals read across the top (docs/specs/quotes.md
+   decision 1), sized so the amounts stay in their cards down to the 1024px
+   laptop (docs/specs/look-and-feel.md decision 18). Two classes, so the
+   narrow-width rule further down cannot take the row back to two columns. */
+.kpi-grid.kpi-grid-five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kpi-grid-five .kpi-value {
+  font-size: clamp(17px, 1.85vw, 36px);
 }
 
 .kpi-label {

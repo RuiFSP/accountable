@@ -4,15 +4,15 @@ amount and tax as they appear on the bill, and stores the backend's total.
 The paid date stays empty until the bill is marked paid. On Postgres, the
 table gets row-level security with no policies, like every other table.
 
-Revision ID: 0006
-Revises: 0005
+Revision ID: 0007
+Revises: 0006
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0006"
-down_revision = "0005"
+revision = "0007"
+down_revision = "0006"
 branch_labels = None
 depends_on = None
 

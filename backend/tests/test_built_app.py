@@ -31,7 +31,13 @@ def test_a_built_file_is_served(built, shared_app, client_for):
 def test_an_unknown_address_gets_the_page(built, shared_app, client_for):
     client = client_for(shared_app, None)
 
-    for address in ("/", "/organizations/3", "/deals/9/edit", "/settings"):
+    for address in (
+        "/",
+        "/organizations/3",
+        "/deals/9/edit",
+        "/settings",
+        "/money/quotes/1",
+    ):
         response = client.get(address)
 
         assert response.status_code == 200, address

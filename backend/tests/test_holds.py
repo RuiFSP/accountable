@@ -1,4 +1,5 @@
 from app import db, holds
+from app.routes import quotes
 
 
 def _organization(client) -> int:
@@ -86,6 +87,106 @@ def test_an_organization_checks_the_deals_it_would_take_too(client, monkeypatch)
     assert response.status_code == 409
     assert response.json() == {
         "detail": "This organization has 1 activity, so it can't be deleted."
+    }
+
+
+def _create_quote(client, deal_id: int) -> int:
+    # A seeded product, so this test adds nothing to the shared price list.
+    product = client.get("/api/products").json()[0]
+    response = client.post(
+        "/api/quotes",
+        json={
+            "deal_id": deal_id,
+            "valid_until": None,
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "description": None,
+                    "quantity": 1,
+                    "unit_price_cents": product["price_cents"],
+                }
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def test_a_deal_with_quotes_refuses_to_be_deleted(client, monkeypatch):
+    organization_id = _organization(client)
+    deal_id = _create_deal(client, organization_id, "Quoted deal")
+    _create_quote(client, deal_id)
+    monkeypatch.setattr(holds, "app_holds", lambda _app: quotes.HOLDS)
+
+    response = client.delete(f"/api/deals/{deal_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "This deal has 1 quote, so it can't be deleted."
+    }
+
+
+def test_every_quote_on_one_deal_is_counted(client, monkeypatch):
+    organization_id = _organization(client)
+    deal_id = _create_deal(client, organization_id, "Twice quoted deal")
+    _create_quote(client, deal_id)
+    _create_quote(client, deal_id)
+    monkeypatch.setattr(holds, "app_holds", lambda _app: quotes.HOLDS)
+
+    response = client.delete(f"/api/deals/{deal_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "This deal has 2 quotes, so it can't be deleted."
+    }
+
+
+def test_an_organization_is_held_through_the_quotes_on_its_deals(client, monkeypatch):
+    organization = client.post(
+        "/api/organizations",
+        json={
+            "name": "Quoted organization",
+            "website": None,
+            "industry": None,
+            "notes": None,
+        },
+    )
+    assert organization.status_code == 201, organization.text
+    organization_id = organization.json()["id"]
+    deal_id = _create_deal(client, organization_id, "Deal under the organization")
+    _create_quote(client, deal_id)
+    monkeypatch.setattr(holds, "app_holds", lambda _app: quotes.HOLDS)
+
+    response = client.delete(f"/api/organizations/{organization_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "This organization has 1 quote, so it can't be deleted."
+    }
+
+
+def test_every_quote_on_its_deal_is_counted_for_the_organization(client, monkeypatch):
+    organization = client.post(
+        "/api/organizations",
+        json={
+            "name": "Twice quoted organization",
+            "website": None,
+            "industry": None,
+            "notes": None,
+        },
+    )
+    assert organization.status_code == 201, organization.text
+    organization_id = organization.json()["id"]
+    deal_id = _create_deal(client, organization_id, "Deal quoted twice")
+    _create_quote(client, deal_id)
+    _create_quote(client, deal_id)
+    monkeypatch.setattr(holds, "app_holds", lambda _app: quotes.HOLDS)
+
+    response = client.delete(f"/api/organizations/{organization_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "This organization has 2 quotes, so it can't be deleted."
     }
 
 
