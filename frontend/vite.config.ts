@@ -17,6 +17,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text"],
+      // Two runs may share this machine on different slots, and Vitest refuses
+      // to have two processes write one reports directory — each run gets its
+      // own, keyed on the slot `scripts/test-run.mjs` already passes down.
+      reportsDirectory: `coverage/${process.env.ACCOUNTABLE_TEST_SLOT ?? `pid-${process.pid}`}`,
       thresholds: {
         statements: 80,
         branches: 80,

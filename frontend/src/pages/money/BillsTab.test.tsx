@@ -11,6 +11,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api, type Bill, type Organization } from "../../api/client";
+import { isoToday } from "../../lib/dates";
 import BillsTab from "./BillsTab";
 
 vi.mock("../../api/client", () => ({
@@ -226,11 +227,19 @@ describe("Bills tab", () => {
     expect(visibleNumbers()).toEqual(["VS-2026-01", "VS-2026-SUP"]);
   });
 
-  it("marks a bill paid and flips the row at once", async () => {
-    vi.mocked(api.bills.markPaid).mockResolvedValue({
+  it("marks a bill paid, sends the day and shows what the server stored", async () => {
+    // The stored day differs from the optimistic one on purpose: the row has
+    // to settle on the server's date, not the one the click assumed.
+    const saved: Bill = {
       ...bills[1],
       paid_date: "2026-06-15",
       status: "paid",
+    };
+    let stored = bills;
+    vi.mocked(api.bills.list).mockImplementation(() => Promise.resolve(stored));
+    vi.mocked(api.bills.markPaid).mockImplementation(() => {
+      stored = bills.map((bill) => (bill.id === saved.id ? saved : bill));
+      return Promise.resolve(saved);
     });
     renderBills();
     await screen.findByText("VS-2026-01");
@@ -239,18 +248,25 @@ describe("Bills tab", () => {
       within(rowFor("RP-2026-06")).getByRole("button", { name: "Mark paid" }),
     );
 
-    expect(api.bills.markPaid).toHaveBeenCalledWith(2);
+    expect(api.bills.markPaid).toHaveBeenCalledWith(2, isoToday());
     await waitFor(() =>
       expect(within(rowFor("RP-2026-06")).getByText("Paid")).toBeTruthy(),
     );
     expect(within(rowFor("RP-2026-06")).queryByText("Mark paid")).toBeNull();
+    await waitFor(() =>
+      expect(
+        within(rowFor("RP-2026-06")).getByText("Jun 15, 2026"),
+      ).toBeTruthy(),
+    );
   });
 
   it("marks a bill unpaid again and flips the row back", async () => {
-    vi.mocked(api.bills.markUnpaid).mockResolvedValue({
-      ...bills[0],
-      paid_date: null,
-      status: "unpaid",
+    const saved: Bill = { ...bills[0], paid_date: null, status: "unpaid" };
+    let stored = bills;
+    vi.mocked(api.bills.list).mockImplementation(() => Promise.resolve(stored));
+    vi.mocked(api.bills.markUnpaid).mockImplementation(() => {
+      stored = bills.map((bill) => (bill.id === saved.id ? saved : bill));
+      return Promise.resolve(saved);
     });
     renderBills();
     await screen.findByText("VS-2026-01");
@@ -264,6 +280,10 @@ describe("Bills tab", () => {
       expect(within(rowFor("VS-2026-01")).getByText("Unpaid")).toBeTruthy(),
     );
     expect(within(rowFor("VS-2026-01")).queryByText("Mark unpaid")).toBeNull();
+    // The paid column clears with the server's stored date, not before it.
+    await waitFor(() =>
+      expect(within(rowFor("VS-2026-01")).getByText("—")).toBeTruthy(),
+    );
   });
 
   it("opens the form to edit a bill", async () => {

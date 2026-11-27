@@ -142,33 +142,45 @@ export default function BillsTab() {
     );
   };
 
-  const handleMarkPaid = (bill: Bill) => {
+  // Both actions flip the row at once and a failed call puts it back and says
+  // why; a successful one re-reads the list so the row, the organization's
+  // panel and the dashboard settle on what the server stored.
+  const handleMarkPaid = async (bill: Bill) => {
     setActionError(null);
+    // The server would stamp its own today, which the deployed copy reads as
+    // UTC, so send the day the click happened on — the row and the stored
+    // paid_date then agree wherever the two clocks sit.
     const day = isoToday();
     updateRow(bill.id, {
       paid_date: day,
       status: billStatus({ ...bill, paid_date: day }),
     });
-    api.bills.markPaid(bill.id).catch((err) => {
+    try {
+      await api.bills.markPaid(bill.id, day);
+      await refreshBills();
+    } catch (err) {
       updateRow(bill.id, { paid_date: bill.paid_date, status: bill.status });
       setActionError(
         err instanceof Error ? err.message : "Could not mark the bill paid.",
       );
-    });
+    }
   };
 
-  const handleMarkUnpaid = (bill: Bill) => {
+  const handleMarkUnpaid = async (bill: Bill) => {
     setActionError(null);
     updateRow(bill.id, {
       paid_date: null,
       status: billStatus({ ...bill, paid_date: null }),
     });
-    api.bills.markUnpaid(bill.id).catch((err) => {
+    try {
+      await api.bills.markUnpaid(bill.id);
+      await refreshBills();
+    } catch (err) {
       updateRow(bill.id, { paid_date: bill.paid_date, status: bill.status });
       setActionError(
         err instanceof Error ? err.message : "Could not mark the bill unpaid.",
       );
-    });
+    }
   };
 
   return (
@@ -210,7 +222,7 @@ export default function BillsTab() {
                   <button
                     type="button"
                     className="link-button"
-                    onClick={() => handleMarkUnpaid(bill)}
+                    onClick={() => void handleMarkUnpaid(bill)}
                   >
                     Mark unpaid
                   </button>
@@ -218,7 +230,7 @@ export default function BillsTab() {
                   <button
                     type="button"
                     className="link-button"
-                    onClick={() => handleMarkPaid(bill)}
+                    onClick={() => void handleMarkPaid(bill)}
                   >
                     Mark paid
                   </button>
