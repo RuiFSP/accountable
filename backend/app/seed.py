@@ -9,6 +9,7 @@ from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 
 from app import db
+from app import months as month_buckets
 from app.auth import TEAMMATES
 
 STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
@@ -177,6 +178,24 @@ def _organizations() -> list[dict]:
             "website": "quarrystone.example",
             "industry": "Manufacturing",
             "notes": "Safety reporting is still paper-based.",
+        },
+        {
+            "name": "Vantage Software",
+            "website": "vantagesoftware.example",
+            "industry": "Software",
+            "notes": "Supplies our platform subscription. Bills monthly.",
+        },
+        {
+            "name": "Cedar Contractors",
+            "website": "cedarcontractors.example",
+            "industry": "Construction",
+            "notes": "Contract development and event work, on a monthly retainer.",
+        },
+        {
+            "name": "Riverview Property",
+            "website": "riverviewproperty.example",
+            "industry": "Real Estate",
+            "notes": "Our office landlord. Rent bills on the first of the month.",
         },
     ]
 
@@ -964,6 +983,218 @@ def _products() -> list[dict]:
     ]
 
 
+def _bills(org_ids: dict[str, int]) -> list[dict]:
+    """A year of supplier bills: a monthly bill from each of the three
+    suppliers, a few large one-offs, most paid with their paid days spread
+    across the twelve months so every month of the spending chart has bars,
+    a few waiting unpaid and a few overdue. Every category is used.
+    """
+    today = date.today()
+    starts = month_buckets.last_month_starts(today)
+    rows: list[dict] = []
+
+    def bill(
+        supplier,
+        number,
+        bill_date,
+        category,
+        amount_cents,
+        tax_cents,
+        notes,
+        paid_date=None,
+    ):
+        rows.append(
+            {
+                "organization_id": org_ids[supplier],
+                "bill_number": number,
+                "bill_date": bill_date,
+                "due_date": bill_date + timedelta(days=30),
+                "category": category,
+                "amount_cents": amount_cents,
+                "tax_cents": tax_cents,
+                "total_cents": amount_cents + tax_cents,
+                "notes": notes,
+                "paid_date": paid_date,
+            }
+        )
+
+    for start in starts:
+        year, month = start.year, start.month
+        billed = min(start + timedelta(days=2), today)
+        bill(
+            "Vantage Software",
+            f"VS-{year}-{month:02d}",
+            billed,
+            "Software",
+            24_900,
+            1_992,
+            "Monthly platform subscription.",
+            paid_date=min(start + timedelta(days=6), today),
+        )
+        bill(
+            "Riverview Property",
+            f"RP-{year}-{month:02d}",
+            min(start + timedelta(days=1), today),
+            "Office",
+            85_000,
+            6_800,
+            "Office rent.",
+            paid_date=min(start + timedelta(days=4), today),
+        )
+        # Every retainer but this month's is paid; the current one waits.
+        bill(
+            "Cedar Contractors",
+            f"CC-{year}-{month:02d}",
+            billed,
+            "Contractors",
+            60_000,
+            4_800,
+            "Monthly support retainer.",
+            paid_date=(
+                None if start == starts[-1] else min(start + timedelta(days=8), today)
+            ),
+        )
+
+    def one_off(
+        supplier,
+        number,
+        months_back,
+        billed_day,
+        paid_day,
+        category,
+        amount,
+        tax,
+        notes,
+    ):
+        start = starts[len(starts) - 1 - months_back]
+        bill(
+            supplier,
+            number,
+            start + timedelta(days=billed_day),
+            category,
+            amount,
+            tax,
+            notes,
+            paid_date=start + timedelta(days=paid_day),
+        )
+
+    # The occasional large one-off, each paid in its own month.
+    one_off(
+        "Vantage Software",
+        f"VS-{starts[3].year}-LIC",
+        8,
+        10,
+        15,
+        "Software",
+        2_400_000,
+        192_000,
+        "Annual platform license.",
+    )
+    one_off(
+        "Cedar Contractors",
+        f"CC-{starts[6].year}-FIT",
+        5,
+        12,
+        18,
+        "Contractors",
+        1_250_000,
+        100_000,
+        "Warehouse fit-out.",
+    )
+    one_off(
+        "Riverview Property",
+        f"RP-{starts[8].year}-HVAC",
+        3,
+        9,
+        14,
+        "Office",
+        640_000,
+        51_200,
+        "Air conditioning replacement.",
+    )
+    one_off(
+        "Cedar Contractors",
+        f"CC-{starts[4].year}-EXPO",
+        7,
+        11,
+        16,
+        "Marketing",
+        95_000,
+        7_600,
+        "Expo stand materials.",
+    )
+    one_off(
+        "Cedar Contractors",
+        f"CC-{starts[9].year}-TRIP",
+        2,
+        8,
+        13,
+        "Travel",
+        64_000,
+        5_120,
+        "Site survey travel.",
+    )
+    one_off(
+        "Riverview Property",
+        f"RP-{starts[2].year}-FEE",
+        9,
+        7,
+        12,
+        "Other",
+        55_000,
+        4_400,
+        "Building service charge.",
+    )
+
+    # Bills still waiting: some due within the month, a few overdue.
+    bill(
+        "Vantage Software",
+        f"VS-{_days(-12).year}-SEATS",
+        _days(-12),
+        "Software",
+        32_000,
+        2_560,
+        "Extra seats for the support team.",
+    )
+    bill(
+        "Cedar Contractors",
+        f"CC-{_days(-5).year}-TRV",
+        _days(-5),
+        "Travel",
+        128_000,
+        10_240,
+        "Site visit travel.",
+    )
+    bill(
+        "Cedar Contractors",
+        f"CC-{_days(-75).year}-SHOW",
+        _days(-75),
+        "Marketing",
+        95_000,
+        7_600,
+        "Trade show stand.",
+    )
+    bill(
+        "Riverview Property",
+        f"RP-{_days(-60).year}-INS",
+        _days(-60),
+        "Other",
+        48_000,
+        3_840,
+        "Building insurance.",
+    )
+    bill(
+        "Riverview Property",
+        f"RP-{_days(-40).year}-LIFT",
+        _days(-40),
+        "Office",
+        22_000,
+        1_760,
+        "Lift maintenance.",
+    )
+    return rows
+
+
 def _clear(engine: Engine) -> None:
     with engine.begin() as conn:
         for table in reversed(db.metadata.sorted_tables):
@@ -996,6 +1227,8 @@ def seed(engine: Engine) -> None:
         conn.execute(db.company_settings.insert().values(**_settings_row()))
         for row in _products():
             insert_sample(db.products, row)
+        for row in _bills(org_ids):
+            insert_sample(db.bills, row)
 
 
 def create_tables(engine: Engine) -> None:

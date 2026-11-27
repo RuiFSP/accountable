@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   api,
   type ActivityInput,
+  type BillInput,
   type CompanySettingsInput,
   type ContactInput,
   type DealInput,
@@ -77,6 +78,17 @@ const product: ProductInput = {
   name: "Priority support",
   description: null,
   price_cents: 14_950,
+};
+
+const bill: BillInput = {
+  organization_id: 7,
+  bill_number: "VS-2026-01",
+  bill_date: "2026-01-05",
+  due_date: null,
+  category: "Software",
+  amount_cents: 24_900,
+  tax_cents: 1_992,
+  notes: null,
 };
 
 const jsonHeaders = {
@@ -387,6 +399,111 @@ describe("api client writes", () => {
     await expect(api.deals.list()).rejects.toThrow(
       "/api/deals failed with status 422",
     );
+  });
+});
+
+describe("api client bills", () => {
+  it("lists bills with its query on the query string", async () => {
+    const fetchMock = stubFetch([]);
+
+    await api.bills.list("vantage", "unpaid", 7);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/bills?q=vantage&status=unpaid&organization_id=7",
+      { headers: { Accept: "application/json" } },
+    );
+  });
+
+  it("lists bills with nothing to filter as a plain /api/bills", async () => {
+    const fetchMock = stubFetch([]);
+
+    await api.bills.list();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/bills", {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("creates a bill with POST and updates it with PUT", async () => {
+    const created = stubFetch({ id: 3, ...bill });
+    await api.bills.create(bill);
+    expect(created).toHaveBeenCalledWith("/api/bills", {
+      method: "POST",
+      body: JSON.stringify(bill),
+      headers: jsonHeaders,
+    });
+
+    const updated = stubFetch({ id: 3, ...bill });
+    await api.bills.update(3, bill);
+    expect(updated).toHaveBeenCalledWith("/api/bills/3", {
+      method: "PUT",
+      body: JSON.stringify(bill),
+      headers: jsonHeaders,
+    });
+  });
+
+  it("deletes a bill with DELETE", async () => {
+    const fetchMock = stubFetch({ counts: {} });
+
+    await api.bills.remove(3);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/bills/3", {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("marks a bill paid with a day and unpaid with none", async () => {
+    const paidFetch = stubFetch({ id: 3, ...bill });
+    await api.bills.markPaid(3, "2026-11-26");
+    expect(paidFetch).toHaveBeenCalledWith("/api/bills/3/paid", {
+      method: "POST",
+      body: JSON.stringify({ day: "2026-11-26" }),
+      headers: jsonHeaders,
+    });
+
+    const unpaidFetch = stubFetch({ id: 3, ...bill });
+    await api.bills.markUnpaid(3);
+    expect(unpaidFetch).toHaveBeenCalledWith("/api/bills/3/unpaid", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("passes the payables block of the dashboard through", async () => {
+    const payables = {
+      unpaid: { total_cents: 415_800, count: 6 },
+      overdue: { total_cents: 178_200, count: 3 },
+      due_soon: {
+        total_cents: 120_000,
+        count: 1,
+        rows: [
+          {
+            supplier: "Vantage Software",
+            due_date: "2026-12-01",
+            total_cents: 120_000,
+          },
+        ],
+      },
+      spending: [
+        {
+          month: "2026-06",
+          categories: {
+            Software: 26_892,
+            Contractors: 0,
+            Travel: 0,
+            Office: 0,
+            Marketing: 0,
+            Other: 0,
+          },
+        },
+      ],
+    };
+    stubFetch({ won: {}, pipeline: {}, funnel: {}, payables });
+
+    const payload = await api.dashboard.get();
+
+    expect(payload.payables).toEqual(payables);
   });
 });
 

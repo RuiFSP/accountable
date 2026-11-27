@@ -75,6 +75,22 @@ export function datetimeLocalNow(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
+/** "YYYY-MM-DD" for date inputs, on the local calendar. */
+export function isoToday(): string {
+  return isoDateOf(new Date());
+}
+
+/** The local "YYYY-MM-DD" date `days` after (or before) another one. */
+export function isoAddDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return isoDateOf(new Date(year, month - 1, day + days));
+}
+
+function isoDateOf(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /** Recent-activity labels: "9:30 AM", "Yesterday", "3 days ago", "Nov 4". */
 export function formatWhen(
   isoDateTime: string,

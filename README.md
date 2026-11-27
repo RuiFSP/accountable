@@ -8,9 +8,10 @@ A sales CRM for a small team, on the web — the everyday CRM essentials done we
 
 ## Features
 
-- **Dashboard** — revenue won in the last 12 months, open pipeline, expected revenue, overdue follow-ups, the sales funnel, recent activity and the follow-up list, all computed server-side from one endpoint.
+- **Dashboard** — revenue won in the last 12 months, open pipeline, expected revenue, overdue follow-ups, the sales funnel, recent activity and the follow-up list, all computed server-side from one endpoint, with the Money section's bills to pay, what's overdue, what's due soon and spending by category below the sales charts.
 - **Organizations, contacts, deals** — full list pages with search, sorting and filters, detail pages with a newest-first timeline, and add/edit dialogs.
 - **Products** — the price list of what the business sells, with unit prices, archive and restore instead of delete, and who added and last changed each one.
+- **Bills** — the money owed to suppliers: each bill's supplier, number, dates, category and total, a status derived from its dates, one click to mark it paid or unpaid again, and each organization's own bills panel.
 - **Pipeline** — the open deals as cards on a board, one column per stage, drag between or within columns, with column totals and late deals called out.
 - **Activities and follow-ups** — log calls, emails and tasks on a record, with overdue and upcoming follow-ups on the dashboard and a mark-done checkbox.
 - **Team sign-in** — Supabase Auth with email and password; every record shows who added it and who last changed it.
@@ -91,9 +92,9 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 ## Where it stands
 
-Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render. Built and awaiting its review: bills, with the Bills tab, each organization's bills panel and the dashboard's Money section.
 
-Next: quotes, invoices and bills, filling the Money section and using the company settings; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
+Next: quotes and invoices, filling their Money tabs and using the company settings; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
 ## Acknowledgements
 

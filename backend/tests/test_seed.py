@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from app import auth, db, seed
+from app import months as month_buckets
 from sqlalchemy import create_engine, func, inspect, select
 
 
@@ -25,11 +26,12 @@ def _counts(engine) -> dict[str, int]:
                 db.activities,
                 db.company_settings,
                 db.products,
+                db.bills,
             )
         }
 
 
-def test_schema_has_the_seven_tables(engine):
+def test_schema_has_the_eight_tables(engine):
     seed.ensure_seeded(engine)
     assert set(inspect(engine).get_table_names()) == {
         "organizations",
@@ -38,6 +40,7 @@ def test_schema_has_the_seven_tables(engine):
         "activities",
         "company_settings",
         "products",
+        "bills",
         "number_counters",
     }
 
@@ -110,6 +113,21 @@ def test_schema_fields_match_the_data_model(engine):
         "description",
         "price_cents",
         "active",
+        "created_by",
+        "updated_by",
+    ]
+    assert [column["name"] for column in columns("bills")] == [
+        "id",
+        "organization_id",
+        "bill_number",
+        "bill_date",
+        "due_date",
+        "category",
+        "amount_cents",
+        "tax_cents",
+        "total_cents",
+        "notes",
+        "paid_date",
         "created_by",
         "updated_by",
     ]
@@ -210,7 +228,7 @@ def test_sample_data_has_a_year_of_won_deals_and_work_in_proposal_and_negotiatio
         deals = conn.execute(select(func.count()).select_from(db.deals)).scalar_one()
 
     assert (won, working) == (12, 8)
-    assert (organizations, contacts, deals) == (18, 24, 30)
+    assert (organizations, contacts, deals) == (21, 24, 30)
 
 
 def test_sample_data_covers_every_contact_status(engine):
@@ -268,6 +286,64 @@ def test_sample_data_has_a_dozen_products_with_two_archived(engine):
     assert prices["Onsite training day"] == 120_000
 
 
+def test_three_supplier_organizations_come_with_bills(engine):
+    seed.ensure_seeded(engine)
+    with engine.connect() as conn:
+        counts = dict(
+            conn.execute(
+                select(db.organizations.c.name, func.count(db.bills.c.id))
+                .select_from(
+                    db.bills.join(
+                        db.organizations,
+                        db.bills.c.organization_id == db.organizations.c.id,
+                    )
+                )
+                .group_by(db.organizations.c.name)
+            ).all()
+        )
+
+    assert set(counts) == {
+        "Vantage Software",
+        "Cedar Contractors",
+        "Riverview Property",
+    }
+    assert all(count > 0 for count in counts.values())
+
+
+def test_sample_bills_cover_every_month_category_and_status(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+    with engine.connect() as conn:
+        bills = conn.execute(select(db.bills)).mappings().all()
+
+    assert bills
+    assert {bill["category"] for bill in bills} == {
+        "Software",
+        "Contractors",
+        "Travel",
+        "Office",
+        "Marketing",
+        "Other",
+    }
+
+    unpaid = [bill for bill in bills if bill["paid_date"] is None]
+    assert any(bill["due_date"] < today for bill in unpaid)  # overdue bills
+    assert any(
+        today <= bill["due_date"] <= today + timedelta(days=30) for bill in unpaid
+    )
+
+    # Every one of the last twelve months has paid bills, so every month of
+    # the spending chart has bars.
+    paid_months = {
+        f"{bill['paid_date'].year}-{bill['paid_date'].month:02d}"
+        for bill in bills
+        if bill["paid_date"] is not None
+    }
+    assert {
+        start.strftime("%Y-%m") for start in month_buckets.last_month_starts(today)
+    } <= paid_months
+
+
 def test_activities_link_to_exactly_one_record(engine):
     seed.ensure_seeded(engine)
     with engine.connect() as conn:
@@ -290,6 +366,7 @@ def _attribution(engine) -> list[tuple]:
             db.deals,
             db.activities,
             db.products,
+            db.bills,
         ):
             rows += connection.execute(
                 select(table.c.created_by, table.c.updated_by)
@@ -404,6 +481,7 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
         activities = client.get("/api/activities").json()
         settings = client.get("/api/settings").json()
         products = client.get("/api/products").json()
+        bills = client.get("/api/bills").json()
 
     assert organizations and {"id", "name", "website", "industry", "notes"} <= set(
         organizations[0]
@@ -429,6 +507,12 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
         "active",
     } <= set(products[0])
     assert len(products) == 10
+    assert bills and {
+        "bill_number",
+        "organization_name",
+        "total_cents",
+        "status",
+    } <= set(bills[0])
 
     assert isinstance(activities[0]["happened_at"], str)
     assert isinstance(deals[0]["close_date"], str)
