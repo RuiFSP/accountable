@@ -637,4 +637,46 @@ describe("the deal's invoices panel", () => {
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
+
+  it("keeps the dialog open with the message when the issue is refused", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    vi.mocked(invoicesApi.create).mockResolvedValue(
+      invoiceWith({
+        status: "draft",
+        number: null,
+        lines: [
+          {
+            id: 11,
+            invoice_id: 5,
+            product_id: null,
+            description: "Store rollout",
+            quantity: 1,
+            unit_price_cents: 100_000,
+            position: 0,
+          },
+        ],
+      }),
+    );
+    vi.mocked(invoicesApi.issue).mockRejectedValue(
+      new Error("This draft has already been issued."),
+    );
+    renderPanel("/deals/1?invoice=new");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Create invoice",
+    });
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save and issue" }),
+    );
+
+    await waitFor(() => expect(invoicesApi.issue).toHaveBeenCalled());
+    // The refusal reaches the person: the message is on the page, and the
+    // dialog has not closed as though the invoice were issued.
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")?.textContent).toBe(
+        "This draft has already been issued.",
+      ),
+    );
+    expect(screen.getByRole("dialog", { name: "Create invoice" })).toBeTruthy();
+  });
 });

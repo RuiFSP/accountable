@@ -435,9 +435,10 @@ export default function InvoicePage() {
   };
 
   const handleSave = async (lines: InvoiceLineInput[]) => {
+    // The form closes the editor once this resolves; an issue that follows
+    // must still have somewhere to show a refusal.
     const stored = await invoicesApi.update(invoice.id, lines);
     await refresh();
-    closeEdit();
     return stored;
   };
   const ask = (next: Confirming) => {

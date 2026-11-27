@@ -298,6 +298,23 @@ describe("InvoiceForm", () => {
     ]);
   });
 
+  it("refuses to issue with no issue date and says so without saving", async () => {
+    const { onSave, onIssue } = renderForm();
+
+    fireEvent.change(screen.getByLabelText("Issue date"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save and issue" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Choose an issue date.",
+      ),
+    );
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onIssue).not.toHaveBeenCalled();
+  });
+
   it("shows the server's message when the save is refused", async () => {
     const onSave = vi
       .fn<NonNullable<InvoiceFormProps["onSave"]>>()

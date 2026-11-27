@@ -356,6 +356,36 @@ describe("the invoice page", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("keeps the editor open with the message when the issue is refused", async () => {
+    vi.mocked(invoicesApi.update).mockResolvedValue(
+      invoiceWith({ status: "draft", number: null }),
+    );
+    vi.mocked(invoicesApi.issue).mockRejectedValue(
+      new Error("Someone else has already issued this draft."),
+    );
+    renderPage(
+      "/money/invoices/4?edit=1",
+      invoiceWith({ number: null, status: "draft", payments: [] }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit invoice",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save and issue" }),
+    );
+
+    await waitFor(() => expect(invoicesApi.issue).toHaveBeenCalled());
+    // The refusal reaches the person: the message is on the page, and the
+    // editor has not closed as though the invoice were issued.
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")?.textContent).toBe(
+        "Someone else has already issued this draft.",
+      ),
+    );
+    expect(screen.getByRole("dialog", { name: "Edit invoice" })).toBeTruthy();
+  });
+
   it("deletes a draft and goes back to the list", async () => {
     vi.mocked(invoicesApi.remove).mockResolvedValue({ lines: [], counts: {} });
     renderPage(

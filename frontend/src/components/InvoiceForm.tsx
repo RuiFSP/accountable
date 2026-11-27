@@ -197,6 +197,12 @@ export default function InvoiceForm({
   }
 
   async function saveAndIssue() {
+    if (!issueDate) {
+      setError("Choose an issue date.");
+      return;
+    }
+    // The dialog stays open until the issue is answered: a refusal must reach
+    // the person, who would otherwise close believing the invoice is issued.
     const stored = await save();
     if (!stored) {
       return;
@@ -209,6 +215,14 @@ export default function InvoiceForm({
         cause instanceof Error ? cause.message : "Could not issue the invoice.",
       );
       setBusy(false);
+    }
+  }
+
+  /** A plain save closes the dialog once the server has stored the lines. */
+  async function saveAndClose() {
+    const stored = await save();
+    if (stored) {
+      onCancel();
     }
   }
 
@@ -248,7 +262,7 @@ export default function InvoiceForm({
           onSubmit={(event) => {
             event.preventDefault();
             if (complete && !busy) {
-              void save();
+              void saveAndClose();
             }
           }}
         >

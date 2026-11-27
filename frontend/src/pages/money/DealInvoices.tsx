@@ -110,9 +110,10 @@ function CreateInvoice({ deal, onCancel }: CreateInvoiceProps) {
     ]);
 
   const handleSave = async (lines: InvoiceLineInput[]) => {
+    // The form closes the dialog once this resolves; an issue that follows
+    // must still have somewhere to show a refusal.
     const stored = await invoicesApi.create({ deal_id: deal.id, lines });
     await refresh();
-    onCancel();
     return stored;
   };
   const handleIssue = async (invoice: InvoiceDetail, issueDate: string) => {
