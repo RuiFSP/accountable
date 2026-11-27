@@ -185,7 +185,9 @@ export default function InvoicesTab() {
                   </button>
                 </>
               ) : null}
-              {row.status !== "draft" && row.status !== "void" ? (
+              {row.status !== "draft" &&
+              row.status !== "void" &&
+              row.paid_cents === 0 ? (
                 <button
                   type="button"
                   className="link-button"

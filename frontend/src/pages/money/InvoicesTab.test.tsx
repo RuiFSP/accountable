@@ -218,6 +218,23 @@ describe("the Invoices tab", () => {
     expect(names).toEqual(["Download PDF", "View"]);
   });
 
+  it("keeps Void off an invoice with payments, which the API would refuse", async () => {
+    renderTab([
+      invoiceWith({
+        id: 4,
+        number: "INV-0003",
+        status: "part paid",
+        paid_cents: 40_000,
+        balance_cents: 68_875,
+        deal_name: "Partial payment",
+      }),
+    ]);
+    await screen.findByText("INV-0003");
+
+    const names = buttonNames(rowFor("Partial payment")).sort();
+    expect(names).toEqual(["Download PDF", "View"]);
+  });
+
   it("deletes a draft after confirming", async () => {
     vi.mocked(invoicesApi.remove).mockResolvedValue({ lines: [], counts: {} });
     renderTab();
