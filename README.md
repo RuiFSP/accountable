@@ -12,6 +12,7 @@ A sales CRM for a small team, on the web — the everyday CRM essentials done we
 - **Organizations, contacts, deals** — full list pages with search, sorting and filters, detail pages with a newest-first timeline, and add/edit dialogs.
 - **Products** — the price list of what the business sells, with unit prices, archive and restore instead of delete, and who added and last changed each one.
 - **Pipeline** — the open deals as cards on a board, one column per stage, drag between or within columns, with column totals and late deals called out.
+- **Quotes** — a customer's document on a deal: lines from the price list with the totals and the document's preview beside the form, sent as a PDF the server builds from the saved values, answered accepted or declined (accepting wins the deal), and counted in the Money tab's five totals.
 - **Activities and follow-ups** — log calls, emails and tasks on a record, with overdue and upcoming follow-ups on the dashboard and a mark-done checkbox.
 - **Team sign-in** — Supabase Auth with email and password; every record shows who added it and who last changed it.
 - **Company settings** — the team's own details in one page: name, address, email and phone, tax label and rate, payment terms, and quote and invoice prefixes, with who last changed them.
@@ -91,9 +92,9 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 ## Where it stands
 
-Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, quotes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
 
-Next: quotes, invoices and bills, filling the Money section and using the company settings; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
+Next: invoices and bills, filling the rest of the Money section; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
 ## Acknowledgements
 
