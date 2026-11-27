@@ -205,6 +205,9 @@ def test_a_long_quote_flows_over_a_few_pages(client, quote):
 
     assert 2 <= len(pages) <= 12
     assert all(len(page) == len(set(page)) for page in pages)
+    # Text stays above the foot of the page, not on the paper edge.
+    foot = quote_pdf.BOTTOM_MARGIN / 25.4 * 72
+    assert all(y >= foot for page in pages for _, y in page)
 
 
 def test_a_wrapping_address_is_not_printed_over_what_follows_it(client, quote):

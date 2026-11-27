@@ -39,6 +39,9 @@ FONT_FILES = {
 LINE_HEIGHT = 4.2
 """One wrapped line of document text, in millimetres."""
 
+BOTTOM_MARGIN = 20
+"""The foot of the page kept clear of text, in millimetres."""
+
 
 class Priced(NamedTuple):
     """A line as the sums see it: only the quantity and the price."""
@@ -137,8 +140,10 @@ def render_pdf(document: dict) -> bytes:
     pdf.set_margins(20, 18, 20)
     # Nothing breaks the page on its own: every block is drawn exactly where
     # it says it is, and each block takes a fresh page for itself when it would
-    # fall off the bottom of this one (see _fit).
-    pdf.set_auto_page_break(False)
+    # fall off the bottom of this one (see _fit). The margin is passed because
+    # disabling the automatic break also resets fpdf2's bottom margin, which
+    # _fit reads through page_break_trigger.
+    pdf.set_auto_page_break(False, margin=BOTTOM_MARGIN)
     pdf.add_page()
     _draw_head(pdf, document)
     _draw_parties(pdf, document)
