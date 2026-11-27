@@ -45,7 +45,7 @@ Working rule: status is derived from `paid_date` and `due_date`, never stored; t
 - `frontend/src/lib/charts.ts` — the spending-bars helper and its types, beside `chartMonths` and `funnelBars`.
 - `frontend/src/lib/charts.test.ts` — the helper's proof.
 - `frontend/src/routes.tsx` — `ORGANIZATION_PANELS` gains the bills panel; the `/money/bills/*` route already carries the tab.
-- `frontend/src/routes.test.tsx`, `frontend/src/routes.extra.test.tsx` — the mocked API gains bills; the organization page renders its bills panel.
+- `frontend/src/routes.extra.test.tsx` — the mocked API gains bills; the organization page renders its bills panel. (`routes.test.tsx` needs no change: it renders the routes against a failing fetch, not a mocked API.)
 - `frontend/src/styles/brand.css` — the category dot classes on the existing tokens, so `colors.test.ts`'s one-place rule still holds and no new palette entries appear.
 
 **New — end-to-end**

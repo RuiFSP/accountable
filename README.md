@@ -92,7 +92,7 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 ## Where it stands
 
-Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render. Built and awaiting its review: bills, with the Bills tab, each organization's bills panel and the dashboard's Money section.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render. Built, reviewed and through its review fixes: bills, with the Bills tab, each organization's bills panel and the dashboard's Money section — awaiting the merge.
 
 Next: quotes and invoices, filling their Money tabs and using the company settings; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
