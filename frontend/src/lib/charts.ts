@@ -1,6 +1,11 @@
 /** Chart mapping: dashboard payload → what the charts and funnel render. */
 
-import type { DashboardPayload, Stage } from "../api/client";
+import type {
+  AgingRow,
+  DashboardPayload,
+  PaymentPoint,
+  Stage,
+} from "../api/client";
 
 /** Recharts' axis labels follow the mode through the ink token. */
 export const AXIS_TICK = { fill: "var(--color-ink-muted)", fontSize: 12 };
@@ -61,4 +66,22 @@ export function funnelBars(funnel: DashboardPayload["funnel"]): FunnelBar[] {
     valueCents: row.value_cents,
     share: row.value_cents / widest,
   }));
+}
+
+/** Payments received per month, plotted with the same labels as the rest. */
+export function paymentMonths(
+  money: DashboardPayload["money"],
+): PaymentPoint[] {
+  return money.payments.map((bucket) => ({
+    label: monthLabel(bucket.month),
+    cents: bucket.cents,
+  }));
+}
+
+/** The aging buckets with a 0…1 share of the largest, for bar widths. */
+export function agingRows(
+  money: DashboardPayload["money"],
+): (AgingRow & { share: number })[] {
+  const largest = Math.max(1, ...money.aging.map((row) => row.cents));
+  return money.aging.map((row) => ({ ...row, share: row.cents / largest }));
 }

@@ -1,6 +1,6 @@
 import pytest
-from app import db
-from sqlalchemy import create_engine
+from app import db, seed
+from sqlalchemy import create_engine, select
 
 
 @pytest.fixture()
@@ -281,3 +281,68 @@ def test_deleting_an_organization_clears_its_contacts_from_deals_it_keeps(client
         row for row in client.get("/api/deals").json() if row["id"] == deal["id"]
     )
     assert listed["contact_id"] is None  # the deal survives without the contact
+
+
+def test_deleting_a_draft_takes_its_lines_with_it_and_nothing_else(client, engine):
+    seed.ensure_settings(engine)
+    org = _post(
+        client,
+        "/api/organizations",
+        {"name": "Invoiced Corp", "website": None, "industry": None, "notes": None},
+    )
+    first_deal = _post(
+        client,
+        "/api/deals",
+        {
+            "name": "First deal",
+            "organization_id": org["id"],
+            "contact_id": None,
+            "stage": "Won",
+            "value_cents": 120_000,
+            "probability": 100,
+        },
+    )
+    second_deal = _post(
+        client,
+        "/api/deals",
+        {
+            "name": "Second deal",
+            "organization_id": org["id"],
+            "contact_id": None,
+            "stage": "Won",
+            "value_cents": 50_000,
+            "probability": 100,
+        },
+    )
+    draft = _post(client, "/api/invoices", {"deal_id": first_deal["id"]})
+    kept = _post(client, "/api/invoices", {"deal_id": second_deal["id"]})
+    client.put(
+        f"/api/invoices/{draft['id']}",
+        json={
+            "lines": [
+                {"description": "Design", "quantity": 1, "unit_price_cents": 50_000},
+                {"description": "Build", "quantity": 1, "unit_price_cents": 70_000},
+            ]
+        },
+    )
+
+    response = client.delete(f"/api/invoices/{draft['id']}")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "lines": ["Design", "Build"],
+        "counts": {"lines": 2},
+    }
+    with engine.connect() as connection:
+        gone = connection.execute(
+            select(db.invoice_lines.c.id).where(
+                db.invoice_lines.c.invoice_id == draft["id"]
+            )
+        ).all()
+        left = connection.execute(
+            select(db.invoice_lines.c.description).where(
+                db.invoice_lines.c.invoice_id == kept["id"]
+            )
+        ).all()
+    assert gone == []
+    assert left == [("Second deal",)]

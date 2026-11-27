@@ -54,7 +54,10 @@ def holding(
         ids = [record_id for table, record_id in targets if table is hold.held]
         if not ids:
             continue
-        rows = connection.execute(select(hold.link).where(hold.link.in_(ids))).scalars()
+        # The holding records' own ids: two invoices on one deal count as two.
+        rows = connection.execute(
+            select(hold.link.table.c.id).where(hold.link.in_(ids))
+        ).scalars()
         found.setdefault(hold.noun, set()).update(rows)
     return {noun: len(rows) for noun, rows in found.items() if rows}
 

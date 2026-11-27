@@ -58,6 +58,7 @@ const organizations: OrganizationRecord[] = [
     website: "northwind.example",
     industry: "Retail",
     notes: "Wholesale accounts",
+    billing_address: "500 Market Street\nSan Francisco, CA 94105",
   },
   {
     id: 8,
@@ -65,6 +66,7 @@ const organizations: OrganizationRecord[] = [
     website: null,
     industry: null,
     notes: null,
+    billing_address: null,
   },
 ];
 
@@ -169,6 +171,10 @@ describe("Organization detail page", () => {
     expect(screen.getByText("northwind.example")).toBeTruthy();
     expect(screen.getByText("Retail")).toBeTruthy();
     expect(screen.getByText("Wholesale accounts")).toBeTruthy();
+    expect(screen.getByText("Billing address")).toBeTruthy();
+    expect(screen.getByText(/500 Market Street/).textContent).toBe(
+      "500 Market Street\nSan Francisco, CA 94105",
+    );
 
     const contactsPanel = screen
       .getByRole("heading", { name: "Contacts 1" })
@@ -198,7 +204,7 @@ describe("Organization detail page", () => {
         level: 1,
       }),
     ).toBeTruthy();
-    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.getAllByText("—")).toHaveLength(4);
     expect(screen.getByText("No contacts yet.")).toBeTruthy();
     expect(screen.getByText("No deals yet.")).toBeTruthy();
 

@@ -18,6 +18,7 @@ class OrganizationIn(BaseModel):
     website: str | None = None
     industry: str | None = None
     notes: str | None = None
+    billing_address: str | None = None
 
 
 @router.get("")

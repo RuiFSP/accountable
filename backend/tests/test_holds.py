@@ -1,19 +1,22 @@
+from datetime import date
+
 from app import db, holds
 from app.main import app as local_app
+from app.routes.invoices import HOLDS as INVOICE_HOLDS
 
 
 def _organization(client) -> int:
     return client.get("/api/organizations").json()[0]["id"]
 
 
-def _create_deal(client, organization_id: int, name: str) -> int:
+def _create_deal(client, organization_id: int, name: str, stage: str = "New") -> int:
     response = client.post(
         "/api/deals",
         json={
             "name": name,
             "organization_id": organization_id,
             "contact_id": None,
-            "stage": "New",
+            "stage": stage,
             "value_cents": 100_000,
             "probability": 10,
             "close_date": None,
@@ -97,3 +100,52 @@ def test_a_record_with_nothing_holding_it_is_still_deleted(client):
 
     assert response.status_code == 200
     assert response.json()["counts"] == {"activities": 1}
+
+
+def _issue(client, deal_id: int, void: bool = False) -> int:
+    invoice = client.post("/api/invoices", json={"deal_id": deal_id}).json()
+    issued = client.post(
+        f"/api/invoices/{invoice['id']}/issue",
+        json={"issue_date": str(date.today())},
+    )
+    assert issued.status_code == 200, issued.text
+    if void:
+        voided = client.post(f"/api/invoices/{invoice['id']}/void")
+        assert voided.status_code == 200, voided.text
+    return invoice["id"]
+
+
+def test_a_deal_held_by_invoices_refuses_to_be_deleted_void_ones_included(
+    client, monkeypatch
+):
+    organization_id = _organization(client)
+    deal_id = _create_deal(client, organization_id, "Invoiced deal", stage="Won")
+    _issue(client, deal_id, void=True)
+    _issue(client, deal_id)
+    monkeypatch.setattr(local_app.state, "holds", INVOICE_HOLDS, raising=False)
+
+    response = client.delete(f"/api/deals/{deal_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "This deal has 2 invoices, so it can't be deleted."
+    }
+
+
+def test_an_organization_held_by_an_invoice_refuses_to_be_deleted(client, monkeypatch):
+    created = client.post(
+        "/api/organizations",
+        json={"name": "Fresh Co", "website": None, "industry": None, "notes": None},
+    )
+    assert created.status_code == 201, created.text
+    organization_id = created.json()["id"]
+    deal_id = _create_deal(client, organization_id, "Invoiced deal", stage="Won")
+    _issue(client, deal_id)
+    monkeypatch.setattr(local_app.state, "holds", INVOICE_HOLDS, raising=False)
+
+    response = client.delete(f"/api/organizations/{organization_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "This organization has 1 invoice, so it can't be deleted."
+    }

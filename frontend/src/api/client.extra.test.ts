@@ -29,6 +29,7 @@ const organization: OrganizationInput = {
   website: null,
   industry: "Retail",
   notes: null,
+  billing_address: null,
 };
 
 const contact: ContactInput = {
@@ -71,6 +72,8 @@ const settings: CompanySettingsInput = {
   payment_terms_days: 30,
   quote_prefix: "QT-",
   invoice_prefix: "INV-",
+  invoice_design: "classic",
+  accent_color: "#073B4C",
 };
 
 const product: ProductInput = {

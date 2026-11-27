@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import {
+  expectedRefusals,
   resetSampleData,
   SIGNED_IN_AS,
   signIn,
@@ -10,7 +11,10 @@ import {
 
 // Company settings live on one row for the whole team
 // (docs/specs/company-settings.md). Every test changes that row, so the
-// sample data is reset before each one.
+// sample data is reset before each one — and that reset takes about twenty
+// seconds on this machine, so the file's tests get more than the default
+// thirty, the way products.spec.ts's do.
+test.describe.configure({ timeout: 90_000 });
 
 const BRIGHTLOOP_ADDRESS = "1 Brightloop Plaza, Floor 12, New York, NY 10004";
 
@@ -214,4 +218,111 @@ test("the page and the API refuse out-of-range values and bad shapes", async ({
   await expect(page.getByLabel("Tax rate")).toHaveValue("8.875");
   await expect(page.getByLabel("Payment terms")).toHaveValue("30");
   await expect(page.getByLabel("Quote prefix")).toHaveValue("QT-");
+});
+
+const ACCENT_CONTRAST =
+  "The accent is too light to read on white. Choose a darker color.";
+const NOT_AN_IMAGE = "The logo must really be a PNG or a JPEG image.";
+
+test("the Documents section saves apart, and the sample follows the design and accent", async ({
+  page,
+}) => {
+  const consoleErrors = watchConsole(page);
+  await signIn(page);
+  await openSettings(page);
+
+  const sheet = page.getByLabel("Invoice document");
+  await expect(sheet).toHaveClass(/sheet-classic/);
+  await expect(sheet.locator(".sheet-company")).toHaveCSS(
+    "color",
+    "rgb(7, 59, 76)",
+  );
+
+  // The sample follows the choices as they are made, before anything is saved.
+  await page.getByLabel("Design").selectOption("modern");
+  await expect(sheet).toHaveClass(/sheet-modern/);
+  await page.getByLabel("Accent color").fill("#000000");
+  await expect(sheet.locator(".sheet-company")).toHaveCSS(
+    "color",
+    "rgb(0, 0, 0)",
+  );
+
+  await page.getByRole("button", { name: "Save documents" }).click();
+  await saved(page);
+
+  await page.reload();
+  await expect(page.getByLabel("Design")).toHaveValue("modern");
+  await expect(page.getByLabel("Accent color")).toHaveValue("#000000");
+  await expect(page.getByLabel("Invoice document")).toHaveClass(/sheet-modern/);
+  // The company details above were not part of that save, and the one
+  // last-change line moved with it.
+  await expect(page.getByLabel("Company name")).toHaveValue("Brightloop");
+  await expect(
+    page.getByText(/^Last changed by alex@brightloop\.example on /),
+  ).toBeVisible();
+
+  expect(consoleErrors()).toEqual([]);
+});
+
+test("the logo uploads, appears on the sample, and a renamed text file is refused", async ({
+  page,
+  request,
+}) => {
+  const consoleErrors = watchConsole(page);
+  await signIn(page);
+  await openSettings(page);
+
+  const logo = page.getByRole("img", { name: "Logo" });
+  await expect(logo).toBeVisible();
+  const before = await logo.getAttribute("src");
+
+  // A text file that ends in .png is refused, and the logo stays as it was.
+  await page.getByLabel("Logo").setInputFiles({
+    name: "logo.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("not a picture at all"),
+  });
+  await expect(page.getByRole("alert")).toHaveText(NOT_AN_IMAGE);
+  await expect(logo).toHaveAttribute("src", before ?? "");
+
+  // A real picture takes its place at once.
+  await page.getByLabel("Logo").setInputFiles({
+    name: "tiny.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
+  await expect(logo).not.toHaveAttribute("src", before ?? "");
+  await expect(page.getByRole("status")).toHaveText("Saved.");
+
+  await page.getByRole("button", { name: "Remove logo" }).click();
+  await expect(page.getByRole("img", { name: "Logo" })).toHaveCount(0);
+  const settings = (await (await request.get("/api/settings")).json()) as {
+    logo_content_type: string | null;
+  };
+  expect(settings.logo_content_type).toBeNull();
+
+  expect(expectedRefusals(consoleErrors())).toEqual([]);
+});
+
+test("an accent below 4.5:1 is refused with its message", async ({
+  page,
+  request,
+}) => {
+  const consoleErrors = watchConsole(page);
+  await signIn(page);
+  await openSettings(page);
+
+  await page.getByLabel("Accent color").fill("#118AB2");
+  await page.getByRole("button", { name: "Save documents" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText(ACCENT_CONTRAST);
+  const settings = (await (await request.get("/api/settings")).json()) as {
+    accent_color: string;
+  };
+  expect(settings.accent_color).toBe("#073B4C");
+
+  expect(consoleErrors()).toEqual([]);
 });

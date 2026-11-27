@@ -5,6 +5,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,18 +14,119 @@ import {
 } from "recharts";
 
 import { api, type Activity, type ActivityCreateType } from "../api/client";
+import type { DashboardPayload } from "../api/client";
 import KpiCard from "../components/KpiCard";
 import { ACTIVITY_COLORS } from "../lib/activity";
 import {
   AXIS_TICK,
   TOOLTIP_STYLE,
+  agingRows,
   chartMonths,
   funnelBars,
   monthYearLabel,
+  paymentMonths,
 } from "../lib/charts";
 import { formatDue, formatWhen, isOverdue } from "../lib/dates";
 import { formatUsd, formatUsdCompact } from "../lib/money";
 import { STAGE_META } from "../lib/pipeline";
+
+/**
+ * The Money section: the two figures lead, the five aging buckets sit as bars
+ * and the payments arrive on the same 12 months every other chart uses.
+ */
+function MoneySection({ money }: { money: DashboardPayload["money"] }) {
+  const aging = agingRows(money);
+  const payments = paymentMonths(money);
+  return (
+    <div className="money-section">
+      <h2 className="money-title">Money</h2>
+      <div className="money-kpis">
+        <KpiCard
+          label="Owed by customers"
+          value={formatUsd(money.owed_cents)}
+          note="Issued invoices; drafts and void left out"
+        />
+        <KpiCard
+          label="Overdue"
+          value={formatUsd(money.overdue_cents)}
+          note="Still owed after the due date"
+          danger={money.overdue_cents > 0}
+        />
+      </div>
+
+      <div className="money-charts">
+        <section className="panel">
+          <h2>How late the money is</h2>
+          <p className="panel-sub muted">
+            Days past the due date, in five buckets
+          </p>
+          {aging.map((row, index) => (
+            <div key={row.bucket} className="aging-row">
+              <span className="aging-label">{row.bucket}</span>
+              <div className="aging-track">
+                <div
+                  className="aging-fill"
+                  style={{
+                    width: `${Math.round(row.share * 100)}%`,
+                    background:
+                      index === 0
+                        ? "var(--color-cerulean)"
+                        : "var(--color-raspberry)",
+                  }}
+                />
+              </div>
+              <span className="aging-value num">{formatUsd(row.cents)}</span>
+            </div>
+          ))}
+        </section>
+
+        <section className="panel">
+          <h2>Payments received</h2>
+          <p className="panel-sub muted">
+            Last 12 months, by the day each payment arrived
+          </p>
+          <div className="chart-box">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={payments}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid stroke="var(--color-grid)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={AXIS_TICK}
+                  interval={0}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={52}
+                  tick={AXIS_TICK}
+                  tickFormatter={(value: number | string) =>
+                    formatUsdCompact(Number(value))
+                  }
+                />
+                <Tooltip
+                  formatter={(value) => formatUsd(Number(value))}
+                  contentStyle={TOOLTIP_STYLE}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="cents"
+                  stroke="var(--color-sea-green)"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "var(--color-sea-green)" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -241,48 +344,47 @@ export default function Dashboard() {
             </section>
           </div>
 
-          <div className="dashboard-lower">
-            <section className="panel">
-              <h2>Deals won per month</h2>
-              <p className="panel-sub muted">Count of won deals</p>
-              <div className="chart-box chart-box-short">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={revenuePoints}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      stroke="var(--color-grid)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={AXIS_TICK}
-                      interval={0}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      width={32}
-                      tick={AXIS_TICK}
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      formatter={(value) => `${value} deals`}
-                      contentStyle={TOOLTIP_STYLE}
-                    />
-                    <Bar
-                      dataKey="deals"
-                      fill="var(--color-cerulean)"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
+          <section className="panel">
+            <h2>Deals won per month</h2>
+            <p className="panel-sub muted">Count of won deals</p>
+            <div className="chart-box chart-box-short">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={revenuePoints}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid stroke="var(--color-grid)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={AXIS_TICK}
+                    interval={0}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={32}
+                    tick={AXIS_TICK}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    formatter={(value) => `${value} deals`}
+                    contentStyle={TOOLTIP_STYLE}
+                  />
+                  <Bar
+                    dataKey="deals"
+                    fill="var(--color-cerulean)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
 
+          <MoneySection money={payload.money} />
+
+          <div className="dashboard-lower">
             <section className="panel">
               <h2>Recent activity</h2>
               <p className="panel-sub muted">Latest across all records</p>

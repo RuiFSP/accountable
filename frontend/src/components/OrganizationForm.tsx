@@ -19,6 +19,9 @@ export default function OrganizationForm({
   const [website, setWebsite] = useState(organization?.website ?? "");
   const [industry, setIndustry] = useState(organization?.industry ?? "");
   const [notes, setNotes] = useState(organization?.notes ?? "");
+  const [billingAddress, setBillingAddress] = useState(
+    organization?.billing_address ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -30,6 +33,7 @@ export default function OrganizationForm({
         website: website.trim() || null,
         industry: industry.trim() || null,
         notes: notes.trim() || null,
+        billing_address: billingAddress.trim() || null,
       });
     } catch (err) {
       setError(
@@ -69,6 +73,16 @@ export default function OrganizationForm({
             rows={3}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
+          />
+        </Field>
+        <Field
+          label="Billing address"
+          hint="One block of text, used on the organization's invoices."
+        >
+          <textarea
+            rows={3}
+            value={billingAddress}
+            onChange={(event) => setBillingAddress(event.target.value)}
           />
         </Field>
         {error ? (

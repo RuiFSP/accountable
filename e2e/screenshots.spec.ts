@@ -23,7 +23,11 @@ test.beforeEach(async ({ page }) => {
 /** Fonts loaded and the dashboard's chart animations finished. */
 async function settleDashboard(page: Page): Promise<void> {
   await page.locator(".kpi-grid .kpi").first().waitFor();
-  for (const heading of ["Revenue won per month", "Deals won per month"]) {
+  for (const heading of [
+    "Revenue won per month",
+    "Deals won per month",
+    "Payments received",
+  ]) {
     await expect(
       page.locator(".panel").filter({ hasText: heading }).locator("svg"),
     ).toBeVisible();

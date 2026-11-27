@@ -36,6 +36,7 @@ const organizations: Organization[] = [
     website: null,
     industry: null,
     notes: null,
+    billing_address: null,
   },
 ];
 

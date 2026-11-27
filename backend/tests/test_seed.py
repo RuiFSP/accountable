@@ -1,7 +1,9 @@
+from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
-from app import auth, db, seed
+from app import auth, db, documents, images, invoice_state, seed
+from app import months as month_buckets
 from sqlalchemy import create_engine, func, inspect, select
 
 
@@ -25,11 +27,14 @@ def _counts(engine) -> dict[str, int]:
                 db.activities,
                 db.company_settings,
                 db.products,
+                db.invoices,
+                db.invoice_lines,
+                db.payments,
             )
         }
 
 
-def test_schema_has_the_seven_tables(engine):
+def test_schema_has_the_tables(engine):
     seed.ensure_seeded(engine)
     assert set(inspect(engine).get_table_names()) == {
         "organizations",
@@ -39,6 +44,9 @@ def test_schema_has_the_seven_tables(engine):
         "company_settings",
         "products",
         "number_counters",
+        "invoices",
+        "invoice_lines",
+        "payments",
     }
 
 
@@ -53,6 +61,7 @@ def test_schema_fields_match_the_data_model(engine):
         "notes",
         "created_by",
         "updated_by",
+        "billing_address",
     ]
     assert [column["name"] for column in columns("contacts")] == [
         "id",
@@ -103,6 +112,10 @@ def test_schema_fields_match_the_data_model(engine):
         "invoice_prefix",
         "updated_by",
         "updated_at",
+        "invoice_design",
+        "accent_color",
+        "logo_data",
+        "logo_content_type",
     ]
     assert [column["name"] for column in columns("products")] == [
         "id",
@@ -117,6 +130,44 @@ def test_schema_fields_match_the_data_model(engine):
         "id",
         "kind",
         "last_number",
+    ]
+    assert [column["name"] for column in columns("invoices")] == [
+        "id",
+        "number",
+        "deal_id",
+        "organization_id",
+        "status",
+        "issue_date",
+        "due_date",
+        "subtotal_cents",
+        "tax_label",
+        "tax_rate_thousandths",
+        "tax_cents",
+        "total_cents",
+        "bill_to_name",
+        "bill_to_address",
+        "bill_to_contact_name",
+        "bill_to_contact_email",
+        "created_by",
+        "updated_by",
+    ]
+    assert [column["name"] for column in columns("invoice_lines")] == [
+        "id",
+        "invoice_id",
+        "product_id",
+        "description",
+        "quantity",
+        "unit_price_cents",
+        "position",
+    ]
+    assert [column["name"] for column in columns("payments")] == [
+        "id",
+        "invoice_id",
+        "paid_on",
+        "amount_cents",
+        "method",
+        "reference",
+        "created_by",
     ]
 
 
@@ -290,6 +341,7 @@ def _attribution(engine) -> list[tuple]:
             db.deals,
             db.activities,
             db.products,
+            db.invoices,
         ):
             rows += connection.execute(
                 select(table.c.created_by, table.c.updated_by)
@@ -434,3 +486,151 @@ def test_api_serves_the_seeded_records(client_for, sign_in_as):
     assert isinstance(deals[0]["close_date"], str)
     assert datetime.fromisoformat(activities[0]["happened_at"])
     assert date.fromisoformat(deals[0]["close_date"])
+
+
+def test_every_won_deal_of_the_last_year_has_one_invoice_whose_lines_add_up(
+    engine,
+):
+    seed.ensure_seeded(engine)
+    window = month_buckets.last_month_starts(date.today())[0]
+
+    with engine.connect() as conn:
+        won = conn.execute(
+            select(db.deals.c.id, db.deals.c.value_cents).where(
+                db.deals.c.stage == "Won",
+                db.deals.c.close_date.is_not(None),
+                db.deals.c.close_date >= window,
+            )
+        ).all()
+        invoices = conn.execute(select(db.invoices)).mappings().all()
+        lines = conn.execute(select(db.invoice_lines)).mappings().all()
+
+    by_deal = defaultdict(list)
+    for invoice in invoices:
+        by_deal[invoice["deal_id"]].append(invoice)
+    lines_by_invoice = defaultdict(list)
+    for line in lines:
+        lines_by_invoice[line["invoice_id"]].append(line)
+
+    assert len(won) >= 11  # one deal can close outside the window on some days
+    for deal_id, value_cents in won:
+        mine = by_deal[deal_id]
+        assert len(mine) == 1, f"deal {deal_id} has {len(mine)} invoices"
+        invoice = mine[0]
+        assert invoice["subtotal_cents"] == value_cents
+        assert (
+            sum(
+                line["quantity"] * line["unit_price_cents"]
+                for line in lines_by_invoice[invoice["id"]]
+            )
+            == value_cents
+        )
+
+
+def test_the_sample_invoices_spread_over_paid_part_paid_overdue_and_draft(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+
+    with engine.connect() as conn:
+        issued = conn.execute(
+            select(
+                db.invoices.c.status,
+                db.invoices.c.due_date,
+                db.invoices.c.total_cents,
+                func.coalesce(func.sum(db.payments.c.amount_cents), 0),
+            )
+            .select_from(
+                db.invoices.outerjoin(
+                    db.payments, db.payments.c.invoice_id == db.invoices.c.id
+                )
+            )
+            .where(db.invoices.c.status == invoice_state.ISSUED)
+            .group_by(db.invoices.c.id)
+        ).all()
+        drafts = conn.execute(
+            select(func.count())
+            .select_from(db.invoices)
+            .where(db.invoices.c.status == invoice_state.DRAFT)
+        ).scalar_one()
+
+    shown = {
+        invoice_state.display_status(status, total, paid, due, today)
+        for status, due, total, paid in issued
+    }
+    assert {"paid", "part paid", "overdue"} <= shown
+    assert drafts >= 1
+
+    # Money still owed sits in every one of the five buckets, by different ages.
+    owed = [(due, total - paid) for _, due, total, paid in issued if total > paid]
+    assert owed
+    buckets = {invoice_state.aging_bucket(due, today) for due, _ in owed}
+    assert buckets == set(invoice_state.AGING_BUCKETS)
+    ages = {invoice_state.days_overdue(due, today) for due, _ in owed if due < today}
+    assert len(ages) >= 3
+
+
+def test_the_organizations_with_invoices_carry_billing_addresses(engine):
+    seed.ensure_seeded(engine)
+
+    with engine.connect() as conn:
+        without = conn.execute(
+            select(db.organizations.c.name).where(
+                db.organizations.c.billing_address.is_(None),
+                db.organizations.c.id.in_(select(db.invoices.c.organization_id)),
+            )
+        ).all()
+
+    assert without == []
+
+
+def test_the_settings_row_comes_with_a_design_and_its_logo(engine):
+    seed.ensure_seeded(engine)
+
+    with engine.connect() as conn:
+        row = (
+            conn.execute(
+                select(db.company_settings).where(db.company_settings.c.id == 1)
+            )
+            .mappings()
+            .one()
+        )
+
+    assert row["invoice_design"] == documents.DEFAULT_INVOICE_DESIGN
+    assert row["accent_color"] == documents.DEFAULT_ACCENT_COLOR
+    assert row["logo_content_type"] == "image/png"
+    assert images.content_type_of(row["logo_data"]) == "image/png"
+
+
+def test_payments_are_spread_across_the_year_the_charts_show(engine):
+    seed.ensure_seeded(engine)
+    window = month_buckets.last_month_starts(date.today())
+
+    with engine.connect() as conn:
+        paid_on = conn.execute(select(db.payments.c.paid_on)).scalars().all()
+
+    assert paid_on
+    assert all(window[0] <= day <= date.today() for day in paid_on)
+    months = {month_buckets.month_key(day) for day in paid_on}
+    assert len(months) >= 6
+    assert len(months) <= len(window)
+
+
+def test_the_next_invoice_number_is_not_one_the_seed_already_gave(engine):
+    seed.ensure_seeded(engine)
+
+    with engine.connect() as conn:
+        numbers = (
+            conn.execute(
+                select(db.invoices.c.number).where(db.invoices.c.number.is_not(None))
+            )
+            .scalars()
+            .all()
+        )
+        counter = conn.execute(
+            select(db.number_counters.c.last_number).where(
+                db.number_counters.c.kind == "invoice"
+            )
+        ).scalar_one()
+
+    assert len(numbers) == 10
+    assert sorted(numbers)[-1] == f"INV-{counter:04d}"

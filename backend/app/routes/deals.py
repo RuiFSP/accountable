@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
@@ -9,6 +9,8 @@ from app import auth, db, holds, stats
 from app.records import read_or_404, require_exists, stamp_created, stamp_updated
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
+
+VALUE_HELD = "This deal has an invoice that isn't void, so its value can't be changed."
 
 Stage = Literal["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"]
 SortField = Literal[
@@ -115,6 +117,8 @@ def update_deal(
         )
         if values["contact_id"] is not None:
             require_exists(connection, db.contacts, values["contact_id"], "Contact")
+        if values["value_cents"] != existing["value_cents"]:
+            _refuse_value_change(connection, deal_id)
 
         stage_changed = existing["stage"] != values["stage"]
         if stage_changed:
@@ -213,6 +217,20 @@ def delete_deal(deal_id: int, request: Request) -> dict:
         connection.execute(db.deals.delete().where(db.deals.c.id == deal_id))
 
     return {"activities": list(activities), "counts": {"activities": len(activities)}}
+
+
+def _refuse_value_change(connection, deal_id: int) -> None:
+    """A deal keeps its value while a non-void invoice adds up to it."""
+    held = connection.execute(
+        select(func.count())
+        .select_from(db.invoices)
+        .where(
+            db.invoices.c.deal_id == deal_id,
+            db.invoices.c.status != "void",
+        )
+    ).scalar_one()
+    if held:
+        raise HTTPException(status_code=409, detail=VALUE_HELD)
 
 
 def _write_stage_entry(

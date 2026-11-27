@@ -57,6 +57,7 @@ const organizations: OrganizationRecord[] = [
     website: "northwind.example",
     industry: "Retail",
     notes: null,
+    billing_address: null,
   },
 ];
 

@@ -75,6 +75,14 @@ export function datetimeLocalNow(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
+/** "YYYY-MM-DD" for a date input, from the local clock. */
+export function todayIso(): string {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${today.getFullYear()}-${month}-${day}`;
+}
+
 /** Recent-activity labels: "9:30 AM", "Yesterday", "3 days ago", "Nov 4". */
 export function formatWhen(
   isoDateTime: string,

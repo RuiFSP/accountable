@@ -7,17 +7,22 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   api,
   type Activity,
+  type CompanySettings,
   type Contact,
   type Deal as DealRecord,
+  type InvoiceDetail,
   type Organization,
 } from "../api/client";
+import { invoicesApi } from "../api/invoices";
 import Deal from "./Deal";
+import { type RecordPanel } from "../components/RecordPanels";
+import DealInvoices from "./money/DealInvoices";
 
 vi.mock("../api/client", () => ({
   api: {
@@ -47,6 +52,21 @@ vi.mock("../api/client", () => ({
       remove: vi.fn(),
     },
     dashboard: { get: vi.fn() },
+    products: { list: vi.fn() },
+    settings: { get: vi.fn() },
+  },
+  logoDataUrl: vi.fn(),
+}));
+
+vi.mock("../api/invoices", () => ({
+  invoicesApi: {
+    list: vi.fn(),
+    create: vi.fn(),
+    issue: vi.fn(),
+    get: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    void: vi.fn(),
   },
 }));
 
@@ -57,6 +77,7 @@ const organizations: Organization[] = [
     website: null,
     industry: null,
     notes: null,
+    billing_address: null,
   },
 ];
 
@@ -83,6 +104,56 @@ const deal: DealRecord = {
   close_date: "2027-01-15",
   position: 0,
 };
+
+const settings: CompanySettings = {
+  id: 1,
+  name: "Brightloop",
+  address: "1 Brightloop Plaza, Floor 12, New York, NY 10004",
+  email: "hello@brightloop.example",
+  phone: "+1 555 0100",
+  tax_label: "Sales tax",
+  tax_rate_thousandths: 8875,
+  payment_terms_days: 30,
+  quote_prefix: "QT-",
+  invoice_prefix: "INV-",
+  invoice_design: "classic",
+  accent_color: "#073B4C",
+  logo_content_type: null,
+  updated_by: "priya@brightloop.example",
+  updated_at: "2026-11-22T09:30:00+00:00",
+};
+
+function invoiceWith(overrides: Partial<InvoiceDetail> = {}): InvoiceDetail {
+  return {
+    id: 5,
+    number: "INV-0001",
+    deal_id: 1,
+    organization_id: 7,
+    deal_name: "Store rollout",
+    organization_name: "Northwind Traders",
+    status: "issued",
+    issue_date: "2026-11-20",
+    due_date: "2026-12-20",
+    subtotal_cents: 100_000,
+    tax_label: "Sales tax",
+    tax_rate_thousandths: 8875,
+    tax_cents: 8_875,
+    total_cents: 108_875,
+    paid_cents: 0,
+    balance_cents: 108_875,
+    bill_to_name: "Northwind Traders",
+    bill_to_address: null,
+    bill_to_contact_name: "Ana Silva",
+    bill_to_contact_email: null,
+    lines: [],
+    payments: [],
+    ...overrides,
+  };
+}
+
+const PANELS: RecordPanel<DealRecord>[] = [
+  { name: "Invoices", Panel: DealInvoices },
+];
 
 const activities: Activity[] = [
   {
@@ -138,6 +209,9 @@ beforeEach(() => {
   vi.mocked(api.organizations.list).mockResolvedValue(organizations);
   vi.mocked(api.contacts.list).mockResolvedValue(contacts);
   vi.mocked(api.activities.list).mockResolvedValue(activities);
+  vi.mocked(api.products.list).mockResolvedValue([]);
+  vi.mocked(api.settings.get).mockResolvedValue(settings);
+  vi.mocked(invoicesApi.list).mockResolvedValue([]);
 });
 
 function renderDeal(id = 1) {
@@ -149,6 +223,37 @@ function renderDeal(id = 1) {
       <MemoryRouter initialEntries={[`/deals/${id}`]}>
         <Routes>
           <Route path="/deals/:id" element={<Deal />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+/**
+ * The panel's dialog follows the route's query, so these links move the route
+ * to the same address again — with and without the query — while the page
+ * stays mounted, which is the failure the query state exists for.
+ */
+function renderPanel(entry: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route
+            path="/deals/:id"
+            element={
+              <>
+                <Deal panels={PANELS} />
+                <nav>
+                  <Link to="/deals/1?invoice=new">Revisit with the query</Link>
+                  <Link to="/deals/1">Leave without the query</Link>
+                </nav>
+              </>
+            }
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -419,5 +524,117 @@ describe("who added and who changed it", () => {
     ).toBeTruthy();
     expect(screen.getByText("Added by")).toBeTruthy();
     expect(screen.queryByText("Last changed by")).toBeNull();
+  });
+});
+
+describe("the deal's invoices panel", () => {
+  it("offers Create invoice on a won deal with no invoice", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    renderPanel("/deals/1");
+
+    await screen.findByRole("heading", { name: "Store rollout" });
+    expect(await screen.findByText("No invoices yet.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeTruthy();
+  });
+
+  it("hides it while the deal is not won, and while an invoice holds the deal", async () => {
+    renderPanel("/deals/1");
+    await screen.findByRole("heading", { name: "Store rollout" });
+    expect(screen.queryByRole("button", { name: "Create invoice" })).toBeNull();
+
+    cleanup();
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    vi.mocked(invoicesApi.list).mockResolvedValue([
+      invoiceWith({
+        status: "draft",
+        number: null,
+        issue_date: null,
+        due_date: null,
+        balance_cents: null,
+      }),
+    ]);
+    renderPanel("/deals/1");
+    expect(await screen.findByRole("link", { name: "Draft" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Create invoice" })).toBeNull();
+  });
+
+  it("offers it again once the only invoice left is void", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    vi.mocked(invoicesApi.list).mockResolvedValue([
+      invoiceWith({ status: "void" }),
+    ]);
+    renderPanel("/deals/1");
+
+    await screen.findByText("INV-0001");
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeTruthy();
+    expect(screen.getByText("Void")).toBeTruthy();
+  });
+
+  it("opens the dialog from the route's query and again on a revisit", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    renderPanel("/deals/1?invoice=new");
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Create invoice",
+    });
+    expect(within(dialog).getByLabelText("Description")).toBeTruthy();
+
+    cleanup();
+    renderPanel("/deals/1?invoice=new");
+    expect(
+      await screen.findByRole("dialog", { name: "Create invoice" }),
+    ).toBeTruthy();
+  });
+
+  it("follows the query while the page stays mounted", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    renderPanel("/deals/1");
+    await screen.findByRole("heading", { name: "Store rollout" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create invoice" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Create invoice" }),
+    ).toBeTruthy();
+
+    // The same address again must not close what it opened.
+    fireEvent.click(
+      screen.getByRole("link", { name: "Revisit with the query" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Create invoice" }),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("link", { name: "Leave without the query" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("saves the draft from the dialog and closes it", async () => {
+    vi.mocked(api.deals.list).mockResolvedValue([{ ...deal, stage: "Won" }]);
+    vi.mocked(invoicesApi.create).mockResolvedValue(
+      invoiceWith({ status: "draft", number: null }),
+    );
+    renderPanel("/deals/1?invoice=new");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Create invoice",
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(invoicesApi.create).toHaveBeenCalledWith({
+        deal_id: 1,
+        lines: [
+          {
+            product_id: null,
+            description: "Store rollout",
+            quantity: 1,
+            unit_price_cents: 100_000,
+          },
+        ],
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

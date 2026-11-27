@@ -13,7 +13,7 @@ from typing import TypedDict
 
 from sqlalchemy import and_, func, select
 
-from app import db
+from app import db, invoice_state
 from app import months as month_buckets
 
 OPEN_STAGES = ("New", "Qualified", "Proposal", "Negotiation")
@@ -193,6 +193,82 @@ def follow_ups(conn, today: date | None = None) -> dict:
     }
 
 
+def payments_by_month(conn, today: date | None = None) -> list[dict]:
+    """What arrived in each of the last 12 months, by the day it landed."""
+    today = today or date.today()
+    starts = month_buckets.last_month_starts(today)
+    rows = conn.execute(
+        select(db.payments.c.paid_on, db.payments.c.amount_cents).where(
+            db.payments.c.paid_on >= starts[0]
+        )
+    ).all()
+
+    totals = {month_buckets.month_key(start): 0 for start in starts}
+    for paid_on, amount_cents in rows:
+        key = month_buckets.month_key(paid_on)
+        if key in totals:
+            totals[key] += int(amount_cents)
+    return [
+        {
+            "month": month_buckets.month_key(start),
+            "cents": totals[month_buckets.month_key(start)],
+        }
+        for start in starts
+    ]
+
+
+def money_summary(conn, today: date | None = None) -> dict:
+    """What customers owe, how late it is, and what arrived by month.
+
+    Only issued invoices are owed: drafts and void invoices are left out, and
+    a fully paid invoice adds nothing to the aging. Overdue means still owed
+    after the due date — an invoice due today is not yet due.
+    """
+    today = today or date.today()
+    invoices = conn.execute(
+        select(
+            db.invoices.c.id,
+            db.invoices.c.total_cents,
+            db.invoices.c.due_date,
+        ).where(db.invoices.c.status == invoice_state.ISSUED)
+    ).all()
+    paid = dict(
+        conn.execute(
+            select(
+                db.payments.c.invoice_id,
+                func.coalesce(func.sum(db.payments.c.amount_cents), 0),
+            ).group_by(db.payments.c.invoice_id)
+        ).all()
+    )
+
+    owed_cents = 0
+    overdue_cents = 0
+    buckets = {name: 0 for name in invoice_state.AGING_BUCKETS}
+    for invoice_id, total_cents, due_date in invoices:
+        remaining = invoice_state.balance(
+            int(total_cents or 0), int(paid.get(invoice_id, 0))
+        )
+        if remaining <= 0:
+            continue
+        owed_cents += remaining
+        if due_date is None:
+            buckets[invoice_state.NOT_YET_DUE] += remaining
+            continue
+        buckets[invoice_state.aging_bucket(due_date, today)] += remaining
+        if due_date < today:
+            overdue_cents += remaining
+
+    return {
+        "owed_cents": owed_cents,
+        "overdue_cents": overdue_cents,
+        "aging": [
+            {"bucket": name, "cents": buckets[name]}
+            for name in invoice_state.AGING_BUCKETS
+        ],
+        "payments": payments_by_month(conn, today),
+    }
+
+
 def dashboard_payload(conn, today: date | None = None) -> dict:
     """Everything the dashboard shows, in one round trip."""
     today = today or date.today()
@@ -200,6 +276,7 @@ def dashboard_payload(conn, today: date | None = None) -> dict:
         "won": won_summary(conn, today),
         "pipeline": pipeline_totals(conn),
         "funnel": funnel(conn, today),
+        "money": money_summary(conn, today),
         "recent_activity": recent_activity(conn),
         "follow_ups": follow_ups(conn, today),
     }

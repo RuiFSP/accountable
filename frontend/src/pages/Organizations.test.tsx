@@ -57,6 +57,7 @@ const organizations: OrganizationRecord[] = [
     website: "northwind.example",
     industry: "Retail",
     notes: "Wholesale accounts",
+    billing_address: "500 Market Street\nSan Francisco, CA 94105",
   },
   {
     id: 8,
@@ -64,6 +65,7 @@ const organizations: OrganizationRecord[] = [
     website: null,
     industry: null,
     notes: null,
+    billing_address: null,
   },
 ];
 
@@ -258,6 +260,7 @@ describe("Organizations page", () => {
         website: "cascade.example",
         industry: "Services",
         notes: "Met at the expo",
+        billing_address: null,
       }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -283,6 +286,7 @@ describe("Organizations page", () => {
         website: null,
         industry: null,
         notes: null,
+        billing_address: null,
       }),
     );
   });
@@ -324,9 +328,16 @@ describe("Organizations page", () => {
     expect(
       (within(dialog).getByLabelText("Notes") as HTMLTextAreaElement).value,
     ).toBe("Wholesale accounts");
+    expect(
+      (within(dialog).getByLabelText("Billing address") as HTMLTextAreaElement)
+        .value,
+    ).toBe("500 Market Street\nSan Francisco, CA 94105");
 
     fireEvent.change(within(dialog).getByLabelText("Industry"), {
       target: { value: "Commerce" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Billing address"), {
+      target: { value: "1 Market Street" },
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
@@ -336,6 +347,7 @@ describe("Organizations page", () => {
         website: "northwind.example",
         industry: "Commerce",
         notes: "Wholesale accounts",
+        billing_address: "1 Market Street",
       }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

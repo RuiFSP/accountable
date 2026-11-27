@@ -65,7 +65,7 @@ test("a contact and a deal can be added and are found by search", async ({
   await contactModal.getByLabel("Email").fill("riley@graniteworks.example");
   await contactModal
     .getByLabel("Organization")
-    .selectOption({ label: "Granite Works" });
+    .selectOption({ label: "Quarry Stone" });
   await contactModal.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("searchbox").fill("riley");
   await expect(page.locator("tbody tr")).toHaveCount(1);
@@ -77,7 +77,7 @@ test("a contact and a deal can be added and are found by search", async ({
   await dealModal.getByLabel("Name", { exact: true }).fill("Granite pilot");
   await dealModal
     .getByLabel("Organization")
-    .selectOption({ label: "Granite Works" });
+    .selectOption({ label: "Quarry Stone" });
   await dealModal
     .getByLabel("Contact")
     .selectOption({ label: "Riley Granite" });
@@ -119,14 +119,14 @@ test("the delete confirmation lists every linked record and activity", async ({
   ).toBeVisible();
 
   await page.goto("/organizations");
-  await page.getByRole("searchbox").fill("Granite");
+  await page.getByRole("searchbox").fill("Quarry");
   await page
-    .locator("tbody tr", { hasText: "Granite Works" })
+    .locator("tbody tr", { hasText: "Quarry Stone" })
     .getByRole("button", { name: "Delete" })
     .click();
 
   const dialog = page.getByRole("alertdialog", {
-    name: "Delete Granite Works?",
+    name: "Delete Quarry Stone?",
   });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("Riley Granite");
@@ -136,7 +136,7 @@ test("the delete confirmation lists every linked record and activity", async ({
   // Cancel leaves everything in place.
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(
-    page.locator("tbody tr", { hasText: "Granite Works" }),
+    page.locator("tbody tr", { hasText: "Quarry Stone" }),
   ).toBeVisible();
 });
 
@@ -145,13 +145,13 @@ test("confirming the delete removes the record and everything linked to it", asy
   request,
 }) => {
   await page.goto("/organizations");
-  await page.getByRole("searchbox").fill("Granite");
+  await page.getByRole("searchbox").fill("Quarry");
   await page
-    .locator("tbody tr", { hasText: "Granite Works" })
+    .locator("tbody tr", { hasText: "Quarry Stone" })
     .getByRole("button", { name: "Delete" })
     .click();
   const dialog = page.getByRole("alertdialog", {
-    name: "Delete Granite Works?",
+    name: "Delete Quarry Stone?",
   });
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("No matches.")).toBeVisible();
@@ -176,6 +176,8 @@ test("npm run seed with confirmation brings back the sample data", async ({
   page,
   request,
 }) => {
+  // Two full resets in one test: the command takes about twenty seconds each.
+  test.setTimeout(90_000);
   resetSampleData();
   const organizations = (await (
     await request.get("/api/organizations")
@@ -183,11 +185,11 @@ test("npm run seed with confirmation brings back the sample data", async ({
 
   await page.goto("/organizations");
   await page
-    .locator("tbody tr", { hasText: "Evergreen Coffee" })
+    .locator("tbody tr", { hasText: "Pinecrest Schools" })
     .getByRole("button", { name: "Delete" })
     .click();
   await page
-    .getByRole("alertdialog", { name: "Delete Evergreen Coffee?" })
+    .getByRole("alertdialog", { name: "Delete Pinecrest Schools?" })
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(page.locator("tbody tr")).toHaveCount(organizations.length - 1);
@@ -197,7 +199,7 @@ test("npm run seed with confirmation brings back the sample data", async ({
   await page.reload();
   await expect(page.locator("tbody tr")).toHaveCount(organizations.length);
   await expect(
-    page.locator("tbody tr", { hasText: "Evergreen Coffee" }),
+    page.locator("tbody tr", { hasText: "Pinecrest Schools" }),
   ).toBeVisible();
 });
 

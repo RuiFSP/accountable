@@ -8,9 +8,14 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { api, type CompanySettings } from "../api/client";
+import { api, logoDataUrl, type CompanySettings } from "../api/client";
 import { formatDateTime } from "../lib/dates";
-import { EMAIL_INVALID, NAME_REQUIRED, TAX_RATE_RANGE } from "../lib/settings";
+import {
+  ACCENT_CONTRAST,
+  EMAIL_INVALID,
+  NAME_REQUIRED,
+  TAX_RATE_RANGE,
+} from "../lib/settings";
 import Settings from "./Settings";
 
 vi.mock("../api/client", () => ({
@@ -18,8 +23,11 @@ vi.mock("../api/client", () => ({
     settings: {
       get: vi.fn(),
       save: vi.fn(),
+      saveLogo: vi.fn(),
+      removeLogo: vi.fn(),
     },
   },
+  logoDataUrl: vi.fn(),
 }));
 
 const brightloop: CompanySettings = {
@@ -33,6 +41,9 @@ const brightloop: CompanySettings = {
   payment_terms_days: 30,
   quote_prefix: "QT-",
   invoice_prefix: "INV-",
+  invoice_design: "classic",
+  accent_color: "#073B4C",
+  logo_content_type: null,
   updated_by: "priya@brightloop.example",
   updated_at: "2026-11-22T09:30:00+00:00",
 };
@@ -47,6 +58,8 @@ const input = {
   payment_terms_days: 30,
   quote_prefix: "QT-",
   invoice_prefix: "INV-",
+  invoice_design: "classic",
+  accent_color: "#073B4C",
 };
 
 function renderPage() {
@@ -302,5 +315,119 @@ describe("Settings page", () => {
     change("Phone", "+1 555 0111");
 
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("the Documents section", () => {
+  function documentsButton(): HTMLButtonElement {
+    return screen.getByRole("button", { name: /^Save documents$/ });
+  }
+
+  it("saves the design and the accent apart from the company details", async () => {
+    renderPage();
+    await screen.findByLabelText("Company name");
+
+    fireEvent.change(screen.getByLabelText("Design"), {
+      target: { value: "modern" },
+    });
+    fireEvent.click(documentsButton());
+
+    await waitFor(() =>
+      expect(api.settings.save).toHaveBeenCalledWith({
+        ...input,
+        invoice_design: "modern",
+      }),
+    );
+    expect(api.settings.save).toHaveBeenCalledTimes(1);
+    // Both forms show one saved line and one last-change line.
+    expect((await screen.findByRole("status")).textContent).toBe("Saved.");
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(meta().textContent).toContain("alex@brightloop.example");
+    expect(meta().textContent).toContain(
+      formatDateTime("2026-11-23T12:00:00+00:00"),
+    );
+    expect(field("Company name").value).toBe("Brightloop");
+  });
+
+  it("moves the last-change line when the company details save", async () => {
+    renderPage();
+    await screen.findByLabelText("Company name");
+
+    change("Phone", "+1 555 0177");
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(api.settings.save).toHaveBeenCalled());
+    expect((await screen.findByRole("status")).textContent).toBe("Saved.");
+    expect(meta().textContent).toContain("alex@brightloop.example");
+  });
+
+  it("follows the design and the accent as they are chosen on the sample", async () => {
+    renderPage();
+    const sheet = await screen.findByLabelText("Invoice document");
+    expect(sheet.classList.contains("sheet-classic")).toBe(true);
+    expect(sheet.style.getPropertyValue("--sheet-accent").trim()).toBe(
+      "#073B4C",
+    );
+
+    fireEvent.change(screen.getByLabelText("Design"), {
+      target: { value: "modern" },
+    });
+    expect(sheet.classList.contains("sheet-modern")).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("Accent color"), {
+      target: { value: "#000000" },
+    });
+    expect(sheet.style.getPropertyValue("--sheet-accent").trim()).toBe(
+      "#000000",
+    );
+  });
+
+  it("refuses an accent that is too light to read on white", async () => {
+    renderPage();
+    await screen.findByLabelText("Company name");
+
+    fireEvent.change(screen.getByLabelText("Accent color"), {
+      target: { value: "#118AB2" },
+    });
+    fireEvent.click(documentsButton());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(ACCENT_CONTRAST);
+    expect(api.settings.save).not.toHaveBeenCalled();
+  });
+
+  it("uploads the logo and removes it", async () => {
+    vi.mocked(logoDataUrl).mockResolvedValue(null);
+    vi.mocked(api.settings.saveLogo).mockResolvedValue({
+      ...brightloop,
+      logo_content_type: "image/png",
+    });
+    vi.mocked(api.settings.removeLogo).mockResolvedValue({
+      ...brightloop,
+      logo_content_type: null,
+    });
+    renderPage();
+    await screen.findByLabelText("Company name");
+    expect(screen.queryByRole("img", { name: "Logo" })).toBeNull();
+
+    const file = new File(["a png"], "logo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Logo"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(api.settings.saveLogo).toHaveBeenCalledWith({
+        content_type: "image/png",
+        data: expect.any(String),
+      }),
+    );
+    expect(await screen.findByRole("img", { name: "Logo" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove logo" }));
+
+    await waitFor(() =>
+      expect(api.settings.removeLogo).toHaveBeenCalledTimes(1),
+    );
+    expect(screen.queryByRole("img", { name: "Logo" })).toBeNull();
   });
 });

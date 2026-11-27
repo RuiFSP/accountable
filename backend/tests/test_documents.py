@@ -16,6 +16,8 @@ def _engine_with_settings():
                 payment_terms_days=30,
                 quote_prefix="QT-",
                 invoice_prefix="INV-",
+                invoice_design=documents.DEFAULT_INVOICE_DESIGN,
+                accent_color=documents.DEFAULT_ACCENT_COLOR,
                 updated_at=datetime(2026, 11, 25, 9, 0),
             )
         )

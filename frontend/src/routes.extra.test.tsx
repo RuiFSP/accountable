@@ -89,6 +89,18 @@ beforeEach(async () => {
       lost_cents: 0,
       lost_count: 0,
     },
+    money: {
+      owed_cents: 0,
+      overdue_cents: 0,
+      aging: [
+        { bucket: "not yet due", cents: 0 },
+        { bucket: "1 to 30", cents: 0 },
+        { bucket: "31 to 60", cents: 0 },
+        { bucket: "61 to 90", cents: 0 },
+        { bucket: "over 90", cents: 0 },
+      ],
+      payments: [],
+    },
     recent_activity: [],
     follow_ups: { overdue: [], upcoming: [], overdue_count: 0, open_count: 0 },
   });
@@ -107,6 +119,9 @@ beforeEach(async () => {
     payment_terms_days: 0,
     quote_prefix: null,
     invoice_prefix: null,
+    invoice_design: "classic",
+    accent_color: "#073B4C",
+    logo_content_type: null,
     updated_by: null,
     updated_at: "2026-11-22T09:30:00+00:00",
   });
