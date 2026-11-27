@@ -1,5 +1,5 @@
 import pytest
-from app import db
+from app import db, seed
 from sqlalchemy import create_engine
 
 
@@ -7,6 +7,8 @@ from sqlalchemy import create_engine
 def engine(tmp_path):
     test_engine = create_engine(f"sqlite:///{tmp_path / 'stage.db'}")
     db.metadata.create_all(test_engine)
+    # Quotes take their number from the settings, which accepting one needs.
+    seed.ensure_settings(test_engine)
     yield test_engine
     test_engine.dispose()
 
@@ -239,3 +241,52 @@ def test_changing_the_stage_through_edit_moves_like_a_drag(client):
     assert positions["First"] == ("Proposal", 1)  # appended after Third
     assert positions["Third"] == ("Proposal", 0)
     assert positions["Second"] == ("New", 0)  # gap closed in the old column
+
+
+def test_accepting_a_quote_moves_the_deal_exactly_as_a_drag_to_won(client):
+    setup = _setup(client)
+    accepted = _create_deal(client, setup, "Accepted deal", stage="Proposal")
+    dragged = _create_deal(client, setup, "Dragged deal", stage="Proposal")
+    product = client.post(
+        "/api/products",
+        json={"name": "Parity product", "description": None, "price_cents": 10_000},
+    ).json()
+    quote = client.post(
+        "/api/quotes",
+        json={
+            "deal_id": accepted["id"],
+            "valid_until": None,
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "description": None,
+                    "quantity": 1,
+                    "unit_price_cents": 10_000,
+                }
+            ],
+        },
+    ).json()
+    assert client.post(f"/api/quotes/{quote['id']}/send").status_code == 200
+
+    client.post(f"/api/quotes/{quote['id']}/accept")
+    client.post(
+        f"/api/deals/{dragged['id']}/stage", json={"stage": "Won", "position": 99}
+    )
+
+    deals = {deal["name"]: deal for deal in client.get("/api/deals").json()}
+    won_of_accept = deals["Accepted deal"]
+    won_of_drag = deals["Dragged deal"]
+    assert (won_of_accept["stage"], won_of_accept["probability"]) == ("Won", 100)
+    assert (won_of_drag["stage"], won_of_drag["probability"]) == ("Won", 100)
+    # Both landed at the end of the Won column, in the order they moved.
+    assert won_of_drag["position"] == won_of_accept["position"] + 1
+
+    assert (
+        [entry["description"] for entry in _stage_entries(client, accepted["id"])]
+        == [entry["description"] for entry in _stage_entries(client, dragged["id"])]
+        == ["Moved from Proposal to Won"]
+    )
+    assert (
+        _stage_entries(client, accepted["id"])[0]["created_by"]
+        == (_stage_entries(client, dragged["id"])[0]["created_by"])
+    )

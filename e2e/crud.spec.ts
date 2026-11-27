@@ -182,12 +182,14 @@ test("npm run seed with confirmation brings back the sample data", async ({
   ).json()) as unknown[];
 
   await page.goto("/organizations");
+  // An organization no quote holds, so the delete goes through: a quote holds
+  // its deal and the deals of its organization (docs/specs/tables.md 11).
   await page
-    .locator("tbody tr", { hasText: "Evergreen Coffee" })
+    .locator("tbody tr", { hasText: "Bluebird Media" })
     .getByRole("button", { name: "Delete" })
     .click();
   await page
-    .getByRole("alertdialog", { name: "Delete Evergreen Coffee?" })
+    .getByRole("alertdialog", { name: "Delete Bluebird Media?" })
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(page.locator("tbody tr")).toHaveCount(organizations.length - 1);
@@ -197,7 +199,7 @@ test("npm run seed with confirmation brings back the sample data", async ({
   await page.reload();
   await expect(page.locator("tbody tr")).toHaveCount(organizations.length);
   await expect(
-    page.locator("tbody tr", { hasText: "Evergreen Coffee" }),
+    page.locator("tbody tr", { hasText: "Bluebird Media" }),
   ).toBeVisible();
 });
 

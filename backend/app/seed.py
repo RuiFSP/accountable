@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 
-from app import db
+from app import db, documents
 from app.auth import TEAMMATES
 
 STAGE_PROBABILITIES = db.STAGE_PROBABILITIES
@@ -964,6 +964,169 @@ def _products() -> list[dict]:
     ]
 
 
+def _quotes(deal_ids: dict[str, int]) -> list[dict]:
+    """The sample quotes, numbered in the order they were created.
+
+    The open Proposal and Negotiation deals carry the live offers — drafts,
+    sent ones, two gone past their date and one declined — and every deal won
+    in the last months carries the accepted quote that won it, its subtotal
+    rounding to the deal's value. Each row keeps its lines beside it;
+    _quote_lines turns them into rows.
+    """
+    # deal name, status, created offset, [(product, quantity) or
+    # (product, quantity, description)]
+    rows = [
+        (
+            "Fathom dashboard rollout",
+            "accepted",
+            -100,
+            [
+                ("Annual support plan", 3),
+                ("Data migration", 3),
+                ("Onsite training day", 2),
+                ("Remote training day", 2),
+            ],
+        ),
+        (
+            "Evergreen loyalty program",
+            "accepted",
+            -70,
+            [("Data migration", 2), ("Onsite training day", 1)],
+        ),
+        (
+            "Acme line upgrade",
+            "accepted",
+            -40,
+            [
+                ("Implementation package", 4),
+                ("Annual support plan", 4),
+                ("Data migration", 2),
+                ("Custom report", 2),
+            ],
+        ),
+        (
+            "Quarry safety portal",
+            "sent",
+            -50,
+            [
+                ("Implementation package", 2),
+                ("Onsite training day", 1),
+                ("Annual support plan", 1),
+            ],
+        ),
+        (
+            "Northwind e-commerce add-on",
+            "sent",
+            -45,
+            [
+                ("Team license", 4),
+                ("Priority support", 1),
+                ("API access", 2, "Sandbox keys for the pilot storefront."),
+            ],
+        ),
+        (
+            "Fathom data warehouse",
+            "declined",
+            -25,
+            [("Data migration", 2), ("Custom report", 2), ("API access", 1)],
+        ),
+        (
+            "Acme spare parts portal",
+            "sent",
+            -12,
+            [("API access", 3), ("Starter license", 2), ("Team license", 1)],
+        ),
+        (
+            "Pinecrest admin suite",
+            "sent",
+            -9,
+            [
+                ("Team license", 5),
+                ("Remote training day", 2),
+                ("Annual support plan", 1),
+            ],
+        ),
+        (
+            "Northwind store rollout",
+            "accepted",
+            -8,
+            [
+                ("Data migration", 2),
+                ("Annual support plan", 1),
+                ("Onsite training day", 5),
+            ],
+        ),
+        (
+            "Cobalt records migration",
+            "sent",
+            -6,
+            [
+                ("Data migration", 2, "Historic case records, in two passes."),
+                ("Implementation package", 1),
+                ("Custom report", 1),
+            ],
+        ),
+        (
+            "Delta renewal",
+            "draft",
+            -2,
+            [("Annual support plan", 2), ("Priority support", 1)],
+        ),
+        (
+            "Oakline order portal",
+            "draft",
+            -1,
+            [
+                ("Implementation package", 1),
+                ("Data migration", 1),
+                ("Onsite training day", 1),
+            ],
+        ),
+    ]
+    settings = _settings_row()
+    prefix = settings["quote_prefix"] or ""
+    numbered = sorted(rows, key=lambda row: row[2])
+    return [
+        {
+            "number": f"{prefix}{index:0{documents.DIGITS}d}",
+            "deal_id": deal_ids[deal],
+            "status": status,
+            "created_at": _days(offset),
+            "valid_until": _days(offset + 30),
+            # A draft reads its tax from the settings; the rest kept the tax
+            # they were sent with.
+            "tax_label": None if status == "draft" else settings["tax_label"],
+            "tax_rate_thousandths": (
+                None if status == "draft" else settings["tax_rate_thousandths"]
+            ),
+            "lines": lines,
+        }
+        for index, (deal, status, offset, lines) in enumerate(numbered, start=1)
+    ]
+
+
+def _quote_lines(lines: list[tuple], product_ids: dict[str, int]) -> list[dict]:
+    """One quote's lines, taking each product's name and price as they stand."""
+    catalog = {row["name"]: row for row in _products()}
+    rows = []
+    for position, line in enumerate(lines):
+        name, quantity, *description = line
+        product = catalog[name]
+        rows.append(
+            {
+                "product_id": product_ids[name],
+                "product_name": product["name"],
+                "description": (
+                    description[0] if description else product["description"]
+                ),
+                "quantity": quantity,
+                "unit_price_cents": product["price_cents"],
+                "position": position,
+            }
+        )
+    return rows
+
+
 def _clear(engine: Engine) -> None:
     with engine.begin() as conn:
         for table in reversed(db.metadata.sorted_tables):
@@ -994,8 +1157,20 @@ def seed(engine: Engine) -> None:
         for row in _activities(contact_ids, deal_ids):
             insert_sample(db.activities, row)
         conn.execute(db.company_settings.insert().values(**_settings_row()))
-        for row in _products():
-            insert_sample(db.products, row)
+        product_ids = {
+            row["name"]: insert_sample(db.products, row) for row in _products()
+        }
+        quotes = _quotes(deal_ids)
+        for quote in quotes:
+            lines = quote.pop("lines")
+            quote_id = insert_sample(db.quotes, quote)
+            for line in _quote_lines(lines, product_ids):
+                _insert(conn, db.quote_lines, {"quote_id": quote_id, **line})
+        # The counter sits at the sample's last number, so the next real quote
+        # continues the sequence instead of colliding with it.
+        conn.execute(
+            db.number_counters.insert().values(kind="quote", last_number=len(quotes))
+        )
 
 
 def create_tables(engine: Engine) -> None:

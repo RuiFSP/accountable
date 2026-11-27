@@ -172,6 +172,9 @@ const LIGHT: Record<string, string> = {
   "--color-cerulean": "#118ab2",
   "--color-raspberry": "#ef476f",
   "--color-sea-mist": "#cdd8db",
+  "--color-document-paper": "#ffffff",
+  "--color-document-ink": "#073b4c",
+  "--color-document-accent": "#06d6a0",
   "--tint-sea-green": "#e0faf3",
   "--tint-marigold": "#fff4dc",
   "--tint-coral": "#fdece5",
@@ -191,6 +194,13 @@ const LIGHT: Record<string, string> = {
   "--shadow-modal": "0 18px 40px rgba(7, 59, 76, 0.25)",
   "--shadow-drag": "0 10px 24px rgba(7, 59, 76, 0.18)",
 };
+
+/** The quote document's tokens: the customer's paper, fixed in both themes. */
+const DOCUMENT_TOKENS = [
+  "--color-document-accent",
+  "--color-document-ink",
+  "--color-document-paper",
+];
 
 describe("one place for color", () => {
   it("holds every color literal under src/ in brand.css", () => {
@@ -234,9 +244,27 @@ describe("the light palette", () => {
 
   it("re-points every color token in the dark block", () => {
     const { dark } = parseBrandCss();
+    // The quote document's colors are the customer's paper: fixed in both
+    // themes, so the dark block leaves them alone on purpose
+    // (docs/specs/look-and-feel.md, docs/specs/quotes.md decision 4).
+    const fixed = new Set(DOCUMENT_TOKENS);
     expect(Object.keys(colorTokens(dark)).sort()).toEqual(
-      Object.keys(LIGHT).sort(),
+      Object.keys(LIGHT)
+        .filter((name) => !fixed.has(name))
+        .sort(),
     );
+  });
+
+  it("keeps the document's paper white with Midnight ink in both themes", () => {
+    const { light, dark } = parseBrandCss();
+    expect(DOCUMENT_TOKENS.map((name) => light[name])).toEqual([
+      "#06d6a0",
+      "#073b4c",
+      "#ffffff",
+    ]);
+    for (const name of DOCUMENT_TOKENS) {
+      expect(dark[name]).toBeUndefined();
+    }
   });
 });
 

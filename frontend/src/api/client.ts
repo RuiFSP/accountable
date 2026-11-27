@@ -1,6 +1,7 @@
 /** Typed fetch wrapper for the Accountable JSON API. */
 
 import { currentToken, endSession } from "../lib/session";
+import * as quotesApi from "./quotes";
 
 export type Stage =
   "New" | "Qualified" | "Proposal" | "Negotiation" | "Won" | "Lost";
@@ -340,4 +341,7 @@ export const api = {
     archive: (id: number) => post<Product>(`/api/products/${id}/archive`),
     restore: (id: number) => post<Product>(`/api/products/${id}/restore`),
   },
+  // The quotes area's calls, from api/quotes.ts: the shared `api` object
+  // carries every area, so one mock stands in for all of them in tests.
+  quotes: quotesApi,
 };

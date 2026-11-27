@@ -192,6 +192,54 @@ def test_current_schema_without_a_version_table_is_stamped_at_head():
         assert_kept_its_rows_and_gained_settings(connection)
 
 
+def test_0005_schema_without_a_version_table_reaches_head_and_keeps_its_rows():
+    engine = create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        command.upgrade(alembic_config(connection=connection), "0005")
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE alembic_version"))
+        insert_one_of_each(connection)
+        connection.execute(
+            text("INSERT INTO number_counters (kind, last_number) VALUES ('quote', 7)")
+        )
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == head_revision()
+        )
+        assert (
+            connection.execute(
+                text("SELECT last_number FROM number_counters WHERE kind = 'quote'")
+            ).scalar()
+            == 7
+        )
+        assert_kept_its_rows_and_gained_settings(connection)
+        assert connection.execute(text("SELECT COUNT(*) FROM quotes")).scalar() == 0
+    assert "quote_lines" in inspect(engine).get_table_names()
+
+
+def test_a_0005_database_upgrades_to_0006_and_keeps_its_rows():
+    engine = create_engine("sqlite:///:memory:")
+    with engine.connect() as connection:
+        command.upgrade(alembic_config(connection=connection), "0005")
+    with engine.begin() as connection:
+        insert_one_of_each(connection)
+
+    db.prepare(engine)
+
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            == head_revision()
+        )
+        assert_kept_its_rows_and_gained_settings(connection)
+        for table in ("quotes", "quote_lines"):
+            assert table in inspect(engine).get_table_names()
+
+
 def test_the_migrations_have_one_head():
     script = ScriptDirectory.from_config(alembic_config())
     assert len(script.get_heads()) == 1
@@ -235,3 +283,30 @@ def test_postgres_offline_sql_adds_the_tables_the_columns_and_row_level_security
     assert "CREATE TABLE number_counters" in sql
     for column in ("kind", "last_number"):
         assert f"{column} " in sql.split("CREATE TABLE number_counters")[1]
+    assert "CREATE TABLE quotes" in sql
+    quote_block = sql.split("CREATE TABLE quotes")[1].split("CREATE TABLE quote_lines")[
+        0
+    ]
+    for column in (
+        "number",
+        "deal_id",
+        "status",
+        "created_at",
+        "valid_until",
+        "tax_label",
+        "tax_rate_thousandths",
+        "created_by",
+        "updated_by",
+    ):
+        assert f"{column} " in quote_block
+    assert "CREATE TABLE quote_lines" in sql
+    for column in (
+        "quote_id",
+        "product_id",
+        "product_name",
+        "description",
+        "quantity",
+        "unit_price_cents",
+        "position",
+    ):
+        assert f"{column} " in sql.split("CREATE TABLE quote_lines")[1]

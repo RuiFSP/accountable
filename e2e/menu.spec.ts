@@ -81,12 +81,16 @@ test("the menu is on every route and a record's page, and names its person", asy
   const [orgId] = await ids("organizations");
   const [contactId] = await ids("contacts");
   const [dealId] = await ids("deals");
+  const { quotes } = (await (await request.get("/api/quotes")).json()) as {
+    quotes: { id: number }[];
+  };
 
   const paths = [
     ...sections,
     `/organizations/${orgId}`,
     `/contacts/${contactId}`,
     `/deals/${dealId}`,
+    `/money/quotes/${quotes[0].id}`,
   ];
   for (const path of paths) {
     await page.goto(path);
@@ -193,12 +197,17 @@ test("a fresh visit starts light and the menu flips every page", async ({
   const [orgId] = await ids("organizations");
   const [contactId] = await ids("contacts");
   const [dealId] = await ids("deals");
+  const { quotes } = (await (await request.get("/api/quotes")).json()) as {
+    quotes: { id: number }[];
+  };
+  const quotePath = `/money/quotes/${quotes[0].id}`;
 
   const paths = [
     ...sections,
     `/organizations/${orgId}`,
     `/contacts/${contactId}`,
     `/deals/${dealId}`,
+    quotePath,
   ];
   for (const path of paths) {
     await page.goto(path);
@@ -224,6 +233,13 @@ test("a fresh visit starts light and the menu flips every page", async ({
       "background-color",
       DARK_PANEL,
     );
+    // The quote document is the customer's paper: it stays white in dark mode.
+    if (path === quotePath) {
+      await expect(page.locator(".quote-document"), path).toHaveCSS(
+        "background-color",
+        "rgb(255, 255, 255)",
+      );
+    }
 
     await chooseTheme(page, "Light");
     await expect(page.locator("body"), path).toHaveCSS(

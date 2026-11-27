@@ -25,11 +25,13 @@ def _counts(engine) -> dict[str, int]:
                 db.activities,
                 db.company_settings,
                 db.products,
+                db.quotes,
+                db.quote_lines,
             )
         }
 
 
-def test_schema_has_the_seven_tables(engine):
+def test_schema_has_the_nine_tables(engine):
     seed.ensure_seeded(engine)
     assert set(inspect(engine).get_table_names()) == {
         "organizations",
@@ -39,6 +41,8 @@ def test_schema_has_the_seven_tables(engine):
         "company_settings",
         "products",
         "number_counters",
+        "quotes",
+        "quote_lines",
     }
 
 
@@ -117,6 +121,28 @@ def test_schema_fields_match_the_data_model(engine):
         "id",
         "kind",
         "last_number",
+    ]
+    assert [column["name"] for column in columns("quotes")] == [
+        "id",
+        "number",
+        "deal_id",
+        "status",
+        "created_at",
+        "valid_until",
+        "tax_label",
+        "tax_rate_thousandths",
+        "created_by",
+        "updated_by",
+    ]
+    assert [column["name"] for column in columns("quote_lines")] == [
+        "id",
+        "quote_id",
+        "product_id",
+        "product_name",
+        "description",
+        "quantity",
+        "unit_price_cents",
+        "position",
     ]
 
 
@@ -266,6 +292,108 @@ def test_sample_data_has_a_dozen_products_with_two_archived(engine):
     prices = {product.name: product.price_cents for product in products}
     assert prices["Priority support"] == 14_950
     assert prices["Onsite training day"] == 120_000
+
+
+def _quotes(engine) -> list[dict]:
+    with engine.connect() as conn:
+        return [dict(row) for row in conn.execute(select(db.quotes)).mappings()]
+
+
+def _lines_of(engine) -> dict[int, list[dict]]:
+    with engine.connect() as conn:
+        rows = [
+            dict(row)
+            for row in conn.execute(
+                select(db.quote_lines).order_by(
+                    db.quote_lines.c.quote_id, db.quote_lines.c.position
+                )
+            ).mappings()
+        ]
+    grouped: dict[int, list[dict]] = {}
+    for row in rows:
+        grouped.setdefault(row["quote_id"], []).append(row)
+    return grouped
+
+
+def test_the_sample_quotes_cover_the_open_deals_with_every_state(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+    quotes = _quotes(engine)
+    with engine.connect() as conn:
+        open_deals = (
+            conn.execute(
+                select(db.deals.c.id).where(
+                    db.deals.c.stage.in_(["Proposal", "Negotiation"])
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    states = {"draft": 0, "sent": 0, "expired": 0, "declined": 0, "accepted": 0}
+    for quote in quotes:
+        if quote["status"] == "sent" and today > quote["valid_until"]:
+            states["expired"] += 1
+        else:
+            states[quote["status"]] += 1
+
+    assert len(quotes) == 12
+    assert states["draft"] >= 2
+    assert states["sent"] >= 2
+    assert 1 <= states["expired"] <= 2
+    assert states["declined"] >= 1
+    assert states["accepted"] >= 1
+    # Every open Proposal and Negotiation deal carries its quote.
+    assert {quote["deal_id"] for quote in quotes} >= set(open_deals)
+
+
+def test_an_accepted_quote_rounds_to_its_deals_value(engine):
+    seed.ensure_seeded(engine)
+    today = date.today()
+    lines = _lines_of(engine)
+    with engine.connect() as conn:
+        deals = {
+            row["id"]: dict(row) for row in conn.execute(select(db.deals)).mappings()
+        }
+
+    accepted = {
+        quote["deal_id"]: quote
+        for quote in _quotes(engine)
+        if quote["status"] == "accepted"
+    }
+    # Every deal won in the last months carries its accepted quote...
+    recent_wins = [
+        deal
+        for deal in deals.values()
+        if deal["stage"] == "Won" and deal["close_date"] >= today - timedelta(days=92)
+    ]
+    assert recent_wins
+    assert {deal["id"] for deal in recent_wins} <= set(accepted)
+
+    # ...and every accepted quote's subtotal before tax rounds to its deal's value.
+    for deal_id, quote in accepted.items():
+        subtotal = sum(
+            line["quantity"] * line["unit_price_cents"] for line in lines[quote["id"]]
+        )
+        assert ((subtotal + 50) // 100) * 100 == deals[deal_id]["value_cents"]
+
+
+def test_the_sample_quotes_are_numbered_in_order_with_the_counter_at_the_last(engine):
+    seed.ensure_seeded(engine)
+    with engine.connect() as conn:
+        numbers = (
+            conn.execute(select(db.quotes.c.number).order_by(db.quotes.c.id))
+            .scalars()
+            .all()
+        )
+        counter = conn.execute(
+            select(db.number_counters.c.last_number).where(
+                db.number_counters.c.kind == "quote"
+            )
+        ).scalar_one()
+
+    assert numbers == [f"QT-{index:04d}" for index in range(1, 13)]
+    assert counter == len(numbers)
 
 
 def test_activities_link_to_exactly_one_record(engine):

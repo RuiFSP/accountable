@@ -332,6 +332,93 @@ def _product(client, name: str) -> dict:
     )
 
 
+def _quote(client, organization_id: int, contact_id: int, product_name: str) -> dict:
+    """A fresh quote on a new open deal, from a product of its own."""
+    deal = _deal(client, organization_id, contact_id, stage="Proposal", probability=50)
+    product = _product(client, product_name)
+    return _post(
+        client,
+        "/api/quotes",
+        {
+            "deal_id": deal["id"],
+            "valid_until": None,
+            "lines": [
+                {
+                    "product_id": product["id"],
+                    "description": None,
+                    "quantity": 1,
+                    "unit_price_cents": 10_000,
+                }
+            ],
+        },
+    )
+
+
+def test_a_quote_add_sets_both_the_emails(client):
+    organization = _organization(client)
+    contact = _contact(client, organization["id"])
+    quote = _quote(client, organization["id"], contact["id"], "Who Quote Add")
+
+    assert quote["created_by"] == ALEX
+    assert quote["updated_by"] == ALEX
+
+
+def test_a_quote_save_that_changes_a_value_sets_the_last_changed_one(
+    client, sign_in_as
+):
+    organization = _organization(client)
+    contact = _contact(client, organization["id"])
+    quote = _quote(client, organization["id"], contact["id"], "Who Quote Edit")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/quotes/{quote['id']}",
+        {
+            "valid_until": quote["valid_until"],
+            "lines": [
+                {
+                    "product_id": line["product_id"],
+                    "description": line["description"],
+                    "quantity": line["quantity"] + 1,
+                    "unit_price_cents": line["unit_price_cents"],
+                }
+                for line in quote["lines"]
+            ],
+        },
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == PRIYA
+
+
+def test_a_quote_save_that_changes_nothing_does_not(client, sign_in_as):
+    organization = _organization(client)
+    contact = _contact(client, organization["id"])
+    quote = _quote(client, organization["id"], contact["id"], "Who Quote No-op")
+    _as(client, sign_in_as, PRIYA)
+
+    saved = _put(
+        client,
+        f"/api/quotes/{quote['id']}",
+        {
+            "valid_until": quote["valid_until"],
+            "lines": [
+                {
+                    "product_id": line["product_id"],
+                    "description": line["description"],
+                    "quantity": line["quantity"],
+                    "unit_price_cents": line["unit_price_cents"],
+                }
+                for line in quote["lines"]
+            ],
+        },
+    )
+
+    assert saved["created_by"] == ALEX
+    assert saved["updated_by"] == ALEX
+
+
 def test_a_product_add_sets_both_the_emails(client):
     product = _product(client, "Who Product Add")
 

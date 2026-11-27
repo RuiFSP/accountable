@@ -72,8 +72,14 @@ test("an organization's page lists its contacts and deals", async ({
   await expect(page.locator(".page-title h1")).toHaveText("Northwind Traders");
   await expect(page.getByText("Ana Silva")).toBeVisible();
   await expect(page.getByText("Grace Kim")).toBeVisible();
-  await expect(page.getByText("Northwind store rollout")).toBeVisible();
-  await expect(page.getByText("Northwind e-commerce add-on")).toBeVisible();
+  // The deals list links them; the quotes panel below names the same deals as
+  // plain cells, so the links are what identifies them here.
+  await expect(
+    page.getByRole("link", { name: "Northwind store rollout" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Northwind e-commerce add-on" }),
+  ).toBeVisible();
 });
 
 test("a deal's page shows its linked records and timeline", async ({

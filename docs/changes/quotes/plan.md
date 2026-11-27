@@ -73,6 +73,7 @@ One new dependency, with the case: **fpdf2** for the PDF. The intent allows one 
 - `e2e/quotes.spec.ts` — new: the walk below.
 - `e2e/security.spec.ts` — `/api/quotes` joins the routes that refuse without a token.
 - `e2e/menu.spec.ts` — the quote page joins the theme sweep: the chrome follows the mode, the document stays white.
+- `e2e/contacts.spec.ts`, `e2e/crud.spec.ts` — two assertions the build moved: an organization's deals are identified by their links now that the quotes panel names the same deals as cells, and the seed test deletes an organization no quote holds, because a quote holds its deal (docs/specs/tables.md 11).
 
 ### Docs
 
