@@ -80,6 +80,27 @@ test("the Quotes tab shows the five totals and the seeded quotes", async ({
   await expect(quoteRow(page, "QT-0001")).toContainText("Accepted");
   await expect(page.getByRole("button", { name: "New quote" })).toHaveCount(0);
 
+  // The five totals read across the top: one row of five, never wrapped.
+  const cardTops = await page
+    .locator(".kpi-grid > .kpi")
+    .evaluateAll((cards) =>
+      cards.map((card) => Math.round(card.getBoundingClientRect().y)),
+    );
+  expect(cardTops).toHaveLength(5);
+  expect(new Set(cardTops).size).toBe(1);
+
+  // The table's own box searches this table's quotes.
+  const search = page.locator(".table-toolbar input[type='search']");
+  await search.fill("Delta");
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(quoteRow(page, "QT-0011")).toContainText("Delta renewal");
+  await search.fill("");
+  await expect(page.locator("tbody tr")).toHaveCount(rows.length);
+
+  // Clicking a heading sorts by that column.
+  await page.getByRole("button", { name: "Total", exact: true }).click();
+  await expect(page.locator("tbody tr").first()).toContainText("QT-0007"); // $646.72, the smallest total
+
   expect(consoleErrors()).toEqual([]);
 });
 
@@ -156,6 +177,18 @@ test("a quote from a deal comes together beside the preview and edits again", as
     "Total$4,681.63",
   );
 
+  // The actions stay inside the dialog even when its content is tall: no
+  // scrolling inside it to reach them (a ui-check finding, fixed 2026-11-27).
+  const dialogBox = (await dialog.boundingBox())!;
+  for (const name of ["Cancel", "Add"] as const) {
+    const box = (await dialog
+      .getByRole("button", { name, exact: true })
+      .boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(
+      dialogBox.y + dialogBox.height + 1,
+    );
+  }
+
   await dialog.getByRole("button", { name: "Add" }).click();
   await expect(dialog).toHaveCount(0);
   const created = (await quotes(request)).find(
@@ -172,6 +205,15 @@ test("a quote from a deal comes together beside the preview and edits again", as
   await page.goto(`/money/quotes/${created?.id}`);
   await page.getByRole("button", { name: "Edit" }).click();
   const edit = page.getByRole("dialog", { name: "Edit quote" });
+  const editBox = (await edit.boundingBox())!;
+  for (const name of ["Cancel", "Save"] as const) {
+    const box = (await edit
+      .getByRole("button", { name, exact: true })
+      .boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(
+      editBox.y + editBox.height + 1,
+    );
+  }
   await edit
     .locator(".quote-form-line")
     .first()

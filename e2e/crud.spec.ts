@@ -2,6 +2,11 @@ import { expect } from "@playwright/test";
 
 import { resetSampleData, signIn, test } from "./helpers";
 
+// One run of the real `npm run seed` takes 16-22s on this machine, and the
+// seed test runs it twice inside one test, so the default 30s cannot hold it —
+// the same 90s the other seed-running specs (products, quotes) give theirs.
+test.describe.configure({ timeout: 90_000 });
+
 test.beforeAll(() => {
   resetSampleData();
 });

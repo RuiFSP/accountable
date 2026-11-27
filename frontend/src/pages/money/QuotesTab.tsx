@@ -1,10 +1,14 @@
+import { type ColumnDef } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
-import { Route, Routes } from "react-router-dom";
+import { Link, Route, Routes } from "react-router-dom";
 
 import { api } from "../../api/client";
-import type { QuoteStatus } from "../../api/quotes";
+import type { Quote as QuoteRecord, QuoteStatus } from "../../api/quotes";
+import DataTable from "../../components/DataTable";
 import KpiCard from "../../components/KpiCard";
-import { QuoteRows, statusLabel } from "../../components/QuotePanels";
+import { STATUS_TONES, statusLabel } from "../../components/QuotePanels";
+import StatusBadge from "../../components/StatusBadge";
+import { formatDate } from "../../lib/dates";
 import { formatUsdWithCents } from "../../lib/money";
 import Quote from "./Quote";
 
@@ -14,6 +18,50 @@ const STATES: QuoteStatus[] = [
   "expired",
   "accepted",
   "declined",
+];
+
+const columns: ColumnDef<QuoteRecord>[] = [
+  {
+    accessorKey: "number",
+    header: "Number",
+    cell: (info) => (
+      <Link to={`/money/quotes/${info.row.original.id}`}>
+        {info.getValue() as string}
+      </Link>
+    ),
+  },
+  { accessorKey: "deal_name", header: "Deal" },
+  {
+    accessorKey: "organization_name",
+    header: "Organization",
+    cell: (info) => (info.getValue() as string | null) ?? "—",
+  },
+  {
+    accessorKey: "status",
+    header: "State",
+    cell: (info) => {
+      const status = info.getValue() as QuoteStatus;
+      return (
+        <StatusBadge tone={STATUS_TONES[status]}>
+          {statusLabel(status)}
+        </StatusBadge>
+      );
+    },
+  },
+  {
+    accessorKey: "valid_until",
+    header: "Valid until",
+    cell: (info) => formatDate(info.getValue() as string),
+  },
+  {
+    accessorKey: "total_cents",
+    header: "Total",
+    cell: (info) => (
+      <span className="num">
+        {formatUsdWithCents(info.getValue() as number)}
+      </span>
+    ),
+  },
 ];
 
 function QuoteList() {
@@ -33,7 +81,8 @@ function QuoteList() {
         <p className="muted">Loading…</p>
       ) : (
         <>
-          <div className="kpi-grid">
+          {/* Five totals across the top (docs/specs/quotes.md decision 1). */}
+          <div className="kpi-grid kpi-grid-five">
             {STATES.map((state) => (
               <KpiCard
                 key={state}
@@ -44,7 +93,18 @@ function QuoteList() {
             ))}
           </div>
           <section className="panel">
-            <QuoteRows quotes={data?.quotes ?? []} showDeal showOrganization />
+            <DataTable
+              rows={data?.quotes ?? []}
+              columns={columns}
+              searchFields={(row) => [
+                row.number,
+                row.deal_name,
+                row.organization_name,
+                statusLabel(row.status),
+              ]}
+              searchPlaceholder="Search quotes"
+              emptyMessage="No quotes yet."
+            />
           </section>
         </>
       )}

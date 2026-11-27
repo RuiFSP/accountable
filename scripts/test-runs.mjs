@@ -262,7 +262,16 @@ export async function joinTestRuns({
    */
   async function takeTurn(onWait) {
     const tell = onLastingChange(onWait);
-    joinedQueue = Date.now();
+    // The wall clock can step backwards on this machine (it does, by minutes),
+    // which would let a run that started waiting later look like it started
+    // first and jump the queue. Take at least one past every run already
+    // waiting, so the order is the order runs started waiting whichever way
+    // the clock moves. Runs that start waiting together share the wall clock,
+    // and the slot breaks that tie for all of them.
+    const waiting = (await otherRuns())
+      .map((run) => run.joined)
+      .filter((joined) => Number.isFinite(joined));
+    joinedQueue = Math.max(Date.now(), ...waiting.map((joined) => joined + 1));
     state = QUEUED;
     for (;;) {
       if (left) {

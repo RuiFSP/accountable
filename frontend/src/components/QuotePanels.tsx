@@ -28,6 +28,10 @@ export function statusLabel(status: QuoteStatus): string {
 
 interface QuoteRowsProps {
   quotes: Quote[];
+  /** True while the quotes are still coming, so a panel never says it has none. */
+  loading?: boolean;
+  /** True when the quotes could not be loaded, rather than there being none. */
+  error?: boolean;
   showDeal?: boolean;
   showOrganization?: boolean;
 }
@@ -35,9 +39,21 @@ interface QuoteRowsProps {
 /** The quotes of one record: number, state, date and total, opening each one. */
 export function QuoteRows({
   quotes,
+  loading = false,
+  error = false,
   showDeal = false,
   showOrganization = false,
 }: QuoteRowsProps) {
+  if (loading) {
+    return <p className="muted">Loading…</p>;
+  }
+  if (error) {
+    return (
+      <p className="form-error" role="alert">
+        Could not load the quotes.
+      </p>
+    );
+  }
   if (quotes.length === 0) {
     return <p className="muted">No quotes yet.</p>;
   }
@@ -128,7 +144,11 @@ export function DealQuotes({ record }: { record: Deal }) {
   return (
     <section className="panel">
       <h2>Quotes</h2>
-      <QuoteRows quotes={rows.data?.quotes ?? []} />
+      <QuoteRows
+        quotes={rows.data?.quotes ?? []}
+        loading={rows.isLoading}
+        error={rows.isError}
+      />
       {OPEN_STAGES.includes(record.stage) ? (
         <div className="record-panels-action">
           <button
@@ -169,7 +189,12 @@ export function OrganizationQuotes({ record }: { record: Organization }) {
   return (
     <section className="panel">
       <h2>Quotes</h2>
-      <QuoteRows quotes={rows.data?.quotes ?? []} showDeal />
+      <QuoteRows
+        quotes={rows.data?.quotes ?? []}
+        loading={rows.isLoading}
+        error={rows.isError}
+        showDeal
+      />
     </section>
   );
 }

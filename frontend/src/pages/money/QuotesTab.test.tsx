@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -122,6 +123,8 @@ describe("the Quotes tab", () => {
       expect(totals.getByText(amount)).toBeTruthy();
     }
     expect(totals.getAllByText("Including tax")).toHaveLength(5);
+    // The five read across the top: one row of five, not the four-column grid.
+    expect(container.querySelector(".kpi-grid-five")).toBeTruthy();
   });
 
   it("lists every quote with the state it shows, expired among them", async () => {
@@ -172,5 +175,33 @@ describe("the Quotes tab", () => {
 
     expect(await screen.findByText("No quotes yet.")).toBeTruthy();
     await waitFor(() => expect(api.quotes.list).toHaveBeenCalledTimes(1));
+  });
+
+  it("searches the quotes from the table's own box", async () => {
+    renderTab();
+    const box = await screen.findByRole("searchbox", {
+      name: "Search quotes",
+    });
+
+    fireEvent.change(box, { target: { value: "Fathom" } });
+    const rows = screen.getAllByRole("row");
+    expect(rows).toHaveLength(2); // the heading row and QT-0002 only
+    expect(rows[1].textContent).toContain("QT-0002");
+
+    fireEvent.change(box, { target: { value: "nothing here" } });
+    expect(await screen.findByText("No matches.")).toBeTruthy();
+  });
+
+  it("sorts by a column heading", async () => {
+    renderTab();
+    const total = await screen.findByRole("button", { name: "Total" });
+
+    fireEvent.click(total);
+    let rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("QT-0002"); // $544.38 before $1,088.75
+
+    fireEvent.click(total);
+    rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("QT-0001");
   });
 });

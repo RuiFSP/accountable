@@ -62,11 +62,11 @@ One new dependency, with the case: **fpdf2** for the PDF. The intent allows one 
 
 ### Frontend — edited
 
-- `frontend/src/pages/money/QuotesTab.tsx` — replaces the placeholder: its own sub-routes (the list, then `:id` for `Quote.tsx`), the five totals across the top, the list of every quote with no add, edit or delete, rows opening the quote.
+- `frontend/src/pages/money/QuotesTab.tsx` — replaces the placeholder: its own sub-routes (the list, then `:id` for `Quote.tsx`), the five totals across the top in one row of five, and the list of every quote on `DataTable` — the table's own search box and sortable headings, as `tables.md` asks of every record table — with no add, edit or delete, rows opening the quote through the number.
 - `frontend/src/pages/money/QuotesTab.test.tsx` — new; the stub has none: the totals, the rows and their displayed states, the sub-routes.
 - `frontend/src/routes.tsx` — `DEAL_PANELS` and `ORGANIZATION_PANELS` gain the two quotes panels; the `quotes/*` route already belongs to the tab.
 - `frontend/src/routes.test.tsx`, `frontend/src/routes.extra.test.tsx` — the shared `api` mock gains quotes; the quote page joins the route sweeps and the signed-out check; the panels show on the deal and organization pages.
-- `frontend/src/styles/brand.css` — the document styles from tokens (`.quote-document` and its parts), with the document's three colors as tokens fixed in both themes — the paper is the customer's, so dark mode keeps it white. `colors.test.ts` learns the exception so its "dark re-points every token" rule does not fight `look-and-feel.md`.
+- `frontend/src/styles/brand.css` — the document styles from tokens (`.quote-document` and its parts), with the document's three colors as tokens fixed in both themes — the paper is the customer's, so dark mode keeps it white. `colors.test.ts` learns the exception so its "dark re-points every token" rule does not fight `look-and-feel.md`. After the ui-check pass: `.kpi-grid.kpi-grid-five` puts the five totals in one row down to 1024px, and `.modal-actions` sticks to the dialog's edge so a tall dialog's buttons never scroll out of reach.
 
 ### End-to-end
 
@@ -88,7 +88,7 @@ One new dependency, with the case: **fpdf2** for the PDF. The intent allows one 
 - `backend/tests/test_tax.py`, `test_documents.py`, `test_every_route.py` — unchanged; the route sweep picks up the new routes in both copies, and `test_documents.py` already proves a failed save rolls its number back.
 - `frontend/src/lib/tax.ts`, `money.ts`, `settings.ts`, `shared/totals-cases.json` — reused.
 - `frontend/src/pages/Money.tsx`, `pages/money/InvoicesTab.tsx`, `BillsTab.tsx` — the tab strip and the two placeholders stay as they are.
-- `frontend/src/components/Modal.tsx`, `StatusBadge.tsx`, `KpiCard.tsx`, `RecordPanels.tsx`, `DataTable.tsx` — reused (the wide modal, the document badge tones, the five totals; the Quotes list is its own table because a quote has no add, edit or delete on a row).
+- `frontend/src/components/Modal.tsx`, `StatusBadge.tsx`, `KpiCard.tsx`, `RecordPanels.tsx`, `DataTable.tsx` — reused (the wide modal, the document badge tones, the five totals; the Quotes list sits on `DataTable` for its search box and sortable headings, with no add, edit or delete on a row because a quote is a document).
 - `package.json`, `scripts/`, `e2e/helpers.ts` — no new scripts; the reset, sign-in and guards are reused.
 
 ## Order of work

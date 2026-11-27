@@ -1,6 +1,13 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+// Two test runs can share this checkout (the turn-end hook's check and an
+// agent's), and Vitest refuses to start while another process holds its
+// coverage directory. test-run.mjs passes each run's slot down, so each run
+// reports into its own slot's directory; a run outside that machinery keeps
+// the default.
+const coverageSlot = process.env.ACCOUNTABLE_TEST_SLOT;
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -17,6 +24,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text"],
+      ...(coverageSlot
+        ? { reportsDirectory: `coverage/slot${coverageSlot}` }
+        : {}),
       thresholds: {
         statements: 80,
         branches: 80,

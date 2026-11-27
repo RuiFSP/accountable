@@ -199,6 +199,31 @@ describe("the deal's quotes panel", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
+  it("says Loading while the quotes are coming, not that there are none", async () => {
+    let reply: (value: { quotes: Quote[] }) => void = () => {};
+    vi.mocked(api.quotes.list).mockReturnValue(
+      new Promise((resolve) => {
+        reply = resolve;
+      }),
+    );
+    renderPanel(DealQuotesPanel, openDeal);
+
+    expect(screen.getByText("Loading…")).toBeTruthy();
+    expect(screen.queryByText("No quotes yet.")).toBeNull();
+
+    reply({ quotes });
+    expect(await screen.findByRole("link", { name: "QT-0001" })).toBeTruthy();
+  });
+
+  it("says so when the quotes cannot be loaded", async () => {
+    vi.mocked(api.quotes.list).mockRejectedValue(new Error("offline"));
+    renderPanel(DealQuotesPanel, openDeal);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Could not load the quotes.");
+    expect(screen.queryByText("No quotes yet.")).toBeNull();
+  });
+
   it("creates a quote from the New quote dialog", async () => {
     vi.mocked(api.quotes.create).mockResolvedValue({
       ...quotes[0],
