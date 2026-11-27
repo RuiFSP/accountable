@@ -26,6 +26,7 @@ def _counts(engine) -> dict[str, int]:
                 db.activities,
                 db.company_settings,
                 db.products,
+                db.bills,
             )
         }
 
@@ -49,6 +50,7 @@ def _dirty(engine) -> dict[str, int]:
             .values(name="Not Brightloop")
         )
         conn.execute(db.products.delete())
+        conn.execute(db.bills.delete())
     return _counts(engine)
 
 

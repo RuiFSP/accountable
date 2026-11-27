@@ -1,6 +1,7 @@
 /** Chart mapping: dashboard payload → what the charts and funnel render. */
 
-import type { DashboardPayload, Stage } from "../api/client";
+import type { DashboardPayload, BillCategory, Stage } from "../api/client";
+import { BILL_CATEGORIES, CATEGORY_COLORS } from "./bills";
 
 /** Recharts' axis labels follow the mode through the ink token. */
 export const AXIS_TICK = { fill: "var(--color-ink-muted)", fontSize: 12 };
@@ -60,5 +61,44 @@ export function funnelBars(funnel: DashboardPayload["funnel"]): FunnelBar[] {
     count: row.count,
     valueCents: row.value_cents,
     share: row.value_cents / widest,
+  }));
+}
+
+export interface SpendingSegment {
+  category: BillCategory;
+  cents: number;
+  color: string;
+  /**0…1 share of the tallest month's total, for stacked heights. */
+  share: number;
+}
+
+export interface SpendingBar {
+  month: string;
+  label: string;
+  totalCents: number;
+  segments: SpendingSegment[];
+}
+
+/** Spending payload → one stacked bar per month, split by category. */
+export function spendingBars(
+  spending: DashboardPayload["payables"]["spending"],
+): SpendingBar[] {
+  const totals = spending.map((row) =>
+    BILL_CATEGORIES.reduce(
+      (sum, category) => sum + row.categories[category],
+      0,
+    ),
+  );
+  const tallest = Math.max(1, ...totals);
+  return spending.map((row, index) => ({
+    month: row.month,
+    label: monthLabel(row.month),
+    totalCents: totals[index],
+    segments: BILL_CATEGORIES.map((category) => ({
+      category,
+      cents: row.categories[category],
+      color: CATEGORY_COLORS[category],
+      share: row.categories[category] / tallest,
+    })),
   }));
 }

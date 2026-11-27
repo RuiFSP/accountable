@@ -48,6 +48,14 @@ vi.mock("./api/client", () => ({
       archive: vi.fn(),
       restore: vi.fn(),
     },
+    bills: {
+      list: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+      markPaid: vi.fn(),
+      markUnpaid: vi.fn(),
+    },
     dashboard: { get: vi.fn() },
     settings: {
       get: vi.fn(),
@@ -91,6 +99,12 @@ beforeEach(async () => {
     },
     recent_activity: [],
     follow_ups: { overdue: [], upcoming: [], overdue_count: 0, open_count: 0 },
+    payables: {
+      unpaid: { total_cents: 0, count: 0 },
+      overdue: { total_cents: 0, count: 0 },
+      due_soon: { total_cents: 0, count: 0, rows: [] },
+      spending: [],
+    },
   });
   vi.mocked(api.deals.list).mockResolvedValue([]);
   vi.mocked(api.organizations.list).mockResolvedValue([]);
@@ -111,6 +125,7 @@ beforeEach(async () => {
     updated_at: "2026-11-22T09:30:00+00:00",
   });
   vi.mocked(api.products.list).mockResolvedValue([]);
+  vi.mocked(api.bills.list).mockResolvedValue([]);
   await signInForTests();
 });
 
@@ -160,5 +175,45 @@ describe("products route", () => {
     ).toBeTruthy();
     expect(screen.getByRole("banner")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Products" })).toBeTruthy();
+  });
+});
+
+describe("organization page panels", () => {
+  it("renders the organization's bills panel with its bills", async () => {
+    vi.mocked(api.organizations.list).mockResolvedValue([
+      {
+        id: 3,
+        name: "Vantage Software",
+        website: null,
+        industry: "Software",
+        notes: null,
+        created_by: null,
+        updated_by: null,
+      },
+    ]);
+    vi.mocked(api.bills.list).mockResolvedValue([
+      {
+        id: 1,
+        organization_id: 3,
+        organization_name: "Vantage Software",
+        bill_number: "VS-2026-01",
+        bill_date: "2026-01-05",
+        due_date: "2026-02-04",
+        category: "Software",
+        amount_cents: 24_900,
+        tax_cents: 1_992,
+        total_cents: 26_892,
+        notes: null,
+        paid_date: null,
+        status: "unpaid",
+        created_by: null,
+        updated_by: null,
+      },
+    ]);
+    renderAt("/organizations/3");
+
+    expect(await screen.findByText("VS-2026-01")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Bills/ })).toBeTruthy();
+    expect(api.bills.list).toHaveBeenCalledWith(undefined, undefined, 3);
   });
 });

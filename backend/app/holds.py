@@ -54,7 +54,11 @@ def holding(
         ids = [record_id for table, record_id in targets if table is hold.held]
         if not ids:
             continue
-        rows = connection.execute(select(hold.link).where(hold.link.in_(ids))).scalars()
+        # The holding record's own id, so two bills from one supplier count as
+        # two bills while one document matching twice counts once.
+        rows = connection.execute(
+            select(hold.link.table.c.id).where(hold.link.in_(ids))
+        ).scalars()
         found.setdefault(hold.noun, set()).update(rows)
     return {noun: len(rows) for noun, rows in found.items() if rows}
 

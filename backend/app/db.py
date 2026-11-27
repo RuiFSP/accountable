@@ -126,6 +126,24 @@ products = Table(
     Column("updated_by", String),
 )
 
+bills = Table(
+    "bills",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("organization_id", Integer, ForeignKey("organizations.id"), nullable=False),
+    Column("bill_number", String, nullable=False),
+    Column("bill_date", Date, nullable=False),
+    Column("due_date", Date, nullable=False),
+    Column("category", String, nullable=False),
+    Column("amount_cents", Integer, nullable=False),
+    Column("tax_cents", Integer, nullable=False),
+    Column("total_cents", Integer, nullable=False),
+    Column("notes", Text),
+    Column("paid_date", Date),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
 # How many numbers each kind of document has taken, so the next is one more.
 # A kind's row is added when it takes its first number. Quotes and invoices are
 # counted apart, and a reset clears the rows with every other table.
@@ -193,14 +211,16 @@ def _unversioned_revision(engine: Engine) -> str | None:
     The exact revision its tables and columns match: a pre-change database
     gets the baseline, one with the attribution columns but no products table
     gets 0002, one with products but not the settings table gets 0003, one
-    carrying the settings table gets 0004, and one with the number counters
-    gets 0005. Stamping head would let a database skip a migration it still
-    needs.
+    carrying the settings table gets 0004, one with the number counters gets
+    0005, and one carrying the bills table gets 0006. Stamping head would let
+    a database skip a migration it still needs.
     """
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     if not tables or "alembic_version" in tables or "organizations" not in tables:
         return None
+    if "bills" in tables:
+        return "0006"
     if "number_counters" in tables:
         return "0005"
     if "company_settings" in tables:

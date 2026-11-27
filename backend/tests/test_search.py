@@ -68,6 +68,23 @@ def _product(client, name: str) -> dict:
     )
 
 
+def _bill(client, organization_id: int, number: str) -> dict:
+    return _post(
+        client,
+        "/api/bills",
+        {
+            "organization_id": organization_id,
+            "bill_number": number,
+            "bill_date": "2026-01-05",
+            "due_date": None,
+            "category": "Software",
+            "amount_cents": 4_900,
+            "tax_cents": 392,
+            "notes": None,
+        },
+    )
+
+
 def _search(client, q: str | None) -> list[dict]:
     response = client.get("/api/search", params={} if q is None else {"q": q})
     return response.json()
@@ -136,6 +153,17 @@ def test_percent_and_underscore_mean_only_themselves(client):
     assert [item["name"] for item in _search(client, "%")] == ["100% Fun Club"]
     assert [item["name"] for item in _search(client, "_")] == ["snake_case_org"]
     assert [item["name"] for item in _search(client, "100% F")] == ["100% Fun Club"]
+
+
+def test_a_bill_number_or_its_supplier_finds_no_top_bar_match(client):
+    organization = _organization(client, "Zzyzx Supplier")
+    _bill(client, organization["id"], "ZZY-2026-01")
+
+    assert _search(client, "zzy-2026-01") == []
+    # The supplier is found as an organization; the bill behind it is not.
+    assert [
+        (item["kind"], item["name"]) for item in _search(client, "zzyzx supplier")
+    ] == [("organization", "Zzyzx Supplier")]
 
 
 def test_a_blank_q_is_refused(client):

@@ -176,6 +176,10 @@ test("npm run seed with confirmation brings back the sample data", async ({
   page,
   request,
 }) => {
+  // This one test runs the real seed command twice: a seed takes about 13
+  // seconds on this computer, so two of them plus the page work exceed the
+  // default 30 seconds, and the suite runs alongside the other unit tests.
+  test.setTimeout(90_000);
   resetSampleData();
   const organizations = (await (
     await request.get("/api/organizations")

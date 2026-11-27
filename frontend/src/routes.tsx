@@ -24,6 +24,7 @@ import Products from "./pages/Products";
 import Settings from "./pages/Settings";
 import BillsTab from "./pages/money/BillsTab";
 import InvoicesTab from "./pages/money/InvoicesTab";
+import OrganizationBills from "./pages/money/OrganizationBills";
 import QuotesTab from "./pages/money/QuotesTab";
 
 export const SECTIONS = [
@@ -39,7 +40,9 @@ export const SECTIONS = [
 // The panels the quotes, invoices and bills changes add to the CRM's pages.
 // Each area adds its own entry when it lands.
 const DEAL_PANELS: RecordPanel<Deal>[] = [];
-const ORGANIZATION_PANELS: RecordPanel<Organization>[] = [];
+const ORGANIZATION_PANELS: RecordPanel<Organization>[] = [
+  { name: "bills", Panel: OrganizationBills },
+];
 
 export function AppRoutes() {
   const navigate = useNavigate();
