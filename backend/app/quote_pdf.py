@@ -135,6 +135,10 @@ def render_pdf(document: dict) -> bytes:
     for family, filename in FONT_FILES.items():
         pdf.add_font(family, "", FONT_DIR / filename)
     pdf.set_margins(20, 18, 20)
+    # Nothing breaks the page on its own: every block is drawn exactly where
+    # it says it is, and each block takes a fresh page for itself when it would
+    # fall off the bottom of this one (see _fit).
+    pdf.set_auto_page_break(False)
     pdf.add_page()
     _draw_head(pdf, document)
     _draw_parties(pdf, document)
@@ -142,6 +146,15 @@ def render_pdf(document: dict) -> bytes:
     _draw_lines(pdf, document)
     _draw_totals(pdf, document)
     return bytes(pdf.output())
+
+
+def _fit(pdf: FPDF, height: float, top: float) -> float:
+    """Where a block of this height starts: on a fresh page when it would
+    fall off the bottom of the page it was about to be drawn on."""
+    if top + height <= pdf.page_break_trigger:
+        return top
+    pdf.add_page()
+    return pdf.t_margin
 
 
 def _text(
@@ -184,11 +197,15 @@ def _draw_head(pdf: FPDF, document: dict) -> None:
 
 
 def _draw_parties(pdf: FPDF, document: dict) -> None:
+    """From and To side by side, the pair as tall as the taller column."""
     half = pdf.epw / 2
-    top = pdf.get_y()
-    _draw_party(pdf, pdf.l_margin, top, half, "From", _company_rows(document))
-    _draw_party(pdf, pdf.l_margin + half, top, half, "To", _customer_rows(document))
-    pdf.set_y(top + 6 * LINE_HEIGHT + 4)
+    from_cells = _wrap_party(pdf, half, "From", _company_rows(document))
+    to_cells = _wrap_party(pdf, half, "To", _customer_rows(document))
+    height = max(_party_height(from_cells), _party_height(to_cells))
+    top = _fit(pdf, height, pdf.get_y())
+    _draw_party(pdf, pdf.l_margin, top, half, from_cells)
+    _draw_party(pdf, pdf.l_margin + half, top, half, to_cells)
+    pdf.set_y(top + height + 4)
 
 
 def _company_rows(document: dict) -> list[str]:
@@ -210,19 +227,37 @@ def _customer_rows(document: dict) -> list[str]:
     return [row for row in (customer["organization"], customer["contact"]) if row]
 
 
-def _draw_party(
-    pdf: FPDF, x: float, y: float, width: float, label: str, rows: list[str]
-) -> None:
-    _text(pdf, x, y, width, 9, label)
+def _wrap_party(
+    pdf: FPDF, width: float, label: str, rows: list[str]
+) -> list[tuple[int, list[str]]]:
+    """One column's label and rows, each wrapped inside it: (size, lines)."""
+    cells = [(9, _wrapped(pdf, width, 9, label))]
     for index, row in enumerate(rows):
-        _text(
-            pdf, x, y + (index + 1) * LINE_HEIGHT, width, 11 if index == 0 else 9, row
-        )
+        size = 11 if index == 0 else 9
+        cells.append((size, _wrapped(pdf, width, size, row)))
+    return cells
+
+
+def _party_height(cells: list[tuple[int, list[str]]]) -> float:
+    """One column's height: its rows, each on as many lines as it wrapped to."""
+    return sum(len(lines) for _, lines in cells) * LINE_HEIGHT
+
+
+def _draw_party(
+    pdf: FPDF, x: float, y: float, width: float, cells: list[tuple[int, list[str]]]
+) -> None:
+    """One column's cells drawn from its top, one under the last."""
+    cursor = y
+    for size, lines in cells:
+        for line_index, line in enumerate(lines):
+            _text(pdf, x, cursor + line_index * LINE_HEIGHT, width, size, line)
+        cursor += len(lines) * LINE_HEIGHT
 
 
 def _draw_meta(pdf: FPDF, document: dict) -> None:
     third = pdf.epw / 3
-    top = pdf.get_y()
+    height = 2 * LINE_HEIGHT + 5
+    top = _fit(pdf, height, pdf.get_y())
     fields = (
         ("Quote number", document["number"], MONEY),
         ("Created", date_label(document["created_at"]), TEXT),
@@ -232,29 +267,21 @@ def _draw_meta(pdf: FPDF, document: dict) -> None:
         x = pdf.l_margin + index * third
         _text(pdf, x, top, third, 8, label)
         _text(pdf, x, top + LINE_HEIGHT, third, 10, value, font=font)
-    pdf.set_y(top + 2 * LINE_HEIGHT + 5)
+    pdf.set_y(top + height)
 
 
 def _draw_lines(pdf: FPDF, document: dict) -> None:
+    """The lines table, its headings repeated on the page it continues on."""
     columns = _line_columns(pdf.epw)
-    top = pdf.get_y()
-    for key, (width, align) in columns.items():
-        _text(
-            pdf,
-            _columns_x(columns, key, pdf.l_margin),
-            top,
-            width,
-            8,
-            LINE_HEADINGS[key],
-            align=align,
-        )
-    rule = top + LINE_HEIGHT + 1
-    pdf.set_draw_color(*ACCENT)
-    pdf.set_line_width(0.3)
-    pdf.line(pdf.l_margin, rule, pdf.l_margin + pdf.epw, rule)
-    pdf.set_y(rule + 2)
-    for line in document["lines"]:
-        _draw_line(pdf, line, columns)
+    rows = [_line_cells(pdf, line, columns) for line in document["lines"]]
+    heading = 3 * LINE_HEIGHT + (_row_height(rows[0]) if rows else 0)
+    top = _table_headings(pdf, _fit(pdf, heading, pdf.get_y()), columns)
+    for cells in rows:
+        if top + _row_height(cells) > pdf.page_break_trigger:
+            pdf.add_page()
+            top = _table_headings(pdf, pdf.t_margin, columns)
+        top = _draw_line(pdf, cells, columns, top)
+    pdf.set_y(top)
 
 
 def _line_columns(epw: float) -> dict:
@@ -290,18 +317,47 @@ def _columns_x(columns: dict, key: str, start: float) -> float:
     return x
 
 
-def _draw_line(pdf: FPDF, line: dict, columns: dict) -> None:
-    top = pdf.get_y()
-    wrapped = {
+def _table_headings(pdf: FPDF, top: float, columns: dict) -> float:
+    """The column headings and their rule: the y the rows start below them."""
+    for key, (width, align) in columns.items():
+        _text(
+            pdf,
+            _columns_x(columns, key, pdf.l_margin),
+            top,
+            width,
+            8,
+            LINE_HEADINGS[key],
+            align=align,
+        )
+    rule = top + LINE_HEIGHT + 1
+    pdf.set_draw_color(*ACCENT)
+    pdf.set_line_width(0.3)
+    pdf.line(pdf.l_margin, rule, pdf.l_margin + pdf.epw, rule)
+    return rule + 2
+
+
+def _line_cells(pdf: FPDF, line: dict, columns: dict) -> dict[str, list[str]]:
+    """One row of the lines table, every cell wrapped inside its column."""
+    return {
         key: _wrapped(pdf, width, 9, _line_cell(line, key))
         for key, (width, _) in columns.items()
     }
-    height = max(len(rows) for rows in wrapped.values()) * LINE_HEIGHT
+
+
+def _row_height(cells: dict[str, list[str]]) -> float:
+    """One row's height: its tallest cell, every cell on LINE_HEIGHT."""
+    return max(len(rows) for rows in cells.values()) * LINE_HEIGHT
+
+
+def _draw_line(
+    pdf: FPDF, cells: dict[str, list[str]], columns: dict, top: float
+) -> float:
+    """One row's cells drawn from ``top``: the y the next row starts below."""
     for key, (width, align) in columns.items():
         font = (
             MONEY if key in {"quantity", "unit_price_cents", "amount_cents"} else TEXT
         )
-        for index, row in enumerate(wrapped[key]):
+        for index, row in enumerate(cells[key]):
             _text(
                 pdf,
                 _columns_x(columns, key, pdf.l_margin),
@@ -312,7 +368,7 @@ def _draw_line(pdf: FPDF, line: dict, columns: dict) -> None:
                 font=font,
                 align=align,
             )
-    pdf.set_y(top + height + 1.5)
+    return top + _row_height(cells) + 1.5
 
 
 def _line_cell(line: dict, key: str) -> str:
@@ -326,33 +382,71 @@ def _line_cell(line: dict, key: str) -> str:
 
 
 def _draw_totals(pdf: FPDF, document: dict) -> None:
+    """Subtotal, tax and total: kept together, each row as tall as it wraps."""
     label_width = 50
     amount_width = 38
     x = pdf.l_margin + pdf.epw - label_width - amount_width
-    top = pdf.get_y() + 3
+    rows = _total_rows(document)
+    cells = [
+        _total_cells(pdf, label_width, amount_width, index, label, amount)
+        for index, (label, amount) in enumerate(rows)
+    ]
+    top = _fit(pdf, _totals_height(cells), pdf.get_y() + 3)
+    cursor = top
+    for index, (size, label_lines, amount_lines) in enumerate(cells):
+        if index == 2:
+            pdf.set_draw_color(*ACCENT)
+            pdf.set_line_width(0.3)
+            pdf.line(x, cursor - 1, x + label_width + amount_width, cursor - 1)
+        for line_index, line in enumerate(label_lines):
+            _text(pdf, x, cursor + line_index * LINE_HEIGHT, label_width, size, line)
+        for line_index, line in enumerate(amount_lines):
+            _text(
+                pdf,
+                x + label_width,
+                cursor + line_index * LINE_HEIGHT,
+                amount_width,
+                size,
+                line,
+                font=MONEY,
+                align="R",
+            )
+        cursor += max(len(label_lines), len(amount_lines)) * LINE_HEIGHT + 1.5
+    pdf.set_y(cursor)
+
+
+def _total_rows(document: dict) -> list[tuple[str, str]]:
+    """The three totals rows as the label and the amount the document shows."""
     tax_label = document["tax_label"] or "Tax"
-    rows = (
+    return [
         ("Subtotal", money(document["subtotal_cents"])),
         (
             f"{tax_label} ({percent(document['tax_rate_thousandths'])})",
             money(document["tax_cents"]),
         ),
         ("Total", money(document["total_cents"])),
+    ]
+
+
+def _total_cells(
+    pdf: FPDF,
+    label_width: float,
+    amount_width: float,
+    index: int,
+    label: str,
+    amount: str,
+) -> tuple[int, list[str], list[str]]:
+    """One totals row: its size, its label and its amount, each wrapped."""
+    size = 11 if index == 2 else 9
+    return (
+        size,
+        _wrapped(pdf, label_width, size, label),
+        _wrapped(pdf, amount_width, size, amount, font=MONEY),
     )
-    for index, (label, amount) in enumerate(rows):
-        y = top + index * (LINE_HEIGHT + 1.5)
-        if index == 2:
-            pdf.set_draw_color(*ACCENT)
-            pdf.set_line_width(0.3)
-            pdf.line(x, y - 1, x + label_width + amount_width, y - 1)
-        _text(pdf, x, y, label_width, 11 if index == 2 else 9, label, align="L")
-        _text(
-            pdf,
-            x + label_width,
-            y,
-            amount_width,
-            11 if index == 2 else 9,
-            amount,
-            font=MONEY,
-            align="R",
-        )
+
+
+def _totals_height(cells: list[tuple[int, list[str], list[str]]]) -> float:
+    return sum(
+        max(len(label_lines), len(amount_lines)) * LINE_HEIGHT + 1.5
+        for _, label_lines, amount_lines in cells
+    )

@@ -155,13 +155,14 @@ def _totals(rows: list[dict]) -> dict[str, int]:
 
 
 def _checked_lines(
-    connection, lines: list[LineIn], kept_names: dict[int, str]
+    connection, lines: list[LineIn], kept_names: dict[int, list[str]]
 ) -> list[dict]:
     """The lines as rows, refusing bad bounds and products that can't be added.
 
-    ``kept_names`` maps the products already on the quote to the name each line
-    snapshotted: those lines stay whatever became of their product, and only a
-    newly added line needs an active product.
+    ``kept_names`` maps each product already on the quote to the names its
+    lines snapshotted, in the order they were added: those lines stay whatever
+    became of their product, and only a line past them is a new line, which
+    needs an active product and takes its name now.
     """
     if not lines:
         raise HTTPException(status_code=400, detail=NO_LINES)
@@ -187,10 +188,16 @@ def _checked_lines(
     return rows
 
 
-def _product_name(connection, product_id: int, kept_names: dict[int, str]) -> str:
-    """The name a new line snapshots; a line already on the quote keeps its own."""
-    if product_id in kept_names:
-        return kept_names[product_id]
+def _product_name(connection, product_id: int, kept_names: dict[int, list[str]]) -> str:
+    """The name a new line snapshots; a line already on the quote keeps its own.
+
+    A product on the quote already has one kept name per line it has here, so a
+    second line of a product the quote already carries is a new line — added,
+    not kept, whatever the product became.
+    """
+    kept = kept_names.get(product_id)
+    if kept:
+        return kept.pop(0)
     product = read_or_404(connection, db.products, product_id, "Product")
     if not product["active"]:
         raise HTTPException(status_code=400, detail=ARCHIVED_PRODUCT)
@@ -294,7 +301,9 @@ def update_quote(
         if quote["status"] != "draft":
             raise HTTPException(status_code=400, detail=ONLY_DRAFT)
         existing = _line_rows(connection, quote_id)
-        kept_names = {row["product_id"]: row["product_name"] for row in existing}
+        kept_names: dict[int, list[str]] = {}
+        for row in existing:
+            kept_names.setdefault(row["product_id"], []).append(row["product_name"])
         rows = _checked_lines(connection, payload.lines, kept_names)
         valid_until = payload.valid_until or quote["created_at"] + timedelta(
             days=VALID_DAYS

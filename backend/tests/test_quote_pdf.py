@@ -1,5 +1,7 @@
 """The quote document: its rows, the typed text through them, and the PDF."""
 
+import re
+import zlib
 from datetime import date, timedelta
 
 import pytest
@@ -169,6 +171,52 @@ def test_the_rendered_pdf_carries_the_page_count_and_the_brand_fonts(client, quo
     assert data.count(b"/Type /Page") - data.count(b"/Type /Pages") == 1
     for family in (b"InstrumentSans", b"InstrumentSerif", b"JetBrainsMono"):
         assert family in data
+
+
+def _drawn_positions(data: bytes) -> list[list[tuple[float, float]]]:
+    """The spot every piece of text is drawn at, page by page.
+
+    A page's content stream writes each text item as ``BT x y Td``, so two
+    items on one page at the same spot are printed on top of each other.
+    """
+    pages = []
+    for match in re.finditer(rb"(?<!end)stream\r?\n", data):
+        start = match.end()
+        try:
+            stream = zlib.decompress(data[start : data.find(b"endstream", start)])
+        except zlib.error:
+            continue
+        if b"BT" in stream:
+            pages.append(
+                [
+                    (float(x), float(y))
+                    for x, y in re.findall(rb"BT ([\d.-]+) ([\d.-]+) Td", stream)
+                ]
+            )
+    return pages
+
+
+def test_a_long_quote_flows_over_a_few_pages(client, quote):
+    """A page per screenful, not a page per row: 120 rows share the pages."""
+    document = _document(client, quote["id"])
+    document["lines"] = document["lines"] * 40
+
+    pages = _drawn_positions(quote_pdf.render_pdf(document))
+
+    assert 2 <= len(pages) <= 12
+    assert all(len(page) == len(set(page)) for page in pages)
+
+
+def test_a_wrapping_address_is_not_printed_over_what_follows_it(client, quote):
+    """The company's address is free text: it wraps, and what follows waits."""
+    document = _document(client, quote["id"])
+    short = _drawn_positions(quote_pdf.render_pdf(document))
+
+    document["company"]["address"] = "1 Brightloop Plaza, " * 100
+    pages = _drawn_positions(quote_pdf.render_pdf(document))
+
+    assert sum(map(len, pages)) > sum(map(len, short)) + 5
+    assert all(len(page) == len(set(page)) for page in pages)
 
 
 def test_money_always_shows_its_currency_and_two_decimals():

@@ -315,6 +315,53 @@ def test_a_line_stays_when_its_product_is_archived_and_a_new_one_is_refused(clie
     assert refused.json() == {"detail": ARCHIVED_PRODUCT}
 
 
+def test_a_second_line_for_an_archived_product_is_refused(client):
+    org = _organization(client)
+    deal = _deal(client, org["id"])
+    product = _product(client, "Quoted twice", 5_000)
+    quote = _created(client, deal["id"], [_line(product, 1)])
+    assert client.post(f"/api/products/{product['id']}/archive").status_code == 200
+
+    refused = client.put(
+        f"/api/quotes/{quote['id']}",
+        json={
+            "valid_until": None,
+            "lines": [_line(product, 1), _line(product, 2)],
+        },
+    )
+
+    assert refused.status_code == 400
+    assert refused.json() == {"detail": ARCHIVED_PRODUCT}
+
+
+def test_a_new_line_takes_the_products_name_now_and_a_kept_line_keeps_its_own(
+    client,
+):
+    org = _organization(client)
+    deal = _deal(client, org["id"])
+    product = _product(client, "Quoted under its first name", 5_000)
+    quote = _created(client, deal["id"], [_line(product, 1)])
+    renamed = client.put(
+        f"/api/products/{product['id']}",
+        json={"name": "Its second name", "description": None, "price_cents": 5_000},
+    )
+    assert renamed.status_code == 200
+
+    updated = client.put(
+        f"/api/quotes/{quote['id']}",
+        json={
+            "valid_until": None,
+            "lines": [_line(product, 1), _line(product, 2)],
+        },
+    )
+
+    assert updated.status_code == 200, updated.text
+    assert [line["product_name"] for line in updated.json()["lines"]] == [
+        "Quoted under its first name",
+        "Its second name",
+    ]
+
+
 def test_a_sent_quote_refuses_every_change_with_a_plain_message(client):
     org = _organization(client)
     deal = _deal(client, org["id"])
