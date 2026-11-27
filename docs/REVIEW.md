@@ -10,7 +10,7 @@ Review the real diff, `git diff <merge base>...HEAD`, never the plan's file list
 
 Make a separate pass over every change for each of these:
 
-- **Bugs:** the code does what it's meant to, including when something goes wrong. Walk both paths of every write — a value that changes and a save that changes nothing — and check the page still shows what the server stored.
+- **Bugs:** the code does what it's meant to, including when something goes wrong. Walk both paths of every write — a value that changes and a save that changes nothing — and check the page still shows what the server stored. Then empty the controls: a cleared date or blank text must not reach the API as a value Pydantic refuses first, or the page shows a raw `422` instead of an instruction (products' blank name, the invoices' cleared issue date).
 - **Security:** no secrets or personal data are exposed, and nobody can do what they shouldn't.
 - **Matches the spec and plan.md:** the change does what `docs/spec.md`, the area files in `docs/specs/` and plan.md say, with nothing missing and nothing extra. Where they disagree, the spec wins — a plan or a test that restates a spec rule with a weaker number or a looser wording is a finding against that document, not a pass.
 - **Described by the spec:** every piece of behavior in the change has a home in `docs/spec.md` or an area file in `docs/specs/` — flag any code that the spec doesn't describe.

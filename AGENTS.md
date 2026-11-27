@@ -16,7 +16,7 @@ Update `docs/STATUS.md` when you finish a piece of work
 
 ## Numbers in docs
 
-A count or coverage figure written into `docs/` — test totals, coverage percentages, how many literals a file has — comes from the run output or from counting the code, never from memory. The dark-mode change wrote both wrong and review caught them: `docs/changes/dark-mode/plan.md` said seven hex literals in `Dashboard.tsx` where there were eight, and `docs/STATUS.md` labelled 96.85% "statements" when it was functions.
+A count or coverage figure written into `docs/` — test totals, coverage percentages, how many literals a file has — comes from the run output or from counting the code, never from memory. The dark-mode change wrote both wrong and review caught them: `docs/changes/dark-mode/plan.md` said seven hex literals in `Dashboard.tsx` where there were eight, and `docs/STATUS.md` labelled 96.85% "statements" when it was functions. The invoices change wrote its sample-data counts by eye and review caught them off by one, so the sample's composition is now pinned in `backend/tests/test_seed.py` — run that test to count invoices by status and payments.
 
 ## Dates and times
 
@@ -45,4 +45,5 @@ A route's query string can change while the page stays mounted, including naviga
 - `npm test` runs everything — backend unit tests (pytest), frontend unit tests (Vitest) and end-to-end tests (Playwright) — and exits non-zero if any of them fails.
 - The e2e run starts its own API and Vite servers, on ports no other test run is using, and a temporary database of its own (`scripts/e2e.mjs` and `playwright.config.ts`), so a running `npm run dev` is not in its way. Never edit data by hand to make a test pass.
 - For every write, test the path where nothing changes as well as the path where a value changes: a no-op save still leaves the screen showing what the server stored.
+- Walk a dialog's refusal through the page that opens and closes it, not through the form alone: the form's tests mock `onSave` and `onIssue`, so they cannot see a dialog closed at the wrong moment. The server refuses, the dialog is still open and the message is on it — that assertion is the test. The invoices change's refused issue was invisible to `InvoiceForm.test.tsx` and caught only by the review.
 - Test runs in separate worktrees can share this computer, with nothing to set: each takes a port slot and database of its own. No more than two go at once; the rest wait for a turn and print why, with how many runs are ahead. Let a waiting run wait rather than stopping it, and start `npm run check` with a generous timeout or in the background, because the wait can outlast a short one.

@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
@@ -567,6 +567,43 @@ def test_the_sample_invoices_spread_over_paid_part_paid_overdue_and_draft(engine
     assert buckets == set(invoice_state.AGING_BUCKETS)
     ages = {invoice_state.days_overdue(due, today) for due, _ in owed if due < today}
     assert len(ages) >= 3
+
+
+def test_the_sample_counts_are_pinned_for_the_figures_quoted_in_docs(engine):
+    """The composition `docs/STATUS.md` quotes, taken from this run, not from memory."""
+    seed.ensure_seeded(engine)
+    today = date.today()
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                db.invoices.c.status,
+                db.invoices.c.due_date,
+                db.invoices.c.total_cents,
+                func.coalesce(func.sum(db.payments.c.amount_cents), 0),
+            )
+            .select_from(
+                db.invoices.outerjoin(
+                    db.payments, db.payments.c.invoice_id == db.invoices.c.id
+                )
+            )
+            .group_by(db.invoices.c.id)
+        ).all()
+        payments = conn.execute(
+            select(func.count()).select_from(db.payments)
+        ).scalar_one()
+
+    shown = Counter(
+        invoice_state.display_status(status, total, paid, due, today)
+        for status, due, total, paid in rows
+    )
+    assert dict(shown) == {
+        invoice_state.PAID: 5,
+        invoice_state.PART_PAID: 1,
+        invoice_state.OVERDUE: 4,
+        invoice_state.DRAFT: 2,
+    }
+    assert payments == 13
 
 
 def test_the_organizations_with_invoices_carry_billing_addresses(engine):
