@@ -146,7 +146,13 @@ export default function InvoiceForm({
     settings.tax_rate_thousandths,
   );
   const stillToAllocate = deal.value_cents - sums.subtotal_cents;
-  const problem = lines.map(problemOf).find((found) => found !== null) ?? null;
+  const overLimit =
+    sums.subtotal_cents > MAX_AMOUNT_CENTS ||
+    sums.tax_cents > MAX_AMOUNT_CENTS ||
+    sums.total_cents > MAX_AMOUNT_CENTS;
+  const problem =
+    lines.map(problemOf).find((found) => found !== null) ??
+    (overLimit ? AMOUNT_MESSAGE : null);
   const complete = problem === null && stillToAllocate === 0;
 
   function update(key: number, patch: Partial<DraftLine>) {

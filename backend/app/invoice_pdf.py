@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fpdf import FPDF
 from fpdf.fonts import FontFace
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 
@@ -36,7 +36,9 @@ def build(invoice: dict, settings: dict) -> bytes:
     """The invoice's document, as it reads at this moment."""
     pdf = FPDF(format="letter", unit="mm")
     pdf.set_margins(MARGIN, MARGIN, MARGIN)
-    pdf.set_auto_page_break(False)
+    # A long invoice continues on another page, with the table's headings
+    # repeated by fpdf; the totals move to the last page below.
+    pdf.set_auto_page_break(True, margin=MARGIN)
     _fonts(pdf)
     accent = _accent(settings["accent_color"])
     pdf.set_title(invoice["number"] or "Invoice")
@@ -126,9 +128,9 @@ def _compact_header(pdf: FPDF, settings: dict, accent) -> float:
     y = MARGIN
     name_x = MARGIN
     logo_height = 0
-    logo = settings.get("logo_data")
-    if logo:
-        width, logo_height = _logo_box(logo, 18, 9)
+    brand = _logo(settings, 18, 9)
+    if brand:
+        logo, width, logo_height = brand
         pdf.image(logo, x=MARGIN, y=y, w=width, h=logo_height)
         name_x = MARGIN + width + 3
     pdf.set_xy(name_x, y)
@@ -160,10 +162,10 @@ def _letterhead(pdf: FPDF, settings: dict, accent) -> float:
 def _brand_row(pdf: FPDF, settings: dict, accent) -> float:
     """The logo beside the business's name, left-aligned, details under."""
     y = MARGIN
-    logo = settings.get("logo_data")
+    brand = _logo(settings)
     name_x = MARGIN
-    if logo:
-        width, height = _logo_box(logo)
+    if brand:
+        logo, width, height = brand
         pdf.image(logo, x=MARGIN, y=y, w=width, h=height)
         name_x = MARGIN + width + 5
     pdf.set_xy(name_x, y + 1)
@@ -175,9 +177,9 @@ def _brand_row(pdf: FPDF, settings: dict, accent) -> float:
 
 def _logo_above_name(pdf: FPDF, settings: dict, accent) -> float:
     y = MARGIN
-    logo = settings.get("logo_data")
-    if logo:
-        width, height = _logo_box(logo)
+    brand = _logo(settings)
+    if brand:
+        logo, width, height = brand
         pdf.image(logo, x=(PAGE_WIDTH - width) / 2, y=y, w=width, h=height)
         y += height + 3
     pdf.set_xy(MARGIN, y)
@@ -199,12 +201,33 @@ def _details(pdf: FPDF, y: float, settings: dict, align: str) -> float:
     return y
 
 
+def _logo(
+    settings: dict, max_width: float = 26, max_height: float = 14
+) -> tuple[bytes, float, float] | None:
+    """The logo and its box, or nothing when it cannot be read.
+
+    A row stored before uploads were fully checked may still hold a broken
+    image; the letterhead drops it instead of failing the whole PDF.
+    """
+    logo = settings.get("logo_data")
+    if not logo:
+        return None
+    try:
+        width, height = _logo_box(logo, max_width, max_height)
+    except (OSError, UnidentifiedImageError, Image.DecompressionBombError):
+        return None
+    return logo, width, height
+
+
 def _logo_box(
     logo: bytes, max_width: float = 26, max_height: float = 14
 ) -> tuple[float, float]:
     """The logo scaled to fit its corner of the letterhead, keeping its shape."""
     with Image.open(BytesIO(logo)) as picture:
+        picture.load()
         width, height = picture.size
+    if width <= 0 or height <= 0:
+        raise OSError("The logo has no size.")
     scale = min(max_width / width, max_height / height)
     return width * scale, height * scale
 
@@ -306,6 +329,9 @@ def _totals(
     width = 62
     x = PAGE_WIDTH - MARGIN - width
     y = pdf.get_y() + (3 if tight else 6)
+    if y + 28 > PAGE_HEIGHT - MARGIN:
+        pdf.add_page()
+        y = MARGIN
     rows = (
         ("Subtotal", _usd(invoice["subtotal_cents"])),
         (

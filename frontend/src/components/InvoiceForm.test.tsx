@@ -8,7 +8,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CompanySettings, InvoiceDetail, Product } from "../api/client";
-import { totals } from "../lib/tax";
+import { AMOUNT_MESSAGE, MAX_AMOUNT_CENTS, totals } from "../lib/tax";
 import InvoiceForm, { type InvoiceFormProps } from "./InvoiceForm";
 
 const settings: CompanySettings = {
@@ -211,6 +211,20 @@ describe("InvoiceForm", () => {
 
     expect(allocation()).toContain("Still to allocate $0.00");
     expect(saveButton().disabled).toBe(false);
+  });
+
+  it("refuses a total that takes the amount over the money columns' limit", () => {
+    renderForm({
+      deal: {
+        id: 3,
+        name: "Website build",
+        value_cents: MAX_AMOUNT_CENTS,
+      },
+      settings: { ...settings, tax_rate_thousandths: 100_000 },
+    });
+
+    expect(screen.getByRole("alert").textContent).toBe(AMOUNT_MESSAGE);
+    expect(saveButton().disabled).toBe(true);
   });
 
   it("updates the preview beside it with every change", () => {

@@ -131,11 +131,13 @@ def create_invoice(
         if deal["stage"] != "Won":
             raise HTTPException(status_code=400, detail=NOT_WON)
         _refuse_second_invoice(connection, deal["id"])
+        settings = documents.current_settings(connection)
         if payload.lines is None:
             rows = [_whole_value_line(deal)]
         else:
             rows = _checked_lines(payload.lines, deal["value_cents"])
             _require_products(connection, rows)
+        _checked_totals(rows, settings["tax_rate_thousandths"])
         invoice_id = _insert_invoice(connection, deal, rows, user)
         return _one(connection, invoice_id)
 
@@ -152,12 +154,14 @@ def update_invoice(
 ) -> dict:
     """Replace a draft's lines, again and again, while it is a draft."""
     with db.get_engine().begin() as connection:
-        invoice = read_or_404(connection, db.invoices, invoice_id, "Invoice")
+        invoice = _locked_invoice(connection, invoice_id)
         if invoice["status"] != invoice_state.DRAFT:
             raise HTTPException(status_code=409, detail=ONLY_DRAFT_CHANGED)
         deal = read_or_404(connection, db.deals, invoice["deal_id"], "Deal")
         rows = _checked_lines(payload.lines, deal["value_cents"])
         _require_products(connection, rows)
+        settings = documents.current_settings(connection)
+        _checked_totals(rows, settings["tax_rate_thousandths"])
         _replace_lines(connection, invoice, rows, user)
         return _one(connection, invoice_id)
 
@@ -166,7 +170,7 @@ def update_invoice(
 def delete_invoice(invoice_id: int, user: str = Depends(auth.current_user)) -> dict:
     """Delete a draft, its lines and nothing else."""
     with db.get_engine().begin() as connection:
-        invoice = read_or_404(connection, db.invoices, invoice_id, "Invoice")
+        invoice = _locked_invoice(connection, invoice_id)
         if invoice["status"] != invoice_state.DRAFT:
             raise HTTPException(status_code=409, detail=ONLY_DRAFT_DELETED)
         descriptions = [
@@ -192,17 +196,20 @@ def issue_invoice(
     invoice moves again.
     """
     with db.get_engine().begin() as connection:
-        invoice = read_or_404(connection, db.invoices, invoice_id, "Invoice")
+        invoice = _locked_invoice(connection, invoice_id)
         if invoice["status"] != invoice_state.DRAFT:
             raise HTTPException(status_code=409, detail=ONLY_DRAFT_CHANGED)
         settings = documents.current_settings(connection)
-        totals = _totals(
+        totals = _checked_totals(
             _lines(connection, invoice_id, with_ids=False),
             settings["tax_rate_thousandths"],
         )
-        connection.execute(
+        changed = connection.execute(
             db.invoices.update()
-            .where(db.invoices.c.id == invoice_id)
+            .where(
+                db.invoices.c.id == invoice_id,
+                db.invoices.c.status == invoice_state.DRAFT,
+            )
             .values(
                 number=documents.take_number(connection, "invoice"),
                 status=invoice_state.ISSUED,
@@ -217,6 +224,8 @@ def issue_invoice(
                 updated_by=user,
             )
         )
+        if changed.rowcount == 0:
+            raise HTTPException(status_code=409, detail=ONLY_DRAFT_CHANGED)
         return _one(connection, invoice_id)
 
 
@@ -224,7 +233,7 @@ def issue_invoice(
 def void_invoice(invoice_id: int, user: str = Depends(auth.current_user)) -> dict:
     """Void an issued invoice with no payments: kept for the record, number and all."""
     with db.get_engine().begin() as connection:
-        invoice = read_or_404(connection, db.invoices, invoice_id, "Invoice")
+        invoice = _locked_invoice(connection, invoice_id)
         if invoice["status"] != invoice_state.ISSUED:
             raise HTTPException(status_code=409, detail=ONLY_ISSUED_VOIDED)
         payments = connection.execute(
@@ -234,11 +243,16 @@ def void_invoice(invoice_id: int, user: str = Depends(auth.current_user)) -> dic
         ).scalar_one()
         if payments:
             raise HTTPException(status_code=409, detail=HAS_PAYMENTS)
-        connection.execute(
+        changed = connection.execute(
             db.invoices.update()
-            .where(db.invoices.c.id == invoice_id)
+            .where(
+                db.invoices.c.id == invoice_id,
+                db.invoices.c.status == invoice_state.ISSUED,
+            )
             .values(status=invoice_state.VOID, updated_by=user)
         )
+        if changed.rowcount == 0:
+            raise HTTPException(status_code=409, detail=ONLY_ISSUED_VOIDED)
         return _one(connection, invoice_id)
 
 
@@ -266,7 +280,7 @@ def record_payment(
 ) -> dict:
     """Record money that arrived against an issued invoice, and who entered it."""
     with db.get_engine().begin() as connection:
-        invoice = read_or_404(connection, db.invoices, invoice_id, "Invoice")
+        invoice = _locked_invoice(connection, invoice_id)
         if invoice["status"] != invoice_state.ISSUED:
             raise HTTPException(status_code=409, detail=ONLY_ISSUED_TAKES_PAYMENTS)
         _checked_payment(connection, invoice, payload)
@@ -289,7 +303,7 @@ def delete_payment(
 ) -> dict:
     """Delete a payment entered by mistake; the balance goes back up."""
     with db.get_engine().begin() as connection:
-        read_or_404(connection, db.invoices, invoice_id, "Invoice")
+        _locked_invoice(connection, invoice_id)
         payment = read_or_404(connection, db.payments, payment_id, "Payment")
         if payment["invoice_id"] != invoice_id:
             raise HTTPException(status_code=404, detail="Payment not found")
@@ -339,9 +353,40 @@ class LineValues(NamedTuple):
     unit_price_cents: int
 
 
+def _locked_invoice(connection, invoice_id: int) -> dict:
+    """The invoice, after taking its row for this transaction.
+
+    The no-op update is the lock on both databases: it begins SQLite's write
+    transaction and takes the row on Postgres, so the state read after it
+    cannot change under another request's write. Two issues, an edit and an
+    issue, or a payment and a void then take turns, and the second sees the
+    first's committed state.
+    """
+    locked = connection.execute(
+        db.invoices.update()
+        .where(db.invoices.c.id == invoice_id)
+        .values(updated_by=db.invoices.c.updated_by)
+    )
+    if locked.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return read_or_404(connection, db.invoices, invoice_id, "Invoice")
+
+
 def _totals(lines: list[dict], rate_thousandths: int) -> tax.Totals:
     sums = [LineValues(row["quantity"], row["unit_price_cents"]) for row in lines]
     return tax.totals(sums, rate_thousandths)
+
+
+def _checked_totals(lines: list[dict], rate_thousandths: int) -> tax.Totals:
+    """The sums, refused if the tax or total would leave the money columns."""
+    sums = _totals(lines, rate_thousandths)
+    if (
+        sums.subtotal_cents > tax.MAX_AMOUNT_CENTS
+        or sums.tax_cents > tax.MAX_AMOUNT_CENTS
+        or sums.total_cents > tax.MAX_AMOUNT_CENTS
+    ):
+        raise HTTPException(status_code=400, detail=tax.AMOUNT_MESSAGE)
+    return sums
 
 
 def _checked_lines(lines: list[LineIn], deal_value_cents: int) -> list[dict]:

@@ -3,10 +3,12 @@
 import json
 from datetime import date, timedelta
 from pathlib import Path
+from threading import Barrier, Thread
 
 import pytest
 from app import db, invoice_state, seed
 from app.main import app as local_app
+from app.routes import invoices as invoices_route
 from app.routes.invoices import (
     ONLY_ISSUED_TAKES_PAYMENTS,
     PAYMENT_AMOUNT,
@@ -200,6 +202,99 @@ def test_deleting_a_payment_puts_the_balance_back_up_and_records_who_entered_the
     [remaining] = body["payments"]
     assert remaining["id"] == first["payments"][0]["id"]
     assert remaining["created_by"] == "alex@brightloop.example"
+
+
+def test_two_payments_at_once_cannot_overpay(
+    client, client_for, sign_in_as, monkeypatch
+):
+    invoice = _issued(client)
+    barrier = Barrier(2)
+    original = invoices_route._locked_invoice
+
+    def start_together(connection, invoice_id):
+        barrier.wait()
+        return original(connection, invoice_id)
+
+    monkeypatch.setattr(invoices_route, "_locked_invoice", start_together)
+    outcomes = []
+
+    def pay():
+        local_client = client_for(local_app, sign_in_as())
+        response = local_client.post(
+            f"/api/invoices/{invoice['id']}/payments",
+            json={
+                "paid_on": str(TODAY),
+                "amount_cents": 100_000,
+                "method": "card",
+                "reference": None,
+            },
+        )
+        outcomes.append((response.status_code, response.json()))
+
+    threads = [Thread(target=pay) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert sorted(code for code, _ in outcomes) == [201, 400]
+    [refused] = [body for code, body in outcomes if code == 400]
+    assert refused["detail"] == PAYMENT_AMOUNT
+    stored = client.get(f"/api/invoices/{invoice['id']}").json()
+    assert stored["paid_cents"] == 100_000
+    assert stored["balance_cents"] == 30_650
+    assert stored["status"] == "part paid"
+
+
+def test_a_payment_and_a_void_at_once_cannot_both_succeed(
+    client, client_for, sign_in_as, monkeypatch
+):
+    invoice = _issued(client)
+    barrier = Barrier(2)
+    original = invoices_route._locked_invoice
+
+    def start_together(connection, invoice_id):
+        barrier.wait()
+        return original(connection, invoice_id)
+
+    monkeypatch.setattr(invoices_route, "_locked_invoice", start_together)
+    outcomes = {}
+
+    def pay():
+        local_client = client_for(local_app, sign_in_as())
+        outcomes["pay"] = local_client.post(
+            f"/api/invoices/{invoice['id']}/payments",
+            json={
+                "paid_on": str(TODAY),
+                "amount_cents": 1_000,
+                "method": "cash",
+                "reference": None,
+            },
+        )
+
+    def void():
+        local_client = client_for(local_app, sign_in_as())
+        outcomes["void"] = local_client.post(f"/api/invoices/{invoice['id']}/void")
+
+    threads = [Thread(target=pay), Thread(target=void)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    pay_status = outcomes["pay"].status_code
+    void_status = outcomes["void"].status_code
+    assert not (pay_status == 201 and void_status == 200)
+    stored = client.get(f"/api/invoices/{invoice['id']}").json()
+    if void_status == 200:
+        assert pay_status in (400, 409)
+        assert stored["status"] == "void"
+        assert stored["payments"] == []
+    else:
+        assert pay_status == 201
+        assert void_status == 409
+        assert stored["status"] == "part paid"
+        assert stored["paid_cents"] == 1_000
 
 
 def test_the_shared_status_cases_read_the_same_on_the_backend():

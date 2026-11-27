@@ -6,6 +6,7 @@ from threading import Barrier, Thread
 import pytest
 from app import db, seed, tax
 from app.main import app as local_app
+from app.routes import invoices as invoices_route
 from app.routes.deals import VALUE_HELD
 from app.routes.invoices import (
     ALREADY_HAS,
@@ -250,6 +251,43 @@ def test_a_quantity_outside_the_range_and_an_amount_over_the_limit_are_refused(c
     assert too_many.json()["detail"] == tax.QUANTITY_MESSAGE
     assert too_big.json()["detail"] == tax.AMOUNT_MESSAGE
     assert amount_over.json()["detail"] == tax.AMOUNT_MESSAGE
+
+
+def test_a_draft_whose_tax_takes_the_total_over_the_money_columns_is_refused(client):
+    _, _, deal = _won_deal(client, value_cents=tax.MAX_AMOUNT_CENTS)
+
+    response = client.post("/api/invoices", json={"deal_id": deal["id"]})
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == tax.AMOUNT_MESSAGE
+
+
+def test_issuing_refuses_a_total_that_grew_over_the_money_columns(engine, client):
+    _, _, deal = _won_deal(client, value_cents=tax.MAX_AMOUNT_CENTS)
+    with engine.begin() as connection:
+        connection.execute(
+            db.company_settings.update().values(
+                tax_label="No tax", tax_rate_thousandths=0
+            )
+        )
+    invoice = _invoice(client, deal["id"])
+
+    with engine.begin() as connection:
+        connection.execute(
+            db.company_settings.update().values(
+                tax_label="VAT", tax_rate_thousandths=100_000
+            )
+        )
+    refused = client.post(
+        f"/api/invoices/{invoice['id']}/issue",
+        json={"issue_date": str(TODAY)},
+    )
+
+    assert refused.status_code == 400, refused.text
+    assert refused.json()["detail"] == tax.AMOUNT_MESSAGE
+    reloaded = client.get(f"/api/invoices/{invoice['id']}").json()
+    assert reloaded["status"] == "draft"
+    assert reloaded["number"] is None
 
 
 def test_a_draft_is_edited_and_deleted_and_its_lines_go_with_it(engine, client):
@@ -503,6 +541,97 @@ def test_two_issues_at_the_same_moment_take_inv_0001_and_inv_0002(
         thread.join()
 
     assert sorted(outcomes) == [(200, "INV-0001"), (200, "INV-0002")]
+
+
+def test_issuing_the_same_draft_twice_takes_one_number(
+    engine, client, client_for, sign_in_as, monkeypatch
+):
+    _, _, deal = _won_deal(client, value_cents=120_000)
+    invoice = _invoice(client, deal["id"])
+    barrier = Barrier(2)
+    original = invoices_route._locked_invoice
+
+    def start_together(connection, invoice_id):
+        barrier.wait()
+        return original(connection, invoice_id)
+
+    monkeypatch.setattr(invoices_route, "_locked_invoice", start_together)
+    outcomes = []
+
+    def issue():
+        local_client = client_for(local_app, sign_in_as())
+        response = local_client.post(
+            f"/api/invoices/{invoice['id']}/issue",
+            json={"issue_date": str(TODAY)},
+        )
+        outcomes.append((response.status_code, response.json()))
+
+    threads = [Thread(target=issue) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert sorted(code for code, _ in outcomes) == [200, 409]
+    [winner] = [body for code, body in outcomes if code == 200]
+    [refused] = [body for code, body in outcomes if code == 409]
+    assert refused["detail"] == ONLY_DRAFT_CHANGED
+    with engine.connect() as connection:
+        stored = (
+            connection.execute(
+                select(db.invoices).where(db.invoices.c.id == invoice["id"])
+            )
+            .mappings()
+            .one()
+        )
+        counter = connection.execute(
+            select(db.number_counters.c.last_number)
+        ).scalar_one()
+    assert stored["status"] == "issued"
+    assert stored["number"] == winner["number"]
+    assert counter == 1
+
+
+def test_deleting_a_draft_racing_an_issue_cannot_delete_an_issued_invoice(
+    client, client_for, sign_in_as, monkeypatch
+):
+    _, _, deal = _won_deal(client, value_cents=120_000)
+    invoice = _invoice(client, deal["id"])
+    barrier = Barrier(2)
+    original = invoices_route._locked_invoice
+
+    def start_together(connection, invoice_id):
+        barrier.wait()
+        return original(connection, invoice_id)
+
+    monkeypatch.setattr(invoices_route, "_locked_invoice", start_together)
+    outcomes = {}
+
+    def delete():
+        local_client = client_for(local_app, sign_in_as())
+        outcomes["delete"] = local_client.delete(f"/api/invoices/{invoice['id']}")
+
+    def issue():
+        local_client = client_for(local_app, sign_in_as())
+        outcomes["issue"] = local_client.post(
+            f"/api/invoices/{invoice['id']}/issue",
+            json={"issue_date": str(TODAY)},
+        )
+
+    threads = [Thread(target=delete), Thread(target=issue)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    if outcomes["delete"].status_code == 200:
+        assert outcomes["issue"].status_code in (404, 409)
+        assert client.get(f"/api/invoices/{invoice['id']}").status_code == 404
+    else:
+        assert outcomes["delete"].status_code == 409
+        assert outcomes["issue"].status_code == 200, outcomes["issue"].text
+        stored = client.get(f"/api/invoices/{invoice['id']}").json()
+        assert stored["status"] == "issued"
 
 
 def test_the_list_searches_filters_and_hides_number_and_balance(client):

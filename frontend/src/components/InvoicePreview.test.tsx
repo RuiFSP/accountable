@@ -143,6 +143,14 @@ describe("InvoicePreview", () => {
     expect(document.querySelector("i")).toBeNull();
   });
 
+  it("grows for a long document instead of clipping it", () => {
+    const css = fs.readFileSync(BRAND_CSS, "utf8");
+    const sheet = css.match(/\.invoice-sheet\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(sheet).not.toMatch(/overflow:\s*hidden/);
+    expect(sheet).toMatch(/min-height:\s*129\.4cqw/);
+  });
+
   it("is paper-white in both themes", () => {
     const css = fs.readFileSync(BRAND_CSS, "utf8");
     const sheet = css.match(/\.invoice-sheet\s*\{([^}]*)\}/)?.[1] ?? "";

@@ -1580,10 +1580,11 @@ textarea:focus-visible {
 .invoice-sheet {
   position: relative;
   width: 100%;
-  aspect-ratio: 8.5 / 11;
+  /* Letter-ratio for a short invoice, and taller when the lines need it, so
+     the live preview never hides a line the PDF prints. */
+  min-height: 129.4cqw;
   box-sizing: border-box;
   padding: 8%;
-  overflow: hidden;
   background: #ffffff;
   color: #223036;
   font-family: var(--font-sans);

@@ -121,8 +121,13 @@ test("a won deal takes a three-line invoice that adds up, edits and issues", asy
     .getByRole("button", { name: "Save and issue" })
     .click();
   await expect(page.locator(".page-title h2")).toHaveText(/^INV-\d{4}$/);
-  await expect(page.locator(".sheet-dates")).toContainText(dateOn(0));
-  await expect(page.locator(".sheet-dates")).toContainText(dateOn(30));
+  await expect(page.getByRole("dialog", { name: "Edit invoice" })).toBeHidden();
+  await expect(page.locator(".invoice-document .sheet-dates")).toContainText(
+    dateOn(0),
+  );
+  await expect(page.locator(".invoice-document .sheet-dates")).toContainText(
+    dateOn(30),
+  );
   await expect(page.locator(".page-title .badge")).toHaveText("Issued");
 
   expect(consoleErrors()).toEqual([]);

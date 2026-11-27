@@ -7,7 +7,10 @@ an invoice. The upload form checks the same way before it sends.
 
 from __future__ import annotations
 
+from io import BytesIO
+
 from fastapi import HTTPException
+from PIL import Image, UnidentifiedImageError
 
 MAX_LOGO_BYTES = 1_048_576  # 1 MB
 
@@ -33,12 +36,21 @@ def content_type_of(data: bytes) -> str | None:
 def checked_type(data: bytes) -> str:
     """The type to keep the logo under, or a 400 with a clear message.
 
-    The name the upload came under never matters here: a text file renamed to
-    end in ``.png`` has no picture's magic bytes and is refused.
+    The name the upload came under never matters here: the bytes must both
+    start with a picture's magic and decode as that picture, so a truncated
+    PNG that would break the PDF is refused at upload.
     """
     if len(data) > MAX_LOGO_BYTES:
         raise HTTPException(status_code=400, detail=TOO_BIG)
     found = content_type_of(data)
     if found is None:
+        raise HTTPException(status_code=400, detail=NOT_AN_IMAGE)
+    try:
+        with Image.open(BytesIO(data)) as picture:
+            picture.load()
+            actual = {"PNG": PNG, "JPEG": JPEG}.get(picture.format)
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise HTTPException(status_code=400, detail=NOT_AN_IMAGE) from None
+    if actual != found:
         raise HTTPException(status_code=400, detail=NOT_AN_IMAGE)
     return found

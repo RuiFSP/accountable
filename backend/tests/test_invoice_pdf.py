@@ -126,6 +126,39 @@ def test_the_pdf_is_made_at_download_and_named_after_the_number(engine, client):
     assert "PAID" in pdf_text.text(_download(client, invoice["id"]))
 
 
+def test_a_long_invoice_spans_pages_and_keeps_every_line(client):
+    _, _, deal = _won_deal(client, value_cents=60_000)
+    lines = [
+        {"description": f"Line {index:02d}", "quantity": 1, "unit_price_cents": 1_000}
+        for index in range(60)
+    ]
+    invoice = _issue(client, _invoice(client, deal["id"], lines)["id"])
+
+    data = _download(client, invoice["id"])
+    words = pdf_text.text(data)
+
+    assert data.count(b"/Type /Page") >= 3
+    assert words.count("DESCRIPTION") >= 2
+    assert "Line 00" in words
+    assert "Line 59" in words
+    assert "$600.00" in words
+    assert "$653.25" in words
+
+
+def test_a_broken_stored_logo_does_not_break_the_pdf(engine, client):
+    _settings(
+        engine,
+        logo_data=b"\x89PNG\r\n\x1a\n" + b"not a picture",
+        logo_content_type="image/png",
+    )
+    _, _, deal = _won_deal(client)
+    invoice = _issue(client, _invoice(client, deal["id"])["id"])
+
+    data = _download(client, invoice["id"])
+
+    assert pdf_text.text(data).count("Brightloop") >= 1
+
+
 def test_a_draft_has_no_pdf(client):
     _, _, deal = _won_deal(client)
     invoice = _invoice(client, deal["id"])

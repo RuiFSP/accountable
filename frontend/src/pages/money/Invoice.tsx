@@ -446,9 +446,11 @@ export default function InvoicePage() {
     setConfirming(next);
   };
   const handleIssue = async (stored: InvoiceDetail, issueDate: string) => {
+    // Close once the server has accepted the issue; the page's refresh follows
+    // and the dialog must not wait for it, or stay over the issued invoice.
     await invoicesApi.issue(stored.id, issueDate);
-    await refresh();
     closeEdit();
+    await refresh();
   };
   const handleRecord = async (payload: PaymentInput) => {
     await invoicesApi.recordPayment(invoice.id, payload);

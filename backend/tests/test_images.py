@@ -73,6 +73,15 @@ def test_an_svg_is_refused(client):
     assert refused.json()["detail"] == images.NOT_AN_IMAGE
 
 
+def test_a_magic_header_around_a_broken_picture_is_refused(client):
+    before = client.get("/api/settings/logo")
+    refused = _upload(client, b"\x89PNG\r\n\x1a\n" + b"not a picture" * 20, "image/png")
+
+    assert refused.status_code == 400
+    assert refused.json()["detail"] == images.NOT_AN_IMAGE
+    assert client.get("/api/settings/logo").content == before.content
+
+
 def test_a_file_over_1mb_is_refused(client):
     big = b"\x89PNG\r\n\x1a\n" + b"0" * images.MAX_LOGO_BYTES
 

@@ -70,7 +70,11 @@ async function main() {
     }
     finished = true;
     if (run) {
-      await run.leave();
+      try {
+        await run.leave();
+      } catch (error) {
+        console.error(error.message);
+      }
     }
     rmSync(folder, { recursive: true, force: true });
     process.exit(code);
