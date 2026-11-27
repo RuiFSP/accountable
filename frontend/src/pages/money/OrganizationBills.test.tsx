@@ -24,6 +24,7 @@ const record: Organization = {
   website: null,
   industry: null,
   notes: null,
+  billing_address: null,
   created_by: null,
   updated_by: null,
 };

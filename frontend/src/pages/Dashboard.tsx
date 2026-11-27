@@ -5,6 +5,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,6 +17,7 @@ import {
   api,
   type Activity,
   type ActivityCreateType,
+  type DashboardPayload,
   type DueBillRow,
   type Payables,
   type SpendingMonth,
@@ -25,9 +28,11 @@ import { BILL_CATEGORIES, CATEGORY_COLORS } from "../lib/bills";
 import {
   AXIS_TICK,
   TOOLTIP_STYLE,
+  agingRows,
   chartMonths,
   funnelBars,
   monthYearLabel,
+  paymentMonths,
   spendingBars,
 } from "../lib/charts";
 import { formatDue, formatWhen, isOverdue } from "../lib/dates";
@@ -108,33 +113,135 @@ function SpendingChart({ spending }: { spending: SpendingMonth[] }) {
   );
 }
 
-/** The payables half of the Money section: what the business owes. */
-function MoneySection({ payables }: { payables: Payables }) {
+/**
+ * The Money section: what customers owe, the aging as bars and the payments
+ * received, then what the business owes its suppliers and its spending.
+ */
+function MoneySection({
+  money,
+  payables,
+}: {
+  money: DashboardPayload["money"];
+  payables: Payables;
+}) {
+  const aging = agingRows(money);
+  const payments = paymentMonths(money);
   return (
     <section className="money-section">
-      <h2>Money</h2>
-      <p className="panel-sub muted">What we owe our suppliers</p>
-      <div className="kpi-grid money-kpis">
-        <KpiCard
-          label="Bills to pay"
-          value={formatUsd(payables.unpaid.total_cents)}
-          note={billCount(payables.unpaid.count)}
-        />
-        <KpiCard
-          label="Overdue"
-          value={formatUsd(payables.overdue.total_cents)}
-          note={billCount(payables.overdue.count)}
-          danger={payables.overdue.count > 0}
-        />
-        <KpiCard
-          label="Due in the next 30 days"
-          value={formatUsd(payables.due_soon.total_cents)}
-          note={billCount(payables.due_soon.count)}
-        />
+      <h2 className="money-title">Money</h2>
+
+      <div className="money-group money-customers">
+        <h3 className="money-group-title">What customers owe</h3>
+        <div className="money-kpis money-kpis-two">
+          <KpiCard
+            label="Owed by customers"
+            value={formatUsd(money.owed_cents)}
+            note="Issued invoices; drafts and void left out"
+          />
+          <KpiCard
+            label="Overdue"
+            value={formatUsd(money.overdue_cents)}
+            note="Still owed after the due date"
+            danger={money.overdue_cents > 0}
+          />
+        </div>
+
+        <div className="money-charts">
+          <section className="panel">
+            <h2>How late the money is</h2>
+            <p className="panel-sub muted">
+              Days past the due date, in five buckets
+            </p>
+            {aging.map((row, index) => (
+              <div key={row.bucket} className="aging-row">
+                <span className="aging-label">{row.bucket}</span>
+                <div className="aging-track">
+                  <div
+                    className="aging-fill"
+                    style={{
+                      width: `${Math.round(row.share * 100)}%`,
+                      background:
+                        index === 0
+                          ? "var(--color-cerulean)"
+                          : "var(--color-raspberry)",
+                    }}
+                  />
+                </div>
+                <span className="aging-value num">{formatUsd(row.cents)}</span>
+              </div>
+            ))}
+          </section>
+
+          <section className="panel">
+            <h2>Payments received</h2>
+            <p className="panel-sub muted">
+              Last 12 months, by the day each payment arrived
+            </p>
+            <div className="chart-box">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={payments}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid stroke="var(--color-grid)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={AXIS_TICK}
+                    interval={0}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={52}
+                    tick={AXIS_TICK}
+                    tickFormatter={(value: number | string) =>
+                      formatUsdCompact(Number(value))
+                    }
+                  />
+                  <Tooltip
+                    formatter={(value) => formatUsd(Number(value))}
+                    contentStyle={TOOLTIP_STYLE}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cents"
+                    stroke="var(--color-sea-green)"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: "var(--color-sea-green)" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </div>
       </div>
-      <div className="money-panels">
-        <DueTimeline rows={payables.due_soon.rows} />
-        <SpendingChart spending={payables.spending} />
+
+      <div className="money-group money-suppliers">
+        <h3 className="money-group-title">What we owe suppliers</h3>
+        <div className="money-kpis money-kpis-three">
+          <KpiCard
+            label="Bills to pay"
+            value={formatUsd(payables.unpaid.total_cents)}
+            note={billCount(payables.unpaid.count)}
+          />
+          <KpiCard
+            label="Overdue"
+            value={formatUsd(payables.overdue.total_cents)}
+            note={billCount(payables.overdue.count)}
+            danger={payables.overdue.count > 0}
+          />
+          <KpiCard
+            label="Due in the next 30 days"
+            value={formatUsd(payables.due_soon.total_cents)}
+            note={billCount(payables.due_soon.count)}
+          />
+        </div>
+        <div className="money-panels">
+          <DueTimeline rows={payables.due_soon.rows} />
+          <SpendingChart spending={payables.spending} />
+        </div>
       </div>
     </section>
   );
@@ -356,48 +463,47 @@ export default function Dashboard() {
             </section>
           </div>
 
-          <div className="dashboard-lower">
-            <section className="panel">
-              <h2>Deals won per month</h2>
-              <p className="panel-sub muted">Count of won deals</p>
-              <div className="chart-box chart-box-short">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={revenuePoints}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      stroke="var(--color-grid)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={AXIS_TICK}
-                      interval={0}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      width={32}
-                      tick={AXIS_TICK}
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      formatter={(value) => `${value} deals`}
-                      contentStyle={TOOLTIP_STYLE}
-                    />
-                    <Bar
-                      dataKey="deals"
-                      fill="var(--color-cerulean)"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
+          <section className="panel">
+            <h2>Deals won per month</h2>
+            <p className="panel-sub muted">Count of won deals</p>
+            <div className="chart-box chart-box-short">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={revenuePoints}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid stroke="var(--color-grid)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={AXIS_TICK}
+                    interval={0}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={32}
+                    tick={AXIS_TICK}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    formatter={(value) => `${value} deals`}
+                    contentStyle={TOOLTIP_STYLE}
+                  />
+                  <Bar
+                    dataKey="deals"
+                    fill="var(--color-cerulean)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
 
+          <MoneySection money={payload.money} payables={payload.payables} />
+
+          <div className="dashboard-lower">
             <section className="panel">
               <h2>Recent activity</h2>
               <p className="panel-sub muted">Latest across all records</p>
@@ -450,8 +556,6 @@ export default function Dashboard() {
               )}
             </section>
           </div>
-
-          <MoneySection payables={payload.payables} />
         </div>
       )}
     </div>

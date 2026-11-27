@@ -10,7 +10,24 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { signInLocal, signOut } from "./lib/session";
+import { type InvoiceDetail } from "./api/client";
+import { invoicesApi } from "./api/invoices";
 import { AppRoutes } from "./routes";
+
+vi.mock("./api/invoices", () => ({
+  invoicesApi: {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    issue: vi.fn(),
+    void: vi.fn(),
+    recordPayment: vi.fn(),
+    deletePayment: vi.fn(),
+  },
+  downloadPdf: vi.fn(),
+}));
 
 /** Sign in the way the screen does, then leave fetch alone for the pages. */
 async function signInForTests(): Promise<void> {
@@ -45,6 +62,33 @@ function renderAt(path: string) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+function invoiceAt(id: number): InvoiceDetail {
+  return {
+    id,
+    number: `INV-000${id}`,
+    deal_id: 1,
+    organization_id: 7,
+    deal_name: "Store rollout",
+    organization_name: "Northwind Traders",
+    status: "issued",
+    issue_date: "2026-11-01",
+    due_date: "2026-12-01",
+    subtotal_cents: 100_000,
+    tax_label: "Sales tax",
+    tax_rate_thousandths: 8875,
+    tax_cents: 8_875,
+    total_cents: 108_875,
+    paid_cents: 0,
+    balance_cents: 108_875,
+    bill_to_name: null,
+    bill_to_address: null,
+    bill_to_contact_name: null,
+    bill_to_contact_email: null,
+    lines: [],
+    payments: [],
+  };
 }
 
 describe("signed out", () => {
@@ -104,6 +148,17 @@ describe("app shell", () => {
     renderAt("/money/nowhere");
 
     expect(screen.getByRole("heading", { name: "Quotes" })).toBeTruthy();
+  });
+
+  it("opens an invoice's page under /money/invoices/:id", async () => {
+    vi.mocked(invoicesApi.get).mockResolvedValue(invoiceAt(4));
+
+    renderAt("/money/invoices/4");
+
+    expect(
+      await screen.findByRole("heading", { name: "INV-0004" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Quotes" })).toBeNull();
   });
 
   it("holds the search box in the top bar, between the nav and the actions", () => {

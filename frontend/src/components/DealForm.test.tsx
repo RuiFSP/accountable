@@ -31,6 +31,7 @@ const deal: Deal = {
 interface SetupOptions {
   deal?: Deal;
   initialStage?: Deal["stage"];
+  valueLocked?: boolean;
   onSubmit?: (payload: DealInput) => Promise<void>;
 }
 
@@ -43,6 +44,7 @@ function setup(options: SetupOptions = {}) {
       contacts={contacts}
       deal={options.deal}
       initialStage={options.initialStage}
+      valueLocked={options.valueLocked}
       onSubmit={onSubmit}
       onCancel={onCancel}
     />,
@@ -219,6 +221,29 @@ describe("DealForm", () => {
         position: 4,
       }),
     );
+  });
+
+  it("locks the value while an invoice holds it, and frees it again", () => {
+    const { onSubmit } = setup({ deal, valueLocked: true });
+
+    expect(input("Value (USD)").readOnly).toBe(true);
+    expect(screen.getByText(/Locked while an invoice holds/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ value_cents: 125_000 }),
+    );
+  });
+
+  it("edits the value again once the invoice is gone", () => {
+    setup({ deal, valueLocked: false });
+
+    const value = input("Value (USD)");
+    expect(value.readOnly).toBe(false);
+    expect(screen.queryByText(/Locked while an invoice holds/)).toBeNull();
+
+    fireEvent.change(value, { target: { value: "150,000" } });
+    expect(value.value).toBe("150,000");
   });
 
   it("cancels from the Cancel button, the close button and Escape", () => {

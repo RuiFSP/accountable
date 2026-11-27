@@ -28,6 +28,8 @@ export interface Organization extends Attribution {
   website: string | null;
   industry: string | null;
   notes: string | null;
+  /** One free-text block, shown on the page and used on the invoices. */
+  billing_address: string | null;
 }
 
 export interface Contact extends Attribution {
@@ -77,16 +79,24 @@ export interface CompanySettings {
   payment_terms_days: number;
   quote_prefix: string | null;
   invoice_prefix: string | null;
+  invoice_design: InvoiceDesign;
+  accent_color: string;
+  /** What the uploaded logo is; its bytes are served at /api/settings/logo. */
+  logo_content_type: string | null;
   updated_by: string | null;
   /** An ISO timestamp with an offset. */
   updated_at: string;
 }
+
+/** How an invoice is drawn: one of the three designs from Settings. */
+export type InvoiceDesign = "classic" | "modern" | "compact";
 
 export interface OrganizationInput {
   name: string;
   website: string | null;
   industry: string | null;
   notes: string | null;
+  billing_address: string | null;
 }
 
 export interface ContactInput {
@@ -129,6 +139,102 @@ export interface CompanySettingsInput {
   payment_terms_days: number;
   quote_prefix: string | null;
   invoice_prefix: string | null;
+  invoice_design: InvoiceDesign;
+  accent_color: string;
+}
+
+/** An uploaded logo: its bytes travel base64, its type decided from them. */
+export interface LogoInput {
+  content_type: string;
+  data: string;
+}
+
+/** A document's state as it is stored; the rest is worked out. */
+export type InvoiceStoredStatus = "draft" | "issued" | "void";
+
+/** The one status an invoice shows at a time. */
+export type InvoiceStatus =
+  "draft" | "issued" | "part paid" | "paid" | "overdue" | "void";
+
+export type PaymentMethod =
+  "bank_transfer" | "card" | "check" | "cash" | "other";
+
+export interface InvoiceLine {
+  id: number;
+  invoice_id: number;
+  product_id: number | null;
+  description: string;
+  quantity: number;
+  unit_price_cents: number;
+  position: number;
+}
+
+export interface Payment {
+  id: number;
+  invoice_id: number;
+  paid_on: string;
+  amount_cents: number;
+  method: PaymentMethod;
+  reference: string | null;
+  /** Who entered the payment. */
+  created_by: string | null;
+}
+
+/** An invoice as the lists show it: every sum is the backend's own. */
+export interface Invoice extends Attribution {
+  id: number;
+  number: string | null;
+  deal_id: number;
+  organization_id: number;
+  deal_name: string;
+  organization_name: string;
+  status: InvoiceStatus;
+  issue_date: string | null;
+  due_date: string | null;
+  subtotal_cents: number;
+  tax_label: string | null;
+  tax_rate_thousandths: number;
+  tax_cents: number;
+  total_cents: number;
+  paid_cents: number;
+  /** None on a draft or a void invoice: those show no balance. */
+  balance_cents: number | null;
+  bill_to_name: string | null;
+  bill_to_address: string | null;
+  bill_to_contact_name: string | null;
+  bill_to_contact_email: string | null;
+}
+
+/** One invoice as its page reads it, with its lines and its payments. */
+export interface InvoiceDetail extends Invoice {
+  lines: InvoiceLine[];
+  payments: Payment[];
+}
+
+export interface InvoiceLineInput {
+  product_id: number | null;
+  description: string;
+  quantity: number;
+  unit_price_cents: number;
+}
+
+export interface InvoiceCreateInput {
+  deal_id: number;
+  /** The form's lines, or none to start with one line of the whole value. */
+  lines?: InvoiceLineInput[];
+}
+
+export interface PaymentInput {
+  paid_on: string;
+  amount_cents: number;
+  method: PaymentMethod;
+  reference: string | null;
+}
+
+/** What deleting a draft reports: the lines that go with it. */
+export interface InvoiceDeleteResult {
+  lines: string[];
+  counts: Record<string, number>;
 }
 
 export interface Product extends Attribution {
@@ -223,6 +329,25 @@ export interface ColumnTotals {
   expected_cents: number;
 }
 
+/** How much of the debt is in each aging bucket, oldest money last. */
+export interface AgingRow {
+  bucket: string;
+  cents: number;
+}
+
+/** What arrived in each of the last 12 months, as the charts plot it. */
+export interface PaymentPoint {
+  label: string;
+  cents: number;
+}
+
+export interface MoneySummary {
+  owed_cents: number;
+  overdue_cents: number;
+  aging: AgingRow[];
+  payments: { month: string; cents: number }[];
+}
+
 /** The total and count of a window of bills, tax included. */
 export interface BillTotal {
   total_cents: number;
@@ -263,6 +388,7 @@ export interface DashboardPayload {
     lost_cents: number;
     lost_count: number;
   };
+  money: MoneySummary;
   recent_activity: Activity[];
   follow_ups: {
     overdue: Activity[];
@@ -354,6 +480,39 @@ export function del<T>(path: string): Promise<T> {
   return request<T>(path, { method: "DELETE" });
 }
 
+/** The bytes behind a path, such as an invoice's PDF, signed in like any call. */
+export async function blobRequest(path: string): Promise<Blob> {
+  const token = currentToken();
+  const response = await fetch(path, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (response.status === 401) {
+    endSession();
+  }
+  if (!response.ok) {
+    throw new Error(`Request to ${path} failed with status ${response.status}`);
+  }
+  return response.blob();
+}
+
+/** The uploaded logo as an image source, or null when none is uploaded. */
+export async function logoDataUrl(): Promise<string | null> {
+  try {
+    return await dataUrl(await blobRequest("/api/settings/logo"));
+  } catch {
+    return null;
+  }
+}
+
+function dataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read the logo."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export const api = {
   organizations: {
     list: () => request<Organization[]>("/api/organizations"),
@@ -386,6 +545,9 @@ export const api = {
     get: () => request<CompanySettings>("/api/settings"),
     save: (payload: CompanySettingsInput) =>
       put<CompanySettings>("/api/settings", payload),
+    saveLogo: (payload: LogoInput) =>
+      put<CompanySettings>("/api/settings/logo", payload),
+    removeLogo: () => del<CompanySettings>("/api/settings/logo"),
   },
   search: {
     find: (q: string) =>

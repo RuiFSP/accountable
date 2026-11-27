@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import itertools
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 
-from app import db, documents
+from app import db, documents, images, invoice_state, tax
 from app import months as month_buckets
 from app.auth import TEAMMATES
 
@@ -25,6 +26,54 @@ def _teammate_email(teammate_id: str) -> str:
     )
 
 
+LOGO_PATH = Path(__file__).parent / "assets" / "brightloop-logo.png"
+"""The sample company's mark, the one the invoices carry."""
+
+# The organizations that carry an invoice, with the block of text their
+# invoices are addressed to.
+BILLING_ADDRESSES = {
+    "Northwind Traders": "500 Market Street, Suite 1200\nSan Francisco, CA 94105",
+    "Acme Manufacturing": "1400 Industrial Parkway\nAkron, OH 44308",
+    "Evergreen Coffee": "812 SE Belmont Street\nPortland, OR 97214",
+    "Fathom Analytics": "3300 Carondelet Avenue, Floor 4\nSt. Louis, MO 63110",
+    "Granite Works": "75 Quarry Road\nReno, NV 89502",
+    "Harbor & Co.": "200 Harbor Drive, Floor 9\nBoston, MA 02210",
+    "Ironwood Farms": "4600 County Road 12\nYakima, WA 98901",
+    "Juniper Studios": "1140 Abbot Kinney Boulevard\nVenice, CA 90291",
+    "Keystone Bank": "500 State Street\nHarrisburg, PA 17101",
+    "Lumen Energy": "900 West Loop South, Suite 1500\nHouston, TX 77027",
+    "Meridian Hotels": "1800 Collins Avenue\nMiami Beach, FL 33139",
+    "Nimbus Cloud": "1 Hacker Way\nMenlo Park, CA 94025",
+}
+
+PAYMENT_METHODS = ("bank_transfer", "card", "check", "cash", "other")
+
+# Every won deal of the last year gets one invoice: the deal's name, the days
+# between closing and invoicing, whether it has been issued, and its payments
+# as (percent of the total, days after the issue date). The pattern leaves the
+# five aging buckets all with money in them and most of the issued invoices
+# settled or part settled, with two drafts still to send.
+INVOICE_PLAN: list[tuple[str, int, bool, list[tuple[int, int]]]] = [
+    ("Nimbus support desk", 2, True, [(40, 10), (60, 40)]),
+    ("Meridian guest CRM", 2, False, []),
+    ("Lumen site analytics", 2, True, [(40, 10), (60, 40)]),
+    ("Keystone compliance hub", 2, True, [(40, 10), (60, 40)]),
+    ("Juniper brand portal", 2, True, [(40, 10), (60, 40)]),
+    # Over 90 days late with nothing paid against it.
+    ("Ironwood field app", 2, True, []),
+    ("Harbor document suite", 2, True, [(40, 10), (60, 40)]),
+    # 61 to 90 days late, part paid.
+    ("Granite inventory system", 2, True, [(40, 10)]),
+    # 31 to 60 days late, part paid.
+    ("Fathom dashboard rollout", 2, True, [(40, 10)]),
+    # 1 to 30 days late with nothing paid against it.
+    ("Evergreen loyalty program", 2, True, []),
+    ("Acme line upgrade", 2, False, []),
+    # Issued today, part paid, due in a month: the not-yet-due bucket.
+    ("Northwind store rollout", 0, True, [(40, 10)]),
+]
+
+
 def _settings_row() -> dict:
     """Brightloop's details, last changed by Priya two days before the seed runs."""
     return {
@@ -38,6 +87,10 @@ def _settings_row() -> dict:
         "payment_terms_days": 30,
         "quote_prefix": "QT-",
         "invoice_prefix": "INV-",
+        "invoice_design": documents.DEFAULT_INVOICE_DESIGN,
+        "accent_color": documents.DEFAULT_ACCENT_COLOR,
+        "logo_data": LOGO_PATH.read_bytes(),
+        "logo_content_type": images.content_type_of(LOGO_PATH.read_bytes()),
         "updated_by": _teammate_email("priya"),
         "updated_at": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=2),
     }
@@ -70,7 +123,7 @@ def _insert(conn: Connection, table, row: dict) -> int:
 
 
 def _organizations() -> list[dict]:
-    return [
+    rows = [
         {
             "name": "Northwind Traders",
             "website": "northwindtraders.example",
@@ -197,6 +250,9 @@ def _organizations() -> list[dict]:
             "industry": "Real Estate",
             "notes": "Our office landlord. Rent bills on the first of the month.",
         },
+    ]
+    return [
+        {**row, "billing_address": BILLING_ADDRESSES.get(row["name"])} for row in rows
     ]
 
 
@@ -983,6 +1039,137 @@ def _products() -> list[dict]:
     ]
 
 
+def _bill_to(conn: Connection, deal: dict) -> dict:
+    """The Bill to block an invoice is issued with: the organization's name and
+    address, and the deal's contact as they are now."""
+    organization = conn.execute(
+        select(
+            db.organizations.c.name,
+            db.organizations.c.billing_address,
+        ).where(db.organizations.c.id == deal["organization_id"])
+    ).one()
+    contact = (
+        conn.execute(
+            select(db.contacts.c.name, db.contacts.c.email).where(
+                db.contacts.c.id == deal["contact_id"]
+            )
+        ).one_or_none()
+        if deal["contact_id"] is not None
+        else None
+    )
+    return {
+        "bill_to_name": organization[0],
+        "bill_to_address": organization[1],
+        "bill_to_contact_name": contact[0] if contact is not None else None,
+        "bill_to_contact_email": contact[1] if contact is not None else None,
+    }
+
+
+def _payments(
+    conn: Connection,
+    invoice_id: int,
+    total_cents: int,
+    issue_date: date,
+    payment_plan: list[tuple[int, int]],
+    offset,
+) -> None:
+    """The payments against one invoice: a share of the total, days later.
+
+    The shares are of the whole total and add up to it, so a plan of 40 and 60
+    pays the invoice off in two payments.
+    """
+    planned = 0
+    last_reached = 0
+    for index, (percent, days) in enumerate(payment_plan):
+        planned += percent
+        reached = total_cents * planned // 100
+        amount = reached - last_reached
+        last_reached = reached
+        if amount <= 0:
+            continue
+        _insert(
+            conn,
+            db.payments,
+            {
+                "invoice_id": invoice_id,
+                "paid_on": min(issue_date + timedelta(days=days), date.today()),
+                "amount_cents": amount,
+                "method": PAYMENT_METHODS[(invoice_id + index) % len(PAYMENT_METHODS)],
+                "reference": f"REF-{invoice_id:04d}-{index + 1}"
+                if index == 0
+                else None,
+                "created_by": _attribution(next(offset))["created_by"],
+            },
+        )
+
+
+def _invoices(conn: Connection, offset) -> None:
+    """One invoice per won deal of the last year, with its lines and payments.
+
+    The lines carry the whole deal's value, so every invoice's subtotal is its
+    deal's, and the numbers are taken through documents.take_number the way
+    issuing takes them, so the next one the app gives out is not a repeat.
+    """
+    settings = documents.current_settings(conn)
+    today = date.today()
+    wanted = {name for name, _, _, _ in INVOICE_PLAN}
+    won = {
+        row["name"]: dict(row)
+        for row in conn.execute(
+            select(db.deals).where(
+                db.deals.c.stage == "Won",
+                db.deals.c.name.in_(wanted),
+            )
+        ).mappings()
+    }
+
+    for name, lag, issued, payment_plan in INVOICE_PLAN:
+        deal = won[name]
+        issue_date = min(deal["close_date"] + timedelta(days=lag), today)
+        line = {
+            "product_id": None,
+            "description": deal["name"],
+            "quantity": 1,
+            "unit_price_cents": deal["value_cents"],
+            "position": 0,
+        }
+        values = {
+            "deal_id": deal["id"],
+            "organization_id": deal["organization_id"],
+            "status": invoice_state.ISSUED if issued else invoice_state.DRAFT,
+            "subtotal_cents": deal["value_cents"],
+            **_attribution(next(offset)),
+        }
+        if issued:
+            tax_cents = tax.tax_on(
+                deal["value_cents"], settings["tax_rate_thousandths"]
+            )
+            values.update(
+                {
+                    "number": documents.take_number(conn, "invoice"),
+                    "issue_date": issue_date,
+                    "due_date": issue_date
+                    + timedelta(days=settings["payment_terms_days"]),
+                    "tax_label": settings["tax_label"],
+                    "tax_rate_thousandths": settings["tax_rate_thousandths"],
+                    "tax_cents": tax_cents,
+                    "total_cents": deal["value_cents"] + tax_cents,
+                    **_bill_to(conn, deal),
+                }
+            )
+        invoice_id = _insert(conn, db.invoices, values)
+        _insert(conn, db.invoice_lines, {**line, "invoice_id": invoice_id})
+        if issued and payment_plan:
+            _payments(
+                conn,
+                invoice_id,
+                deal["value_cents"] + values["tax_cents"],
+                issue_date,
+                payment_plan,
+                offset,
+            )
+
+
 def _quotes(deal_ids: dict[str, int]) -> list[dict]:
     """The sample quotes, numbered in the order they were created.
 
@@ -1404,6 +1591,7 @@ def seed(engine: Engine) -> None:
         )
         for row in _bills(org_ids):
             insert_sample(db.bills, row)
+        _invoices(conn, offset)
 
 
 def create_tables(engine: Engine) -> None:

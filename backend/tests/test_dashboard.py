@@ -97,6 +97,69 @@ def engine(tmp_path):
         deal("Open New", "New", 100_000, 10, date(2026, 8, 1))
         deal("Open Proposal", "Proposal", 99_999, 50, date(2026, 7, 1))
 
+        def invoice(status, total_cents, due_date):
+            """A deal won before the chart window, with one invoice on it."""
+            invoiced_deal = db.inserted_id(
+                connection.execute(
+                    db.deals.insert().values(
+                        name="Invoiced work",
+                        organization_id=organization_id,
+                        contact_id=contact_id,
+                        stage="Won",
+                        value_cents=total_cents,
+                        probability=100,
+                        close_date=date(2025, 5, 15),
+                        position=0,
+                    )
+                )
+            )
+            return db.inserted_id(
+                connection.execute(
+                    db.invoices.insert().values(
+                        deal_id=invoiced_deal,
+                        organization_id=organization_id,
+                        status=status,
+                        issue_date=date(2025, 5, 20),
+                        due_date=due_date,
+                        subtotal_cents=total_cents,
+                        tax_label="Sales tax",
+                        tax_rate_thousandths=0,
+                        tax_cents=0,
+                        total_cents=total_cents,
+                    )
+                )
+            )
+
+        def payment(invoice_id, amount_cents, paid_on):
+            connection.execute(
+                db.payments.insert().values(
+                    invoice_id=invoice_id,
+                    paid_on=paid_on,
+                    amount_cents=amount_cents,
+                    method="bank_transfer",
+                    reference=None,
+                    created_by=None,
+                )
+            )
+
+        # Ten days late with part of it paid: still owed, in the 1 to 30 bucket.
+        part_paid = invoice("issued", 100_000, date(2026, 6, 5))
+        # Due after today: owed but not yet due.
+        invoice("issued", 50_000, date(2026, 6, 20))
+        # Due today and not yet paid: owed, and not yet due.
+        invoice("issued", 30_000, date(2026, 6, 15))
+        # Long past due, with a payment from outside the payments window.
+        past_due = invoice("issued", 70_000, date(2025, 8, 1))
+        # Drafts and void invoices are not owed.
+        invoice("draft", 900_000, date(2026, 6, 1))
+        invoice("void", 800_000, date(2026, 6, 1))
+
+        payment(part_paid, 60_000, date(2026, 6, 10))
+        payment(past_due, 10_000, date(2025, 6, 1))
+        # Settled last month: the payment counts, the balance does not.
+        settled = invoice("issued", 30_000, date(2026, 6, 30))
+        payment(settled, 30_000, date(2026, 5, 2))
+
         activity("Oldest note", datetime(2026, 6, 12, 9, 0))
         activity("Middle note", datetime(2026, 6, 13, 9, 0))
         activity("Stage moved", datetime(2026, 6, 14, 9, 0), kind="stage_change")
@@ -324,6 +387,43 @@ def test_follow_ups_split_into_overdue_and_upcoming(conn):
     assert follow_ups["open_count"] == 2  # done and follow-up-less activities excluded
 
 
+def test_money_owes_issued_balances_only(conn):
+    money = stats.money_summary(conn, TODAY)
+
+    # 40,000 part paid + 50,000 not yet due + 30,000 due today + 60,000 old.
+    assert money["owed_cents"] == 180_000
+    # The due-today invoice is not overdue; the draft and the void one owe nothing.
+    assert money["overdue_cents"] == 100_000
+
+
+def test_the_five_aging_buckets_match_the_invoices_behind_them(conn):
+    money = stats.money_summary(conn, TODAY)
+
+    assert money["aging"] == [
+        {"bucket": "not yet due", "cents": 80_000},  # 50,000 ahead, 30,000 today
+        {"bucket": "1 to 30", "cents": 40_000},
+        {"bucket": "31 to 60", "cents": 0},
+        {"bucket": "61 to 90", "cents": 0},
+        {"bucket": "over 90", "cents": 60_000},
+    ]
+    # Every overdue cent sits in one of the four buckets past due.
+    assert money["overdue_cents"] == sum(row["cents"] for row in money["aging"][1:])
+    assert money["owed_cents"] == sum(row["cents"] for row in money["aging"])
+
+
+def test_payments_per_month_match_their_own_dates(conn):
+    money = stats.money_summary(conn, TODAY)
+    payments = money["payments"]
+
+    assert len(payments) == 12
+    assert payments[0]["month"] == "2025-07"
+    assert payments[-1] == {"month": "2026-06", "cents": 60_000}
+    by_month = {row["month"]: row["cents"] for row in payments}
+    assert by_month["2026-05"] == 30_000
+    assert by_month["2025-12"] == 0
+    assert "2025-06" not in by_month  # older than the window the chart shows
+
+
 def test_bills_to_pay_is_every_bill_not_yet_paid(conn):
     payables = stats.payables(conn, TODAY)
 
@@ -378,6 +478,7 @@ def test_dashboard_payload_holds_every_figure(conn):
         "won",
         "pipeline",
         "funnel",
+        "money",
         "recent_activity",
         "follow_ups",
         "payables",
@@ -386,6 +487,7 @@ def test_dashboard_payload_holds_every_figure(conn):
     assert payload["pipeline"]["count"] == 2
     assert payload["follow_ups"]["overdue_count"] == 1
     assert payload["recent_activity"][0]["description"] == "Newest note"
+    assert payload["money"]["owed_cents"] == 180_000
     assert payload["payables"]["unpaid"] == {"total_cents": 166_999, "count": 5}
 
 
@@ -398,6 +500,7 @@ def test_dashboard_endpoint_serves_the_payload(client):
         "won",
         "pipeline",
         "funnel",
+        "money",
         "recent_activity",
         "follow_ups",
         "payables",

@@ -12,6 +12,8 @@ interface DealFormProps {
   deal?: Deal;
   /** Preselected stage when a deal is added straight into a column. */
   initialStage?: Stage;
+  /** The value is frozen while a non-void invoice holds it. */
+  valueLocked?: boolean;
   onSubmit: (payload: DealInput) => Promise<void>;
   onCancel: () => void;
 }
@@ -37,6 +39,7 @@ export default function DealForm({
   contacts,
   deal,
   initialStage,
+  valueLocked = false,
   onSubmit,
   onCancel,
 }: DealFormProps) {
@@ -145,12 +148,20 @@ export default function DealForm({
           </Field>
         </div>
         <div className="form-row">
-          <Field label="Value (USD)">
+          <Field
+            label="Value (USD)"
+            hint={
+              valueLocked
+                ? "Locked while an invoice holds this deal's value."
+                : undefined
+            }
+          >
             <input
               required
               inputMode="decimal"
               placeholder="12,500"
               value={valueText}
+              readOnly={valueLocked}
               onChange={(event) => setValueText(event.target.value)}
             />
           </Field>

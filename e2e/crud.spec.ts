@@ -70,7 +70,7 @@ test("a contact and a deal can be added and are found by search", async ({
   await contactModal.getByLabel("Email").fill("riley@graniteworks.example");
   await contactModal
     .getByLabel("Organization")
-    .selectOption({ label: "Granite Works" });
+    .selectOption({ label: "Quarry Stone" });
   await contactModal.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("searchbox").fill("riley");
   await expect(page.locator("tbody tr")).toHaveCount(1);
@@ -82,7 +82,7 @@ test("a contact and a deal can be added and are found by search", async ({
   await dealModal.getByLabel("Name", { exact: true }).fill("Granite pilot");
   await dealModal
     .getByLabel("Organization")
-    .selectOption({ label: "Granite Works" });
+    .selectOption({ label: "Quarry Stone" });
   await dealModal
     .getByLabel("Contact")
     .selectOption({ label: "Riley Granite" });
@@ -124,14 +124,14 @@ test("the delete confirmation lists every linked record and activity", async ({
   ).toBeVisible();
 
   await page.goto("/organizations");
-  await page.getByRole("searchbox").fill("Granite");
+  await page.getByRole("searchbox").fill("Quarry");
   await page
-    .locator("tbody tr", { hasText: "Granite Works" })
+    .locator("tbody tr", { hasText: "Quarry Stone" })
     .getByRole("button", { name: "Delete" })
     .click();
 
   const dialog = page.getByRole("alertdialog", {
-    name: "Delete Granite Works?",
+    name: "Delete Quarry Stone?",
   });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("Riley Granite");
@@ -141,7 +141,7 @@ test("the delete confirmation lists every linked record and activity", async ({
   // Cancel leaves everything in place.
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(
-    page.locator("tbody tr", { hasText: "Granite Works" }),
+    page.locator("tbody tr", { hasText: "Quarry Stone" }),
   ).toBeVisible();
 });
 
@@ -149,31 +149,51 @@ test("confirming the delete removes the record and everything linked to it", asy
   page,
   request,
 }) => {
-  await page.goto("/organizations");
-  await page.getByRole("searchbox").fill("Granite");
+  // An activity on one of Bluebird's deals, so the cascade has all three kinds.
+  await page.goto("/deals");
+  await page.getByRole("searchbox").fill("Bluebird content retainer");
   await page
-    .locator("tbody tr", { hasText: "Granite Works" })
+    .locator("tbody tr", { hasText: "Bluebird content retainer" })
+    .getByRole("button", { name: "View" })
+    .click();
+  await page.waitForURL(/\/deals\/\d+/);
+  await page.getByRole("button", { name: "Log activity" }).click();
+  const activityModal = page.getByRole("dialog", { name: "Log activity" });
+  await activityModal
+    .getByLabel("Description")
+    .fill("Kickoff call for Bluebird retainer");
+  await activityModal.getByRole("button", { name: "Log", exact: true }).click();
+  await expect(
+    page.locator(".timeline-item", {
+      hasText: "Kickoff call for Bluebird retainer",
+    }),
+  ).toBeVisible();
+
+  await page.goto("/organizations");
+  await page.getByRole("searchbox").fill("Bluebird");
+  await page
+    .locator("tbody tr", { hasText: "Bluebird Media" })
     .getByRole("button", { name: "Delete" })
     .click();
   const dialog = page.getByRole("alertdialog", {
-    name: "Delete Granite Works?",
+    name: "Delete Bluebird Media?",
   });
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("No matches.")).toBeVisible();
 
   await page.goto("/contacts");
-  await page.getByRole("searchbox").fill("riley");
+  await page.getByRole("searchbox").fill("Chloe");
   await expect(page.getByText("No matches.")).toBeVisible();
 
   await page.goto("/deals");
-  await page.getByRole("searchbox").fill("Granite pilot");
+  await page.getByRole("searchbox").fill("Bluebird");
   await expect(page.getByText("No matches.")).toBeVisible();
 
   const activities = (await (await request.get("/api/activities")).json()) as {
     description: string;
   }[];
   expect(activities.map((activity) => activity.description)).not.toContain(
-    "Kickoff call for Granite pilot",
+    "Kickoff call for Bluebird retainer",
   );
 });
 
@@ -181,7 +201,7 @@ test("npm run seed with confirmation brings back the sample data", async ({
   page,
   request,
 }) => {
-  // This one test runs the real seed command twice: a seed takes about 13
+  // This one test runs the real seed command twice: a seed takes 16-22
   // seconds on this computer, so two of them plus the page work exceed the
   // default 30 seconds, and the suite runs alongside the other unit tests.
   test.setTimeout(90_000);

@@ -14,6 +14,7 @@ import {
 const E2E_DATABASE = path.resolve(
   process.env.ACCOUNTABLE_DB ?? "accountable-e2e.db",
 );
+const BACKEND_DIR = path.resolve("backend");
 
 /**
  * Reload the sample data, so every spec file starts from a known state.
@@ -42,6 +43,15 @@ export function watchConsole(page: Page): () => string[] {
   });
   page.on("pageerror", (error) => errors.push(String(error)));
   return () => errors;
+}
+
+/**
+ * The console errors a test asked for: the browser logs a request it refused
+ * as a 400, and a test that asks for a refusal expects exactly that and
+ * nothing else.
+ */
+export function expectedRefusals(errors: string[]): string[] {
+  return errors.filter((line) => !line.includes("400 (Bad Request)"));
 }
 
 /** A local "YYYY-MM-DD" date offset from today, for follow-up fields. */
@@ -82,6 +92,95 @@ export async function signIn(page: Page): Promise<void> {
 
 /** The teammate every spec signs in as; the menu button carries the email. */
 export const SIGNED_IN_AS = "alex@brightloop.example";
+
+export interface WonDeal {
+  id: number;
+  organization_id: number;
+}
+
+/** A won deal of our own, so a test can make an invoice on it. */
+export async function createWonDeal(
+  request: APIRequestContext,
+  name: string,
+  valueCents: number,
+): Promise<WonDeal> {
+  const organizations = (await (
+    await request.get("/api/organizations")
+  ).json()) as { id: number; name: string }[];
+  const contacts = (await (await request.get("/api/contacts")).json()) as {
+    id: number;
+    organization_id: number;
+  }[];
+  const organization = organizations.find(
+    (row) => row.name === "Northwind Traders",
+  );
+  expect(organization, "the sample organization is missing").toBeTruthy();
+  const contact = contacts.find(
+    (row) => row.organization_id === organization!.id,
+  );
+
+  const response = await request.post("/api/deals", {
+    data: {
+      name,
+      organization_id: organization!.id,
+      contact_id: contact?.id ?? null,
+      stage: "Won",
+      value_cents: valueCents,
+      probability: 100,
+      close_date: isoDaysFromNow(0),
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as WonDeal;
+}
+
+/** The deal's invoice, issued on the date given, the way the form issues it. */
+export async function issueInvoice(
+  request: APIRequestContext,
+  dealId: number,
+  issueDate: string,
+): Promise<number> {
+  const created = await request.post("/api/invoices", {
+    data: { deal_id: dealId },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  const invoice = (await created.json()) as { id: number };
+  const issued = await request.post(`/api/invoices/${invoice.id}/issue`, {
+    data: { issue_date: issueDate },
+  });
+  expect(issued.ok(), await issued.text()).toBe(true);
+  return invoice.id;
+}
+
+const PDF_TEXT_SCRIPT = [
+  "import sys",
+  "sys.path.insert(0, 'tests')",
+  "from pdf_text import text",
+  "print(text(open(sys.argv[1], 'rb').read()))",
+].join("; ");
+
+/** The words drawn on a PDF, read through the app's own extractor. */
+export function pdfText(filePath: string): string {
+  const result = spawnSync(
+    "uv",
+    [
+      "run",
+      "--directory",
+      BACKEND_DIR,
+      "python",
+      "-c",
+      PDF_TEXT_SCRIPT,
+      filePath,
+    ],
+    { encoding: "utf8", shell: process.platform === "win32" },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `reading the PDF failed:\n${result.stderr || result.stdout}`,
+    );
+  }
+  return result.stdout;
+}
 
 /** Open the user menu and pick a theme, as a person would. */
 export async function chooseTheme(

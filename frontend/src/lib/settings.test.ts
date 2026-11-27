@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import cases from "../../../shared/invoice-cases.json";
 import type { CompanySettings } from "../api/client";
 import {
+  accentIsReadable,
+  ACCENT_CONTRAST,
+  ACCENT_INVALID,
+  DESIGN_INVALID,
   EMAIL_INVALID,
   formatTaxRate,
   initialSettingsForm,
@@ -25,6 +30,9 @@ const brightloop: CompanySettings = {
   payment_terms_days: 30,
   quote_prefix: "QT-",
   invoice_prefix: "INV-",
+  invoice_design: "classic",
+  accent_color: "#073B4C",
+  logo_content_type: null,
   updated_by: "priya@brightloop.example",
   updated_at: "2026-11-22T09:30:00+00:00",
 };
@@ -103,6 +111,8 @@ describe("initialSettingsForm", () => {
       paymentTerms: "30",
       quotePrefix: "QT-",
       invoicePrefix: "INV-",
+      invoiceDesign: "classic",
+      accentColor: "#073B4C",
     });
   });
 
@@ -150,6 +160,8 @@ describe("settingsInput", () => {
       payment_terms_days: 30,
       quote_prefix: "QT-2",
       invoice_prefix: "INV-2",
+      invoice_design: "classic",
+      accent_color: "#073B4C",
     });
   });
 
@@ -250,5 +262,39 @@ describe("settingsInput", () => {
     expect(errorOf(formWith({ paymentTerms: "400", quotePrefix: "!" }))).toBe(
       PAYMENT_TERMS_RANGE,
     );
+  });
+});
+
+describe("the Documents fields", () => {
+  it("reads the shared accent cases the way the backend does", () => {
+    for (const example of cases.accents) {
+      expect(accentIsReadable(example.color), example.why).toBe(
+        example.accepted,
+      );
+    }
+  });
+
+  it("refuses an accent that is not a hex color or is too light for white", () => {
+    expect(errorOf(formWith({ accentColor: "#XYZ" }))).toBe(ACCENT_INVALID);
+    expect(errorOf(formWith({ accentColor: "#06D6A0" }))).toBe(ACCENT_CONTRAST);
+    expect(
+      settingsInput(formWith({ accentColor: "#06D6A0", name: "" })),
+    ).toEqual({ error: NAME_REQUIRED });
+  });
+
+  it("refuses a design that is not one of the three", () => {
+    const form = {
+      ...formWith({}),
+      invoiceDesign: "fancy" as SettingsForm["invoiceDesign"],
+    };
+    expect(errorOf(form)).toBe(DESIGN_INVALID);
+  });
+
+  it("carries the design and the accent to the API", () => {
+    const input = inputOf(
+      formWith({ invoiceDesign: "modern", accentColor: "#123456" }),
+    );
+    expect(input.invoice_design).toBe("modern");
+    expect(input.accent_color).toBe("#123456");
   });
 });

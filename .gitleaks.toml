@@ -1,10 +1,17 @@
 # Secrets scan config for `npm run check` — gitleaks across the whole repo.
 # `useDefault` keeps gitleaks' built-in rules; on top of them, the local
 # environment file is git-ignored and holds real credentials, so it is the one
-# path allowed. Everything else on disk is still scanned.
+# path allowed. Everything else on disk is still scanned. Playwright's output
+# is git-ignored build output — it holds the local sign-in token from a failing
+# test's error context, never anything committed.
 
 [extend]
 useDefault = true
 
 [allowlist]
-paths = ['''(^|/)\.env$''', '''(^|/)\.env\..*$''']
+paths = [
+  '''(^|/)\.env$''',
+  '''(^|/)\.env\..*$''',
+  '''(^|/)test-results/''',
+  '''(^|/)playwright-report/''',
+]

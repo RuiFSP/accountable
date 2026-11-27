@@ -246,6 +246,21 @@ const payload: DashboardPayload = {
     lost_cents: 500_000,
     lost_count: 1,
   },
+  money: {
+    owed_cents: 1_800_000,
+    overdue_cents: 700_000,
+    aging: [
+      { bucket: "not yet due", cents: 1_100_000 },
+      { bucket: "1 to 30", cents: 400_000 },
+      { bucket: "31 to 60", cents: 200_000 },
+      { bucket: "61 to 90", cents: 100_000 },
+      { bucket: "over 90", cents: 0 },
+    ],
+    payments: twelveMonths.map((month, index) => ({
+      month,
+      cents: index * 5_000,
+    })),
+  },
   recent_activity: recentActivity,
   follow_ups: {
     overdue: [overdueFollowUp],
@@ -270,6 +285,18 @@ const emptyPayload: DashboardPayload = {
     won_12m_count: 0,
     lost_cents: 0,
     lost_count: 0,
+  },
+  money: {
+    owed_cents: 0,
+    overdue_cents: 0,
+    aging: [
+      { bucket: "not yet due", cents: 0 },
+      { bucket: "1 to 30", cents: 0 },
+      { bucket: "31 to 60", cents: 0 },
+      { bucket: "61 to 90", cents: 0 },
+      { bucket: "over 90", cents: 0 },
+    ],
+    payments: [],
   },
   recent_activity: [],
   follow_ups: {
@@ -384,6 +411,64 @@ describe("Dashboard page", () => {
     expect(within(funnel).getByText("$50,000")).toBeTruthy();
     expect(within(funnel).getByText("Lost")).toBeTruthy();
     expect(within(funnel).getByText("$5,000")).toBeTruthy();
+  });
+
+  it("shows the Money section's two figures from the payload", async () => {
+    renderDashboard();
+
+    const money = (
+      await screen.findByRole("heading", { name: "Money" })
+    ).closest(".money-section") as HTMLElement;
+    expect(money).toBeTruthy();
+    const customers = money.querySelector(".money-customers") as HTMLElement;
+    const owed = within(customers)
+      .getByText("Owed by customers")
+      .closest("section") as HTMLElement;
+    const overdue = within(customers)
+      .getByText("Overdue")
+      .closest("section") as HTMLElement;
+    expect(within(owed).getByText("$18,000")).toBeTruthy();
+    expect(
+      within(owed).getByText("Issued invoices; drafts and void left out"),
+    ).toBeTruthy();
+    expect(within(overdue).getByText("$7,000")).toBeTruthy();
+    expect(
+      within(overdue).getByText("Still owed after the due date"),
+    ).toBeTruthy();
+  });
+
+  it("draws the five aging buckets from the payload", async () => {
+    renderDashboard();
+    await screen.findByRole("heading", { name: "Money" });
+    const aging = panelSection("How late the money is");
+
+    const rows = ["not yet due", "1 to 30", "31 to 60", "61 to 90", "over 90"];
+    const amounts = ["$11,000", "$4,000", "$2,000", "$1,000", "$0"];
+    for (const [index, label] of rows.entries()) {
+      expect(within(aging).getByText(label)).toBeTruthy();
+      expect(within(aging).getByText(amounts[index])).toBeTruthy();
+    }
+    // Bars are sized against the largest bucket, oldest money widest.
+    const widths = Array.from(aging.querySelectorAll(".aging-fill")).map(
+      (fill) => (fill as HTMLElement).style.width,
+    );
+    expect(widths).toEqual(["100%", "36%", "18%", "9%", "0%"]);
+  });
+
+  it("plots the payments on the same 12 months as the other charts", async () => {
+    renderDashboard();
+    await screen.findByRole("heading", { name: "Money" });
+    const payments = panelSection("Payments received");
+
+    expect(
+      within(payments).getByText(
+        "Last 12 months, by the day each payment arrived",
+      ),
+    ).toBeTruthy();
+    expect(payments.querySelector(".chart-box")).toBeTruthy();
+    expect(
+      payments.querySelectorAll(".recharts-responsive-container"),
+    ).toHaveLength(1);
   });
 
   it("lists recent activity with the record behind each entry", async () => {
@@ -557,13 +642,14 @@ describe("Dashboard page", () => {
 
     await screen.findByRole("heading", { name: "Money" });
     const money = moneySection();
+    const suppliers = money.querySelector(".money-suppliers") as HTMLElement;
     const figures: [string, string, string][] = [
       ["Bills to pay", "$4,158", "6 bills"],
       ["Overdue", "$1,782", "3 bills"],
       ["Due in the next 30 days", "$1,200", "3 bills"],
     ];
     for (const [label, value, note] of figures) {
-      const kpi = within(money).getByText(label).closest("section");
+      const kpi = within(suppliers).getByText(label).closest("section");
       expect(kpi, label).toBeTruthy();
       expect(within(kpi as HTMLElement).getByText(value), label).toBeTruthy();
       expect(within(kpi as HTMLElement).getByText(note), label).toBeTruthy();
@@ -628,14 +714,17 @@ describe("Dashboard page", () => {
       await screen.findByText("Nothing is due in the next 30 days."),
     ).toBeTruthy();
     const money = moneySection();
+    const suppliers = money.querySelector(".money-suppliers") as HTMLElement;
     expect(
-      within(money).getByText("Bills to pay").closest("section")?.textContent,
+      within(suppliers).getByText("Bills to pay").closest("section")
+        ?.textContent,
     ).toContain("$1");
     expect(
-      within(money).getByText("Bills to pay").closest("section")?.textContent,
+      within(suppliers).getByText("Bills to pay").closest("section")
+        ?.textContent,
     ).toContain("1 bill");
     expect(
-      within(money)
+      within(suppliers)
         .getByText("Overdue", { selector: ".kpi-label" })
         .closest("section")?.textContent,
     ).toContain("0 bills");

@@ -70,6 +70,8 @@ export default function Organization({ panels = [] }: OrganizationProps) {
           <dd>{organization.industry ?? "—"}</dd>
           <dt>Notes</dt>
           <dd>{organization.notes ?? "—"}</dd>
+          <dt>Billing address</dt>
+          <dd className="pre-line">{organization.billing_address ?? "—"}</dd>
           <RecordAttribution
             createdBy={organization.created_by}
             updatedBy={organization.updated_by}

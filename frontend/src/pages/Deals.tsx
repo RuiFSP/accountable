@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, type Deal, type DealInput } from "../api/client";
+import { invoicesApi } from "../api/invoices";
 import ConfirmDialog from "../components/ConfirmDialog";
 import DataTable from "../components/DataTable";
 import DealForm from "../components/DealForm";
@@ -28,6 +29,10 @@ export default function Deals() {
   const { data: activities = [] } = useQuery({
     queryKey: ["activities"],
     queryFn: api.activities.list,
+  });
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: () => invoicesApi.list(),
   });
 
   const deals = dealsQuery.data ?? [];
@@ -206,6 +211,10 @@ export default function Deals() {
           organizations={organizations}
           contacts={contacts}
           deal={editing}
+          valueLocked={invoices.some(
+            (invoice) =>
+              invoice.deal_id === editing.id && invoice.status !== "void",
+          )}
           onSubmit={handleUpdate}
           onCancel={() => setEditing(null)}
         />

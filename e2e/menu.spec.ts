@@ -277,7 +277,7 @@ test("a dialog and the charts are dark while dark", async ({ page }) => {
   await chooseTheme(page, "Dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
-  await expect(page.locator(".chart-box svg")).toHaveCount(2);
+  await expect(page.locator(".chart-box svg")).toHaveCount(3);
   await expect(
     page.locator(".recharts-cartesian-axis-tick-value").first(),
   ).toHaveCSS("fill", "rgb(147, 170, 179)");

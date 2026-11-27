@@ -95,6 +95,7 @@ beforeEach(() => {
       website: null,
       industry: null,
       notes: null,
+      billing_address: null,
     },
   ]);
   vi.mocked(api.contacts.list).mockResolvedValue([]);

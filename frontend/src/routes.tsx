@@ -27,8 +27,11 @@ import Pipeline from "./pages/Pipeline";
 import Products from "./pages/Products";
 import Settings from "./pages/Settings";
 import BillsTab from "./pages/money/BillsTab";
+import DealInvoices from "./pages/money/DealInvoices";
+import InvoicePage from "./pages/money/Invoice";
 import InvoicesTab from "./pages/money/InvoicesTab";
 import OrganizationBills from "./pages/money/OrganizationBills";
+import OrganizationInvoices from "./pages/money/OrganizationInvoices";
 import QuotesTab from "./pages/money/QuotesTab";
 
 export const SECTIONS = [
@@ -43,10 +46,14 @@ export const SECTIONS = [
 
 // The panels the quotes, invoices and bills changes add to the CRM's pages.
 // Each area adds its own entry when it lands.
-const DEAL_PANELS: RecordPanel<Deal>[] = [DealQuotesPanel];
+const DEAL_PANELS: RecordPanel<Deal>[] = [
+  DealQuotesPanel,
+  { name: "Invoices", Panel: DealInvoices },
+];
 const ORGANIZATION_PANELS: RecordPanel<Organization>[] = [
   OrganizationQuotesPanel,
   { name: "bills", Panel: OrganizationBills },
+  { name: "Invoices", Panel: OrganizationInvoices },
 ];
 
 export function AppRoutes() {
@@ -100,6 +107,7 @@ export function AppRoutes() {
               <Route index element={<Navigate to="quotes" replace />} />
               <Route path="quotes/*" element={<QuotesTab />} />
               <Route path="invoices/*" element={<InvoicesTab />} />
+              <Route path="invoices/:id" element={<InvoicePage />} />
               <Route path="bills/*" element={<BillsTab />} />
               <Route
                 path="*"

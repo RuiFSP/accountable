@@ -1,6 +1,6 @@
 # Accountable
 
-A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, products, a pipeline board, activities and follow-ups, the team's own company settings, and a dashboard that shows how sales are going at a glance.
+A sales CRM for a small team, on the web — the everyday CRM essentials done well, built to grow into a full Business OS. A private Salesforce for one team: organizations, contacts, deals, products, invoices and payments, a pipeline board, activities and follow-ups, the team's own company settings, and a dashboard that shows how sales are going at a glance.
 
 **Live: [accountable-qie9.onrender.com](https://accountable-qie9.onrender.com/)** — sign in with your email and password (people are added in Supabase's dashboard; there is no sign-up page).
 
@@ -11,6 +11,7 @@ A sales CRM for a small team, on the web — the everyday CRM essentials done we
 - **Dashboard** — revenue won in the last 12 months, open pipeline, expected revenue, overdue follow-ups, the sales funnel, recent activity and the follow-up list, all computed server-side from one endpoint, with the Money section's bills to pay, what's overdue, what's due soon and spending by category below the sales charts.
 - **Organizations, contacts, deals** — full list pages with search, sorting and filters, detail pages with a newest-first timeline, and add/edit dialogs.
 - **Products** — the price list of what the business sells, with unit prices, archive and restore instead of delete, and who added and last changed each one.
+- **Invoices and payments** — one invoice per won deal, issued with its number and due date from the payment terms, voided, and downloaded as a PDF in three designs; payments recorded against it with paid against still owed; the Invoices tab with search and status filters, the invoice panels on the deal and organization pages, and the Money section on the dashboard.
 - **Bills** — the money owed to suppliers: each bill's supplier, number, dates, category and total, a status derived from its dates, one click to mark it paid or unpaid again, and each organization's own bills panel.
 - **Pipeline** — the open deals as cards on a board, one column per stage, drag between or within columns, with column totals and late deals called out.
 - **Quotes** — a customer's document on a deal: lines from the price list with the totals and the document's preview beside the form, sent as a PDF the server builds from the saved values, answered accepted or declined (accepting wins the deal), and counted in the Money tab's five totals.
@@ -93,9 +94,9 @@ See [docs/specs/running.md](docs/specs/running.md) for both ways to run it.
 
 ## Where it stands
 
-Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, quotes, bills, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
+Done and reviewed: the CRM MVP (accepted), multi-user sign-in on Supabase with attribution and search, products, company settings, light/dark/system themes, quotes, invoices and payments, bills, the quality harness (pre-commit hooks, turn-end checks, CI on every push) and the app deployed to Render.
 
-Next: invoices, filling the last Money tab and using the company settings; then the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
+Next: the pieces deliberately left out for now — roles and permissions, mobile layout, AI features, integrations, currencies other than USD, tags, custom fields, import/export. The full list is in [docs/spec.md](docs/spec.md); the running log is [docs/STATUS.md](docs/STATUS.md).
 
 ## Acknowledgements
 

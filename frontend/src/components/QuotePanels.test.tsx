@@ -61,6 +61,7 @@ const organization: Organization = {
   website: null,
   industry: null,
   notes: null,
+  billing_address: null,
 };
 
 const products: Product[] = [
@@ -84,6 +85,12 @@ const settings: CompanySettings = {
   payment_terms_days: 30,
   quote_prefix: "QT-",
   invoice_prefix: "INV-",
+
+  invoice_design: "classic",
+
+  accent_color: "#073B4C",
+
+  logo_content_type: null,
   updated_by: null,
   updated_at: "2026-11-22T09:30:00+00:00",
 };

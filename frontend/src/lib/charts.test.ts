@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { DashboardPayload } from "../api/client";
 import { BILL_CATEGORIES, CATEGORY_COLORS } from "./bills";
 import {
+  agingRows,
   chartMonths,
   funnelBars,
   monthLabel,
   monthYearLabel,
+  paymentMonths,
   spendingBars,
 } from "./charts";
 
@@ -111,6 +113,65 @@ describe("funnelBars", () => {
       stages: funnel.stages.map((row) => ({ ...row, value_cents: 0 })),
     };
     expect(funnelBars(empty).every((row) => row.share === 0)).toBe(true);
+  });
+});
+
+const money: DashboardPayload["money"] = {
+  owed_cents: 1_800_000,
+  overdue_cents: 700_000,
+  aging: [
+    { bucket: "not yet due", cents: 1_100_000 },
+    { bucket: "1 to 30", cents: 400_000 },
+    { bucket: "31 to 60", cents: 200_000 },
+    { bucket: "61 to 90", cents: 100_000 },
+    { bucket: "over 90", cents: 0 },
+  ],
+  payments: twelveMonths.map((month, index) => ({
+    month,
+    cents: index * 5_000,
+  })),
+};
+
+describe("paymentMonths", () => {
+  it("labels the payments the way the other charts label months", () => {
+    const points = paymentMonths(money);
+
+    expect(points).toHaveLength(12);
+    expect(points[0]).toEqual({ label: "Jul", cents: 0 });
+    expect(points[11]).toEqual({ label: "Jun", cents: 55_000 });
+  });
+});
+
+describe("agingRows", () => {
+  it("sizes each bucket against the largest, oldest money widest", () => {
+    const rows = agingRows(money);
+
+    expect(rows.map((row) => row.bucket)).toEqual([
+      "not yet due",
+      "1 to 30",
+      "31 to 60",
+      "61 to 90",
+      "over 90",
+    ]);
+    expect(rows.map((row) => row.share)).toEqual([
+      1,
+      4 / 11,
+      2 / 11,
+      1 / 11,
+      0,
+    ]);
+    expect(rows.map((row) => row.cents)).toEqual([
+      1_100_000, 400_000, 200_000, 100_000, 0,
+    ]);
+  });
+
+  it("never divides by zero when nothing is owed", () => {
+    const empty = agingRows({
+      ...money,
+      aging: money.aging.map((row) => ({ ...row, cents: 0 })),
+    });
+
+    expect(empty.every((row) => row.share === 0)).toBe(true);
   });
 });
 

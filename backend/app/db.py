@@ -13,13 +13,16 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
+    LargeBinary,
     MetaData,
     String,
     Table,
     Text,
     create_engine,
     inspect,
+    text,
 )
 from sqlalchemy.engine import CursorResult, Engine
 
@@ -50,6 +53,8 @@ organizations = Table(
     Column("notes", Text),
     Column("created_by", String),
     Column("updated_by", String),
+    # Added by 0009, which can only append it.
+    Column("billing_address", Text),
 )
 
 contacts = Table(
@@ -112,6 +117,13 @@ company_settings = Table(
     Column("invoice_prefix", String),
     Column("updated_by", String),
     Column("updated_at", DateTime, nullable=False),
+    # Added by 0010, which can only append them: the Documents section's
+    # design, accent and logo, with the Classic design and the Midnight accent
+    # for rows that predate it.
+    Column("invoice_design", String, nullable=False),
+    Column("accent_color", String, nullable=False),
+    Column("logo_data", LargeBinary),
+    Column("logo_content_type", String),
 )
 
 products = Table(
@@ -186,6 +198,71 @@ number_counters = Table(
     Column("last_number", Integer, nullable=False),
 )
 
+# The bill for one won deal. An invoice takes its number when it is issued and
+# keeps it forever; a draft's number, dates and tax columns stay empty. The tax
+# label and rate and the Bill to block are written at issue, so later changes to
+# Settings, the organization or the contact never move an issued invoice.
+invoices = Table(
+    "invoices",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("number", String, unique=True),
+    Column("deal_id", Integer, ForeignKey("deals.id"), nullable=False),
+    Column("organization_id", Integer, ForeignKey("organizations.id"), nullable=False),
+    Column("status", String, nullable=False),
+    Column("issue_date", Date),
+    Column("due_date", Date),
+    Column("subtotal_cents", Integer, nullable=False),
+    Column("tax_label", String),
+    Column("tax_rate_thousandths", Integer),
+    Column("tax_cents", Integer),
+    Column("total_cents", Integer),
+    Column("bill_to_name", String),
+    Column("bill_to_address", Text),
+    Column("bill_to_contact_name", String),
+    Column("bill_to_contact_email", String),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
+# One non-void invoice per deal, on SQLite and Postgres alike: a voided invoice
+# is kept for the record and does not stop a replacement.
+Index(
+    "uq_invoices_deal_not_void",
+    invoices.c.deal_id,
+    unique=True,
+    sqlite_where=text("status != 'void'"),
+    postgresql_where=text("status != 'void'"),
+)
+
+# A line keeps the product's name and price as they were when it was added;
+# product_id is a pointer only, and a product's later change never touches it.
+invoice_lines = Table(
+    "invoice_lines",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("invoice_id", Integer, ForeignKey("invoices.id"), nullable=False),
+    Column("product_id", Integer, ForeignKey("products.id")),
+    Column("description", String, nullable=False),
+    Column("quantity", Integer, nullable=False),
+    Column("unit_price_cents", Integer, nullable=False),
+    Column("position", Integer, nullable=False),
+)
+
+# Payments land against an issued invoice only. paid_on is a plain calendar
+# date, and created_by records who entered the payment.
+payments = Table(
+    "payments",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("invoice_id", Integer, ForeignKey("invoices.id"), nullable=False),
+    Column("paid_on", Date, nullable=False),
+    Column("amount_cents", Integer, nullable=False),
+    Column("method", String, nullable=False),
+    Column("reference", String),
+    Column("created_by", String),
+)
+
 
 def inserted_id(result: CursorResult) -> int:
     """The primary key of the single row an insert just wrote."""
@@ -243,14 +320,21 @@ def _unversioned_revision(engine: Engine) -> str | None:
     gets the baseline, one with the attribution columns but no products table
     gets 0002, one with products but not the settings table gets 0003, one
     carrying the settings table gets 0004, one with the number counters gets
-    0005, and one with the quotes tables gets 0006 while one carrying the
-    bills table gets 0007. Stamping head would let a database skip a migration
-    it still needs.
+    0005, one with the quotes tables gets 0006, one carrying the bills table
+    gets 0007, and one with the invoice tables gets 0008, 0009 or 0010 by which
+    of the later columns landed. Stamping head would let a database skip a
+    migration it still needs.
     """
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     if not tables or "alembic_version" in tables or "organizations" not in tables:
         return None
+    if "invoices" in tables:
+        if "invoice_design" in _column_names(inspector, "company_settings"):
+            return "0010"
+        if "billing_address" in _column_names(inspector, "organizations"):
+            return "0009"
+        return "0008"
     if "bills" in tables and "quotes" in tables:
         return "0007"
     if "quotes" in tables:
@@ -261,5 +345,12 @@ def _unversioned_revision(engine: Engine) -> str | None:
         return "0004"
     if "products" in tables:
         return "0003"
-    columns = {column["name"] for column in inspector.get_columns("organizations")}
-    return "0002" if "created_by" in columns else BASELINE_REVISION
+    return (
+        "0002"
+        if "created_by" in _column_names(inspector, "organizations")
+        else BASELINE_REVISION
+    )
+
+
+def _column_names(inspector, table: str) -> set[str]:
+    return {column["name"] for column in inspector.get_columns(table)}

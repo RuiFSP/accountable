@@ -83,7 +83,13 @@ async function main() {
     }
     finished = true;
     if (run) {
-      await run.leave();
+      try {
+        await run.leave();
+      } catch (error) {
+        // The checks have finished; a slot-cleanup failure must not turn a
+        // green run red.
+        console.error(error.message);
+      }
     }
     process.exit(code);
   };

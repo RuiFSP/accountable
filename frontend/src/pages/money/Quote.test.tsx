@@ -57,6 +57,12 @@ const settings: CompanySettings = {
   payment_terms_days: 30,
   quote_prefix: "QT-",
   invoice_prefix: "INV-",
+
+  invoice_design: "classic",
+
+  accent_color: "#073B4C",
+
+  logo_content_type: null,
   updated_by: "priya@brightloop.example",
   updated_at: "2026-11-22T09:30:00+00:00",
 };

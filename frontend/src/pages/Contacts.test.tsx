@@ -56,6 +56,7 @@ const organizations: Organization[] = [
     website: "northwind.example",
     industry: "Retail",
     notes: null,
+    billing_address: null,
   },
 ];
 

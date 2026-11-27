@@ -1,0 +1,188 @@
+{
+  "statuses": [
+    {
+      "why": "a void invoice reads void whatever was paid against it",
+      "stored": "void",
+      "total_cents": 10000,
+      "paid_cents": 5000,
+      "due_in_days": -30,
+      "status": "void"
+    },
+    {
+      "why": "a draft reads draft, whatever its dates",
+      "stored": "draft",
+      "total_cents": 10000,
+      "paid_cents": 0,
+      "due_in_days": null,
+      "status": "draft"
+    },
+    {
+      "why": "a paid invoice reads paid even past its due date",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 10000,
+      "due_in_days": -5,
+      "status": "paid"
+    },
+    {
+      "why": "money still owed after the due date reads overdue",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 0,
+      "due_in_days": -1,
+      "status": "overdue"
+    },
+    {
+      "why": "part paid and past due reads overdue, not part paid",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 4000,
+      "due_in_days": -1,
+      "status": "overdue"
+    },
+    {
+      "why": "part of the total paid before the due date reads part paid",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 4000,
+      "due_in_days": 5,
+      "status": "part paid"
+    },
+    {
+      "why": "nothing paid before the due date reads issued",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 0,
+      "due_in_days": 5,
+      "status": "issued"
+    },
+    {
+      "why": "due today is not overdue",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 0,
+      "due_in_days": 0,
+      "status": "issued"
+    },
+    {
+      "why": "part paid and due today reads part paid",
+      "stored": "issued",
+      "total_cents": 10000,
+      "paid_cents": 2500,
+      "due_in_days": 0,
+      "status": "part paid"
+    },
+    {
+      "why": "a zero total is paid the moment it is issued",
+      "stored": "issued",
+      "total_cents": 0,
+      "paid_cents": 0,
+      "due_in_days": 3,
+      "status": "paid"
+    }
+  ],
+  "aging": [
+    {
+      "why": "money not yet due is not yet due",
+      "due_in_days": 10,
+      "bucket": "not yet due"
+    },
+    {
+      "why": "due today is not yet due",
+      "due_in_days": 0,
+      "bucket": "not yet due"
+    },
+    {
+      "why": "one day late starts the first bucket",
+      "due_in_days": -1,
+      "bucket": "1 to 30"
+    },
+    {
+      "why": "the first bucket holds up to 30 days late",
+      "due_in_days": -30,
+      "bucket": "1 to 30"
+    },
+    {
+      "why": "31 days late is the second bucket",
+      "due_in_days": -31,
+      "bucket": "31 to 60"
+    },
+    {
+      "why": "the second bucket holds up to 60 days late",
+      "due_in_days": -60,
+      "bucket": "31 to 60"
+    },
+    {
+      "why": "61 days late is the third bucket",
+      "due_in_days": -61,
+      "bucket": "61 to 90"
+    },
+    {
+      "why": "the third bucket holds up to 90 days late",
+      "due_in_days": -90,
+      "bucket": "61 to 90"
+    },
+    {
+      "why": "past 90 days late is the last bucket",
+      "due_in_days": -91,
+      "bucket": "over 90"
+    },
+    {
+      "why": "the last bucket holds every older debt",
+      "due_in_days": -400,
+      "bucket": "over 90"
+    }
+  ],
+  "accents": [
+    {
+      "why": "Midnight, the default accent, is readable on white",
+      "color": "#073B4C",
+      "accepted": true
+    },
+    {
+      "why": "black is the most readable of all",
+      "color": "#000000",
+      "accepted": true
+    },
+    {
+      "why": "a gray just over 4.5:1 is accepted",
+      "color": "#767676",
+      "accepted": true
+    },
+    {
+      "why": "a gray below 4.5:1 is refused",
+      "color": "#888888",
+      "accepted": false
+    },
+    {
+      "why": "Cerulean is too bright for text on white",
+      "color": "#118AB2",
+      "accepted": false
+    },
+    {
+      "why": "Raspberry is too bright for text on white",
+      "color": "#EF476F",
+      "accepted": false
+    },
+    {
+      "why": "Coral is too bright for text on white",
+      "color": "#F78C6B",
+      "accepted": false
+    },
+    {
+      "why": "Sea Green is too bright for text on white",
+      "color": "#06D6A0",
+      "accepted": false
+    },
+    {
+      "why": "Marigold is too bright for text on white",
+      "color": "#FFC145",
+      "accepted": false
+    },
+    {
+      "why": "white text on white paper reads as nothing",
+      "color": "#FFFFFF",
+      "accepted": false
+    }
+  ]
+}
