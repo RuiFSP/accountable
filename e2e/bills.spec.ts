@@ -75,6 +75,19 @@ function row(page: Page, text: string) {
   return page.locator("tbody tr", { hasText: text });
 }
 
+/**
+ * The reply to a paid or unpaid action. The page flips the row at once and
+ * fires the request without waiting, so only the reply proves the server has
+ * it — a reload moments later would otherwise cut the request on the wire.
+ */
+function markResponse(page: Page, action: "paid" | "unpaid") {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/${action}`),
+  );
+}
+
 function billPayload(organizationId: number, billNumber: string) {
   return {
     organization_id: organizationId,
@@ -217,9 +230,13 @@ test("a bill can be added, edited, paid, unpaid and deleted, and survives a relo
   await expect(row(page, "E2E-2026-001")).toContainText("$1,600.05");
   await expect(row(page, "E2E-2026-001")).toContainText("Unpaid");
 
+  // Each action waits for its own reply before the next: the row's flip is
+  // optimistic, so a reload must not race the request still on the wire.
+  const paidUp = markResponse(page, "paid");
   await row(page, "E2E-2026-001")
     .getByRole("button", { name: "Mark paid" })
     .click();
+  expect((await paidUp).ok()).toBe(true);
   await expect(row(page, "E2E-2026-001").locator(".badge-positive")).toHaveText(
     "Paid",
   );
@@ -227,9 +244,11 @@ test("a bill can be added, edited, paid, unpaid and deleted, and survives a relo
     displayDate(isoDaysFromNow(0)),
   );
 
+  const unpaidUp = markResponse(page, "unpaid");
   await row(page, "E2E-2026-001")
     .getByRole("button", { name: "Mark unpaid" })
     .click();
+  expect((await unpaidUp).ok()).toBe(true);
   await expect(row(page, "E2E-2026-001").locator(".badge-info")).toHaveText(
     "Unpaid",
   );
