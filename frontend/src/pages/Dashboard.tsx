@@ -11,19 +11,134 @@ import {
   YAxis,
 } from "recharts";
 
-import { api, type Activity, type ActivityCreateType } from "../api/client";
+import {
+  api,
+  type Activity,
+  type ActivityCreateType,
+  type DueBillRow,
+  type Payables,
+  type SpendingMonth,
+} from "../api/client";
 import KpiCard from "../components/KpiCard";
 import { ACTIVITY_COLORS } from "../lib/activity";
+import { BILL_CATEGORIES, CATEGORY_COLORS } from "../lib/bills";
 import {
   AXIS_TICK,
   TOOLTIP_STYLE,
   chartMonths,
   funnelBars,
   monthYearLabel,
+  spendingBars,
 } from "../lib/charts";
 import { formatDue, formatWhen, isOverdue } from "../lib/dates";
 import { formatUsd, formatUsdCompact } from "../lib/money";
 import { STAGE_META } from "../lib/pipeline";
+
+function billCount(count: number): string {
+  return `${count} ${count === 1 ? "bill" : "bills"}`;
+}
+
+/** The bills due in the next 30 days, soonest first. */
+function DueTimeline({ rows }: { rows: DueBillRow[] }) {
+  return (
+    <section className="panel">
+      <h2>Bills due soon</h2>
+      <p className="panel-sub muted">
+        Unpaid bills due in the next 30 days, soonest first
+      </p>
+      {rows.length === 0 ? (
+        <p className="muted">Nothing is due in the next 30 days.</p>
+      ) : (
+        <ul className="link-list">
+          {rows.map((row, index) => (
+            <li key={`${row.supplier}-${row.due_date}-${index}`}>
+              <span>{row.supplier}</span>
+              <span className="muted">{formatDue(row.due_date)}</span>
+              <span className="num">{formatUsd(row.total_cents)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** One stacked bar per month, one segment per category in its color. */
+function SpendingChart({ spending }: { spending: SpendingMonth[] }) {
+  const bars = spendingBars(spending);
+  return (
+    <section className="panel">
+      <h2>Spending by category</h2>
+      <p className="panel-sub muted">
+        Paid bills, counted in the month they were paid
+      </p>
+      <div className="spending-bars">
+        {bars.map((bar) => (
+          <div key={bar.month} className="spending-bar">
+            <div className="spending-stack">
+              {bar.segments.map((segment) => (
+                <div
+                  key={segment.category}
+                  className="spending-segment"
+                  data-category={segment.category}
+                  style={{
+                    height: `${segment.share * 100}%`,
+                    background: segment.color,
+                  }}
+                />
+              ))}
+            </div>
+            <span className="spending-label">{bar.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="spending-legend">
+        {BILL_CATEGORIES.map((category) => (
+          <span key={category} className="legend-item">
+            <span
+              className="chip-dot"
+              style={{ background: CATEGORY_COLORS[category] }}
+              aria-hidden="true"
+            />
+            {category}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** The payables half of the Money section: what the business owes. */
+function MoneySection({ payables }: { payables: Payables }) {
+  return (
+    <section className="money-section">
+      <h2>Money</h2>
+      <p className="panel-sub muted">What we owe our suppliers</p>
+      <div className="kpi-grid money-kpis">
+        <KpiCard
+          label="Bills to pay"
+          value={formatUsd(payables.unpaid.total_cents)}
+          note={billCount(payables.unpaid.count)}
+        />
+        <KpiCard
+          label="Overdue"
+          value={formatUsd(payables.overdue.total_cents)}
+          note={billCount(payables.overdue.count)}
+          danger={payables.overdue.count > 0}
+        />
+        <KpiCard
+          label="Due in the next 30 days"
+          value={formatUsd(payables.due_soon.total_cents)}
+          note={billCount(payables.due_soon.count)}
+        />
+      </div>
+      <div className="money-panels">
+        <DueTimeline rows={payables.due_soon.rows} />
+        <SpendingChart spending={payables.spending} />
+      </div>
+    </section>
+  );
+}
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -335,6 +450,8 @@ export default function Dashboard() {
               )}
             </section>
           </div>
+
+          <MoneySection payables={payload.payables} />
         </div>
       )}
     </div>

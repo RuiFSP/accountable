@@ -28,6 +28,7 @@ import Products from "./pages/Products";
 import Settings from "./pages/Settings";
 import BillsTab from "./pages/money/BillsTab";
 import InvoicesTab from "./pages/money/InvoicesTab";
+import OrganizationBills from "./pages/money/OrganizationBills";
 import QuotesTab from "./pages/money/QuotesTab";
 
 export const SECTIONS = [
@@ -45,6 +46,7 @@ export const SECTIONS = [
 const DEAL_PANELS: RecordPanel<Deal>[] = [DealQuotesPanel];
 const ORGANIZATION_PANELS: RecordPanel<Organization>[] = [
   OrganizationQuotesPanel,
+  { name: "bills", Panel: OrganizationBills },
 ];
 
 export function AppRoutes() {

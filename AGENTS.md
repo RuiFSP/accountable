@@ -22,6 +22,11 @@ A count or coverage figure written into `docs/` — test totals, coverage percen
 
 - Give every time column one convention and say which it is: `happened_at` holds local wall-clock time, `company_settings.updated_at` holds UTC. A UTC moment goes into a `DateTime(timezone=True)` column, or into a naive column as `datetime.now(UTC).replace(tzinfo=None)`; an aware value written to a naive column is converted against the database session's timezone on Postgres and silently loses its offset on SQLite.
 - A test that checks a date uses the clock the value was made from: compare a UTC moment with `datetime.now(UTC).date()`, never `date.today()`, or the test flips whenever the machine's local date differs from the UTC date.
+- A date the server stamps and the page shows comes from one clock: the request carries the page's day (the way `api.bills.markPaid` takes `day`) rather than leaving the server to use its own `date.today()`. Render runs UTC, so an evening click in the Americas and the server's "today" are different days — bills' Mark paid stored tomorrow until review caught it.
+
+## Every write settles on the server's copy
+
+After a successful write, invalidate every query key its result changes — the record's list, the panels that show it, the dashboard — so the refetch puts what the server stored on the screen. Firing the request and dropping the reply leaves the row on the optimistic value and `updated_by` stale; the reply is the only proof of what was stored. This has broken twice: the deal update that left `["activities"]` unrefreshed, so the delete dialog listed one activity fewer than the server held (2026-11-14), and bills' Mark paid and Mark unpaid, which refreshed nothing (2026-11-27).
 
 ## Spec before plan
 

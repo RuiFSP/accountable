@@ -142,6 +142,24 @@ quotes = Table(
     Column("updated_by", String),
 )
 
+bills = Table(
+    "bills",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("organization_id", Integer, ForeignKey("organizations.id"), nullable=False),
+    Column("bill_number", String, nullable=False),
+    Column("bill_date", Date, nullable=False),
+    Column("due_date", Date, nullable=False),
+    Column("category", String, nullable=False),
+    Column("amount_cents", Integer, nullable=False),
+    Column("tax_cents", Integer, nullable=False),
+    Column("total_cents", Integer, nullable=False),
+    Column("notes", Text),
+    Column("paid_date", Date),
+    Column("created_by", String),
+    Column("updated_by", String),
+)
+
 quote_lines = Table(
     "quote_lines",
     metadata,
@@ -155,6 +173,7 @@ quote_lines = Table(
     Column("unit_price_cents", Integer, nullable=False),
     Column("position", Integer, nullable=False),
 )
+
 
 # How many numbers each kind of document has taken, so the next is one more.
 # A kind's row is added when it takes its first number. Quotes and invoices are
@@ -224,13 +243,16 @@ def _unversioned_revision(engine: Engine) -> str | None:
     gets the baseline, one with the attribution columns but no products table
     gets 0002, one with products but not the settings table gets 0003, one
     carrying the settings table gets 0004, one with the number counters gets
-    0005, and one with the quotes tables gets 0006. Stamping head would let a
-    database skip a migration it still needs.
+    0005, and one with the quotes tables gets 0006 while one carrying the
+    bills table gets 0007. Stamping head would let a database skip a migration
+    it still needs.
     """
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     if not tables or "alembic_version" in tables or "organizations" not in tables:
         return None
+    if "bills" in tables and "quotes" in tables:
+        return "0007"
     if "quotes" in tables:
         return "0006"
     if "number_counters" in tables:

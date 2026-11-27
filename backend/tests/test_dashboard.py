@@ -63,6 +63,30 @@ def engine(tmp_path):
                 )
             )
 
+        def bill(
+            number,
+            bill_date,
+            due_date,
+            category,
+            amount_cents,
+            tax_cents,
+            paid_date=None,
+        ):
+            connection.execute(
+                db.bills.insert().values(
+                    organization_id=organization_id,
+                    bill_number=number,
+                    bill_date=bill_date,
+                    due_date=due_date,
+                    category=category,
+                    amount_cents=amount_cents,
+                    tax_cents=tax_cents,
+                    total_cents=amount_cents + tax_cents,
+                    notes=None,
+                    paid_date=paid_date,
+                )
+            )
+
         # Won inside the window: current month and eleven months back; one too old.
         deal("Won this month", "Won", 100_000, 100, date(2026, 6, 10))
         deal("Won last July", "Won", 200_000, 100, date(2025, 7, 20))
@@ -94,6 +118,80 @@ def engine(tmp_path):
             done=True,
         )
         activity("No follow-up", datetime(2026, 6, 8, 9, 0))
+
+        # Bills: the date edges are pinned — due today and due exactly 30 days
+        # out sit in the 30-day figure, 31 days out does not.
+        bill("DUE-NOW", TODAY - timedelta(days=10), TODAY, "Office", 5_000, 0)
+        bill(
+            "DUE-3D",
+            TODAY - timedelta(days=3),
+            TODAY + timedelta(days=3),
+            "Office",
+            12_000,
+            0,
+        )
+        bill(
+            "DUE-EDGE",
+            TODAY - timedelta(days=20),
+            TODAY + timedelta(days=30),
+            "Office",
+            30_000,
+            0,
+        )
+        bill(
+            "DUE-LATER",
+            TODAY - timedelta(days=1),
+            TODAY + timedelta(days=31),
+            "Office",
+            99_999,
+            0,
+        )
+        bill(
+            "OVERDUE-1",
+            TODAY - timedelta(days=15),
+            TODAY - timedelta(days=1),
+            "Contractors",
+            20_000,
+            0,
+        )
+        # Paid bills: each total lands in its paid month per category; the one
+        # on May 31 is May's, the one in May 2025 is outside the 12 buckets.
+        bill(
+            "PAID-APR",
+            date(2026, 4, 2),
+            date(2026, 5, 2),
+            "Marketing",
+            8_000,
+            0,
+            paid_date=date(2026, 4, 10),
+        )
+        bill(
+            "PAID-MAY",
+            date(2026, 5, 1),
+            date(2026, 5, 31),
+            "Travel",
+            9_000,
+            0,
+            paid_date=date(2026, 5, 31),
+        )
+        bill(
+            "PAID-JUN",
+            TODAY - timedelta(days=5),
+            TODAY + timedelta(days=25),
+            "Software",
+            7_000,
+            0,
+            paid_date=TODAY,
+        )
+        bill(
+            "PAID-OLD",
+            date(2025, 5, 1),
+            date(2025, 5, 31),
+            "Software",
+            400_000,
+            0,
+            paid_date=date(2025, 5, 20),
+        )
 
     yield test_engine
     test_engine.dispose()
@@ -226,6 +324,53 @@ def test_follow_ups_split_into_overdue_and_upcoming(conn):
     assert follow_ups["open_count"] == 2  # done and follow-up-less activities excluded
 
 
+def test_bills_to_pay_is_every_bill_not_yet_paid(conn):
+    payables = stats.payables(conn, TODAY)
+
+    assert payables["unpaid"] == {"total_cents": 166_999, "count": 5}
+
+
+def test_overdue_and_the_thirty_day_figure_have_their_own_windows(conn):
+    payables = stats.payables(conn, TODAY)
+
+    assert payables["overdue"] == {"total_cents": 20_000, "count": 1}
+    # Due today and due exactly 30 days out are in; 31 days out is not.
+    assert payables["due_soon"]["total_cents"] == 47_000
+    assert payables["due_soon"]["count"] == 3
+
+
+def test_the_due_timeline_lists_the_bills_soonest_first(conn):
+    rows = stats.payables(conn, TODAY)["due_soon"]["rows"]
+
+    assert rows == [
+        {"supplier": "Fixture Org", "due_date": TODAY, "total_cents": 5_000},
+        {
+            "supplier": "Fixture Org",
+            "due_date": TODAY + timedelta(days=3),
+            "total_cents": 12_000,
+        },
+        {
+            "supplier": "Fixture Org",
+            "due_date": TODAY + timedelta(days=30),
+            "total_cents": 30_000,
+        },
+    ]
+
+
+def test_spending_counts_paid_bills_in_their_paid_month_per_category(conn):
+    spending = stats.spending(conn, TODAY)
+
+    assert len(spending) == 12
+    assert spending[0]["month"] == "2025-07"
+    by_month = {row["month"]: row["categories"] for row in spending}
+    assert by_month["2025-07"]["Software"] == 0  # zero months are kept
+    assert by_month["2026-04"]["Marketing"] == 8_000
+    assert by_month["2026-05"]["Travel"] == 9_000  # paid on the month's last day
+    assert by_month["2026-06"]["Software"] == 7_000
+    # Unpaid bills are in no bar, and neither is the bill paid in May 2025.
+    assert sum(sum(row["categories"].values()) for row in spending) == 24_000
+
+
 def test_dashboard_payload_holds_every_figure(conn):
     payload = stats.dashboard_payload(conn, TODAY)
 
@@ -235,11 +380,13 @@ def test_dashboard_payload_holds_every_figure(conn):
         "funnel",
         "recent_activity",
         "follow_ups",
+        "payables",
     }
     assert payload["won"]["total_revenue_cents"] == 300_000
     assert payload["pipeline"]["count"] == 2
     assert payload["follow_ups"]["overdue_count"] == 1
     assert payload["recent_activity"][0]["description"] == "Newest note"
+    assert payload["payables"]["unpaid"] == {"total_cents": 166_999, "count": 5}
 
 
 def test_dashboard_endpoint_serves_the_payload(client):
@@ -253,7 +400,9 @@ def test_dashboard_endpoint_serves_the_payload(client):
         "funnel",
         "recent_activity",
         "follow_ups",
+        "payables",
     }
     assert len(payload["won"]["months"]) == 12
     assert payload["pipeline"]["count"] > 0
     assert payload["recent_activity"]
+    assert payload["payables"]["spending"]

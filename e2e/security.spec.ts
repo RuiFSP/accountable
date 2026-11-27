@@ -35,6 +35,7 @@ test("every sampled API route refuses without a token", async ({ page }) => {
     "/api/quotes",
     "/api/dashboard",
     "/api/settings",
+    "/api/bills",
   ];
   for (const path of sample) {
     const reply = await page.evaluate(async (route) => {
